@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    # Keep these local-only credentials aligned with apps/api/.env.example.
+    environment:
+      POSTGRES_DB: lumi_books
+      POSTGRES_USER: lumi
+      POSTGRES_PASSWORD: lumi_local_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - lumi_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumi -d lumi_books"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - lumi_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lumi_postgres:
+  lumi_redis:

@@ -1,0 +1,21 @@
+# Dependencies, build output and caches
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+.turbo/
+.wrangler/
+.vercel/
+
+# Local environment and credentials; keep safe setup examples
+.env*
+!.env.example
+*.pem
+*.key
+playwright/.auth/
+
+# Local operating-system files and logs
+.DS_Store
+*.log
