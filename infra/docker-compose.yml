@@ -1,26 +1,27 @@
 services:
   postgres:
     image: postgres:16-alpine
-    # Keep these local-only credentials aligned with apps/api/.env.example.
     environment:
-      POSTGRES_DB: lumi_books
-      POSTGRES_USER: lumi
-      POSTGRES_PASSWORD: lumi_local_only
+      POSTGRES_DB: ${LUMI_POSTGRES_DB:-lumi_books}
+      POSTGRES_USER: ${LUMI_POSTGRES_USER:-lumi}
+      POSTGRES_PASSWORD: ${LUMI_POSTGRES_PASSWORD:-lumi_local_only}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${LUMI_POSTGRES_PORT:-55432}:5432"
     volumes:
       - lumi_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lumi -d lumi_books"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 5s
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${LUMI_REDIS_PORT:-56379}:6379"
     volumes:
       - lumi_redis:/data
     healthcheck:
@@ -28,6 +29,121 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    command: ["npm", "run", "prisma:migrate:deploy"]
+    environment:
+      DATABASE_URL: ${LUMI_DATABASE_URL:-postgresql://lumi:lumi_local_only@postgres:5432/lumi_books?schema=public}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      TRUST_PROXY_HOPS: 0
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      ADMIN_API_KEY: ${LUMI_ADMIN_API_KEY:?Set LUMI_ADMIN_API_KEY in the root .env to a unique secret of at least 32 characters}
+      ADMIN_USERNAME: ${LUMI_ADMIN_USERNAME:?Set LUMI_ADMIN_USERNAME in the root .env}
+      ADMIN_PASSWORD: ${LUMI_ADMIN_PASSWORD:?Set LUMI_ADMIN_PASSWORD in the root .env to a unique secret of at least 16 characters}
+      PRICE_MARKUP_PER_ITEM_AMD: 500
+      DELIVERY_FEE_AMD: 1000
+      ESTIMATED_LAST_MILE_COST_AMD: 1000
+      ESTIMATED_INBOUND_DELIVERY_COST_AMD: 0
+      ESTIMATED_PACKAGING_COST_AMD: 0
+      PRICING_RISK_BUFFER_AMD: 0
+      MIN_PROJECTED_MARGIN_AMD: 0
+      CRAWLER_LIVE_ENABLED: ${LUMI_CRAWLER_LIVE_ENABLED:-false}
+      CRAWLER_WRITTEN_PERMISSION: ${LUMI_CRAWLER_WRITTEN_PERMISSION:-false}
+      CRAWLER_DAILY_REQUEST_BUDGET: ${LUMI_CRAWLER_DAILY_REQUEST_BUDGET:-0}
+      CRAWLER_MAX_PRODUCTS_PER_RUN: ${LUMI_CRAWLER_MAX_PRODUCTS_PER_RUN:-50}
+      CRAWLER_MIN_REQUEST_DELAY_MS: ${LUMI_CRAWLER_MIN_REQUEST_DELAY_MS:-1500}
+      CRAWLER_BROWSER_EXECUTABLE: /usr/bin/chromium-browser
+      CRAWLER_BROWSER_CATALOG_URL: ${LUMI_CRAWLER_BROWSER_CATALOG_URL:-https://www.books.am/ru/catalog/category/view/s/knigi/id/7463/}
+      CRAWLER_BROWSER_NAVIGATION_TIMEOUT_MS: ${LUMI_CRAWLER_BROWSER_NAVIGATION_TIMEOUT_MS:-60000}
+      CRAWLER_BROWSER_MAX_CATALOG_PAGES: ${LUMI_CRAWLER_BROWSER_MAX_CATALOG_PAGES:-50000}
+      CRAWLER_BROWSER_MAX_BOOKS: ${LUMI_CRAWLER_BROWSER_MAX_BOOKS:-500000}
+      PERSISTENCE_ADAPTER: POSTGRES
+      DATABASE_URL: ${LUMI_DATABASE_URL:-postgresql://lumi:lumi_local_only@postgres:5432/lumi_books?schema=public}
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../apps/worker
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      WORKER_ENABLED: "true"
+      WORKER_MODE: FIXTURE_ONLY
+      CRAWLER_LIVE_ENABLED: "false"
+      CRAWLER_WRITTEN_PERMISSION: "false"
+      CRAWLER_DAILY_REQUEST_BUDGET: 0
+      API_BASE_URL: http://api:4000/api/v1
+      ADMIN_API_KEY: ${LUMI_ADMIN_API_KEY:?Set LUMI_ADMIN_API_KEY in the root .env to a unique secret of at least 32 characters}
+      CRAWLER_FIXTURE_NAME: book-detail
+      POLL_INTERVAL_MS: 300000
+      REQUEST_TIMEOUT_MS: 10000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: /api/v1
+        BACKEND_INTERNAL_URL: http://api:4000
+    environment:
+      BACKEND_INTERNAL_URL: http://api:4000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/ru').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
 
 volumes:
   lumi_postgres:

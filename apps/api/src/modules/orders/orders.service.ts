@@ -21,6 +21,7 @@ import { yerevanOrderDateStamp } from './order-number';
 import type { OrderRecord, OrderStatus, PublicOrder } from './order.model';
 import { getOrderRequestNotice } from './order-notices';
 import {
+  ConcurrentOrderModificationError,
   FiscalReceiptNumberAlreadyUsedError,
   ORDER_REPOSITORY,
   type OrderRepository,
@@ -185,18 +186,13 @@ export class OrdersService {
         message: 'Customer refusal is accepted only through the COD refusal command',
       });
     }
-    if (current.status === status) return current;
+    if (current.status === status) {
+      if (status === 'CANCELLED') await this.cancelProcurementForOrder(id);
+      return current;
+    }
 
     const updated = await this.saveTransition(current, status);
-    if (status === 'CANCELLED') {
-      const task = await this.procurement.getByOrderId(id);
-      if (task.status === 'PENDING_OPERATOR' || task.status === 'SUPPLIER_CONFIRMED') {
-        await this.procurement.transition(task.id, {
-          status: 'CANCELLED',
-          note: 'Order cancelled by an authenticated operator',
-        });
-      }
-    }
+    if (status === 'CANCELLED') await this.cancelProcurementForOrder(id);
     return updated;
   }
 
@@ -263,17 +259,18 @@ export class OrdersService {
       });
     }
 
+    const updatedAt = this.nextTimestamp(order.updatedAt);
     try {
-      return await this.repository.save({
+      return await this.saveWithConcurrency({
         ...order,
         cod: {
           ...order.cod,
           status: 'CASH_COLLECTED',
-          collectedAt: new Date().toISOString(),
+          collectedAt: updatedAt,
           fiscalReceiptNumber: receipt,
         },
-        updatedAt: new Date().toISOString(),
-      });
+        updatedAt,
+      }, order.updatedAt);
     } catch (error) {
       if (error instanceof FiscalReceiptNumberAlreadyUsedError) {
         this.throwFiscalReceiptNumberConflict(receipt);
@@ -298,16 +295,17 @@ export class OrdersService {
       });
     }
 
-    return this.repository.save({
+    const updatedAt = this.nextTimestamp(order.updatedAt);
+    return this.saveWithConcurrency({
       ...order,
       cod: {
         ...order.cod,
         status: 'CASH_RECONCILED',
-        reconciledAt: new Date().toISOString(),
+        reconciledAt: updatedAt,
         reconciliationReference: reference,
       },
-      updatedAt: new Date().toISOString(),
-    });
+      updatedAt,
+    }, order.updatedAt);
   }
 
   async refuseCash(id: string, input: RefuseCashDto): Promise<OrderRecord> {
@@ -323,12 +321,12 @@ export class OrdersService {
       });
     }
 
-    return this.repository.save({
+    return this.saveWithConcurrency({
       ...order,
       status: 'CUSTOMER_REFUSED',
       cod: { ...order.cod, status: 'CASH_REFUSED', refusalReason: reason },
-      updatedAt: new Date().toISOString(),
-    });
+      updatedAt: this.nextTimestamp(order.updatedAt),
+    }, order.updatedAt);
   }
 
   countByStatus(): Promise<Record<OrderStatus, number>> {
@@ -351,7 +349,42 @@ export class OrdersService {
         cashStatus: order.cod.status,
       });
     }
-    return this.repository.save({ ...order, status, updatedAt: new Date().toISOString() });
+    return this.saveWithConcurrency({
+      ...order,
+      status,
+      updatedAt: this.nextTimestamp(order.updatedAt),
+    }, order.updatedAt);
+  }
+
+  private async saveWithConcurrency(
+    order: OrderRecord,
+    expectedUpdatedAt: string,
+  ): Promise<OrderRecord> {
+    try {
+      return await this.repository.save(order, expectedUpdatedAt);
+    } catch (error) {
+      if (error instanceof ConcurrentOrderModificationError) {
+        throw new ConflictException({
+          code: 'ORDER_WAS_UPDATED_RETRY',
+          message: 'The order changed in another operator session; reload and retry',
+        });
+      }
+      throw error;
+    }
+  }
+
+  private nextTimestamp(previous: string): string {
+    return new Date(Math.max(Date.now(), Date.parse(previous) + 1)).toISOString();
+  }
+
+  private async cancelProcurementForOrder(orderId: string): Promise<void> {
+    const task = await this.procurement.getByOrderId(orderId);
+    if (task.status === 'PENDING_OPERATOR' || task.status === 'SUPPLIER_CONFIRMED') {
+      await this.procurement.transition(task.id, {
+        status: 'CANCELLED',
+        note: 'Order cancelled by an authenticated operator',
+      });
+    }
   }
 
   private normalizeIdempotencyKey(rawKey: string | undefined): string {
@@ -409,6 +442,6 @@ export class OrdersService {
 
   private createOrderNumber(): string {
     const date = yerevanOrderDateStamp();
-    return `BS-${date}-${randomBytes(3).toString('hex').toUpperCase()}`;
+    return `BS-${date}-${randomBytes(6).toString('hex').toUpperCase()}`;
   }
 }

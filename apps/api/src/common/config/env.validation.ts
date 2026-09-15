@@ -1,9 +1,15 @@
 type RawEnvironment = Record<string, unknown>;
 
 const DEVELOPMENT_ADMIN_API_KEY = 'development-admin-api-key-change-me';
+const DEVELOPMENT_ADMIN_USERNAME = 'admin';
+const DEVELOPMENT_ADMIN_PASSWORD = 'development-admin-password-change-me';
 const KNOWN_INSECURE_ADMIN_API_KEYS = new Set([
   DEVELOPMENT_ADMIN_API_KEY,
   'replace-with-at-least-32-random-characters',
+]);
+const KNOWN_INSECURE_ADMIN_PASSWORDS = new Set([
+  DEVELOPMENT_ADMIN_PASSWORD,
+  'replace-with-at-least-16-random-characters',
 ]);
 
 const integer = (
@@ -39,6 +45,10 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
 
   const suppliedAdminApiKey = String(env.ADMIN_API_KEY ?? '').trim();
   const adminApiKey = suppliedAdminApiKey || DEVELOPMENT_ADMIN_API_KEY;
+  const suppliedAdminUsername = String(env.ADMIN_USERNAME ?? '').trim();
+  const adminUsername = suppliedAdminUsername || DEVELOPMENT_ADMIN_USERNAME;
+  const suppliedAdminPassword = String(env.ADMIN_PASSWORD ?? '');
+  const adminPassword = suppliedAdminPassword || DEVELOPMENT_ADMIN_PASSWORD;
   if (nodeEnv === 'production') {
     if (!suppliedAdminApiKey) {
       throw new Error('ADMIN_API_KEY must be explicitly configured in production');
@@ -48,6 +58,48 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
     }
     if (adminApiKey.length < 32) {
       throw new Error('ADMIN_API_KEY must contain at least 32 characters in production');
+    }
+    if (!suppliedAdminUsername || !suppliedAdminPassword) {
+      throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD must be explicitly configured in production');
+    }
+    if (!/^[A-Za-z0-9._-]{3,64}$/u.test(adminUsername)) {
+      throw new Error('ADMIN_USERNAME must contain 3-64 safe ASCII characters');
+    }
+    if (
+      adminPassword.length < 16 ||
+      KNOWN_INSECURE_ADMIN_PASSWORDS.has(adminPassword.toLowerCase())
+    ) {
+      throw new Error('ADMIN_PASSWORD must contain at least 16 non-placeholder characters');
+    }
+  }
+
+  const persistenceAdapter = String(
+    env.PERSISTENCE_ADAPTER ?? (nodeEnv === 'production' ? 'POSTGRES' : 'IN_MEMORY'),
+  ).toUpperCase();
+  if (!['IN_MEMORY', 'POSTGRES'].includes(persistenceAdapter)) {
+    throw new Error('PERSISTENCE_ADAPTER must be IN_MEMORY or POSTGRES');
+  }
+  if (nodeEnv === 'production' && persistenceAdapter !== 'POSTGRES') {
+    throw new Error('PERSISTENCE_ADAPTER must be POSTGRES in production');
+  }
+
+  const databaseUrl = String(env.DATABASE_URL ?? '').trim();
+  if (persistenceAdapter === 'POSTGRES') {
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL must be configured when PERSISTENCE_ADAPTER=POSTGRES');
+    }
+    try {
+      const parsed = new URL(databaseUrl);
+      if (
+        !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
+        !parsed.hostname ||
+        !parsed.pathname ||
+        parsed.pathname === '/'
+      ) {
+        throw new Error('invalid PostgreSQL URL');
+      }
+    } catch {
+      throw new Error('DATABASE_URL must be a valid postgres:// or postgresql:// URL');
     }
   }
 
@@ -78,6 +130,10 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
     TRUST_PROXY_HOPS: integer(env, 'TRUST_PROXY_HOPS', 0, 0, 10),
     CORS_ORIGINS: String(env.CORS_ORIGINS ?? 'http://localhost:3000'),
     ADMIN_API_KEY: adminApiKey,
+    ADMIN_USERNAME: adminUsername,
+    ADMIN_PASSWORD: adminPassword,
+    PERSISTENCE_ADAPTER: persistenceAdapter,
+    DATABASE_URL: databaseUrl || undefined,
     PRICE_MARKUP_PER_ITEM_AMD: integer(env, 'PRICE_MARKUP_PER_ITEM_AMD', 500),
     DELIVERY_FEE_AMD: integer(env, 'DELIVERY_FEE_AMD', 1000),
     ESTIMATED_LAST_MILE_COST_AMD: integer(env, 'ESTIMATED_LAST_MILE_COST_AMD', 1000),
@@ -135,6 +191,34 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
       50,
       1,
       500,
+    ),
+    CRAWLER_BROWSER_EXECUTABLE: String(
+      env.CRAWLER_BROWSER_EXECUTABLE ?? '/usr/bin/chromium-browser',
+    ),
+    CRAWLER_BROWSER_CATALOG_URL: String(
+      env.CRAWLER_BROWSER_CATALOG_URL ??
+        'https://www.books.am/ru/catalog/category/view/s/knigi/id/7463/',
+    ),
+    CRAWLER_BROWSER_NAVIGATION_TIMEOUT_MS: integer(
+      env,
+      'CRAWLER_BROWSER_NAVIGATION_TIMEOUT_MS',
+      60_000,
+      1_000,
+      120_000,
+    ),
+    CRAWLER_BROWSER_MAX_CATALOG_PAGES: integer(
+      env,
+      'CRAWLER_BROWSER_MAX_CATALOG_PAGES',
+      50_000,
+      1,
+      50_000,
+    ),
+    CRAWLER_BROWSER_MAX_BOOKS: integer(
+      env,
+      'CRAWLER_BROWSER_MAX_BOOKS',
+      500_000,
+      1,
+      500_000,
     ),
     CRAWLER_MAX_CHILD_SITEMAPS_PER_RUN: integer(
       env,

@@ -13,17 +13,63 @@ infra/       local PostgreSQL and Redis
 docs/        ADR и эксплуатационные заметки
 ```
 
+## Docker preview
+
+Compose не содержит admin key по умолчанию и не запустит API/worker без явно
+заданного `LUMI_ADMIN_API_KEY`. Один раз создайте локальный файл окружения и
+замените намеренно нерабочий placeholder уникальным секретом длиной не менее
+32 символов. Файл `.env` исключён из Git:
+
+```bash
+cp .env.example .env
+openssl rand -hex 32
+```
+
+Вставьте вывод второй команды как значение `LUMI_ADMIN_API_KEY` в `.env`.
+Витрина, API и worker после этого запускаются одной командой:
+
+```bash
+docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml up -d --build
+```
+
+Docker Compose хранит заказы и закупочные задачи в именованном PostgreSQL volume
+`lumi_postgres`. Перед стартом API сервис `migrate` ждёт готовности PostgreSQL и
+применяет все versioned Prisma migrations; при ошибке миграции API не запускается.
+Worker остаётся в безопасном `FIXTURE_ONLY`-режиме. Live-обход Books.am выключен.
+Локальные адреса:
+
+- витрина: `http://localhost:3000/ru`;
+- админка: `http://localhost:3000/admin`;
+- API: `http://localhost:4000/api/v1`;
+- Swagger: `http://localhost:4000/api/docs`.
+
+PostgreSQL и Redis доступны только с localhost на портах `55432` и `56379`;
+внутри Compose-сети сервисы продолжают использовать стандартные `5432` и `6379`.
+
+Остановить контейнеры LUMI Books:
+
+```bash
+docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml down
+```
+
+Обычный `down` сохраняет PostgreSQL volume, поэтому заказы переживают перезапуск контейнеров.
+
 ## Локальный запуск
 
 1. Скопируйте `.env.example` каждого приложения в `.env` и проверьте значения. В `apps/api/.env` обязательно замените пример `ADMIN_API_KEY` собственным секретом длиной не менее 32 символов перед использованием админки.
 2. Выполните `npm ci` в `apps/web`, `apps/api` и `apps/worker`.
 3. Из корня запустите API командой `npm run dev:api`, затем витрину командой `npm run dev:web`.
 
-`docker compose -f infra/docker-compose.yml up -d` пока необязателен: PostgreSQL/Redis подготовлены для следующего persistence-этапа, а текущий runtime честно использует in-memory adapters.
+При прямом локальном запуске API использует `PERSISTENCE_ADAPTER=IN_MEMORY`. Чтобы
+проверять PostgreSQL без Compose, установите `PERSISTENCE_ADAPTER=POSTGRES`, задайте
+доступный `DATABASE_URL` и сначала выполните `npm run prisma:migrate:deploy` в `apps/api`.
 
 Локальные адреса после запуска: витрина `http://localhost:3000`, админка `http://localhost:3000/admin`, API `http://localhost:4000/api/v1`, Swagger `http://localhost:4000/api/docs`.
 
-По умолчанию backend использует демонстрационные in-memory repository adapters. Заказы и индекс idempotency keys теряются при рестарте процесса и не обеспечивают защиту от дублей между несколькими API-инстансами. Production также не запустится без явно заданного `ADMIN_API_KEY` и отклонит известные значения по умолчанию/placeholder. Permission-gated sitemap/HTML crawler реализован, но живой обход выключен: development/test не могут открыть gate, а production требует письменного разрешения, явного enable-флага и положительного request budget. Без них доступны только fixtures и dry-run; личный кабинет, checkout и защиту Books.am проект не автоматизирует.
+Docker Compose явно включает PostgreSQL adapter; локальная разработка и тесты по
+умолчанию остаются на быстром in-memory adapter. Production также не запустится без
+явно заданного `ADMIN_API_KEY` и отклонит известные placeholder-значения. Permission-gated
+crawler реализован, но live-режим выключен; без разрешения доступны только fixtures и dry-run.
 
 API по умолчанию не доверяет `X-Forwarded-*` заголовкам (`TRUST_PROXY_HOPS=0`). За reverse proxy задайте точное число доверенных hop; безусловное доверие всем proxy позволяет обходить IP rate limit подменой заголовка.
 
@@ -51,6 +97,9 @@ ADMIN_API_KEY="$YOUR_CONFIGURED_ADMIN_API_KEY" npm run smoke:api
 - Повтор procurement outcome идемпотентен только с теми же нормализованными `supplierReference`/`note`; несовпадение возвращает `409 PROCUREMENT_EVIDENCE_CONFLICT`. Один номер фискального документа нельзя использовать для разных заказов (`409 FISCAL_RECEIPT_NUMBER_ALREADY_USED`).
 - `DELIVERED` запрещён, пока наличные не получены с номером фискального документа и не сверены.
 
-Storefront, admin и API связаны end-to-end, но каталог и persistence пока демонстрационные. Текущая идемпотентность действует только в памяти одного процесса. Production PostgreSQL adapter должен в одной DB-транзакции сохранить idempotency key/request hash, заказ, позиции и единственную procurement-задачу; при конфликте уникального ключа он перечитывает строку и возвращает существующий заказ только при совпадении hash. До production также нужны проверенные migrations, transactional outbox, письменное разрешение Books.am, durable queue, identity/RBAC, фискальная и курьерская интеграции, юридические документы и мониторинг.
+Storefront, admin и API связаны end-to-end. В Docker заказы, их idempotency key/request
+hash и procurement-задачи сохраняются в PostgreSQL транзакционно и переживают рестарт
+API. Каталог и crawler state пока демонстрационные и остаются process-local. До production
+ещё нужны transactional outbox, backups, identity/RBAC, аудит, мониторинг и внешние интеграции.
 
 Подробные продуктовые и юридические требования находятся в `TECHNICAL_SPECIFICATION.md`.

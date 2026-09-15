@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BooksHtmlParserService } from './books-html-parser.service';
+import { CrawlerBrowserService } from './crawler-browser.service';
 import { CrawlerFixtureService } from './crawler-fixture.service';
 import { CrawlerKillSwitchService } from './crawler-kill-switch.service';
 import { CrawlerPipelineService } from './crawler-pipeline.service';
@@ -18,13 +19,17 @@ export class CrawlerService {
     private readonly pipeline: CrawlerPipelineService,
     private readonly budget: CrawlerRequestBudgetService,
     private readonly sitemapPolicy: CrawlerSitemapPolicyService,
+    private readonly browser: CrawlerBrowserService,
   ) {}
 
   getStatus() {
     const gate = this.policy.getLiveGateStatus();
     return {
       mode: gate.allowed ? 'PERMISSION_GATED_HTML' : 'FIXTURE_ONLY',
-      liveRunAllowed: gate.allowed && !this.killSwitch.getState().engaged,
+      liveRunAllowed:
+        gate.allowed &&
+        !this.killSwitch.getState().engaged &&
+        !['RUNNING', 'STOPPING'].includes(this.browser.getState().status),
       gate,
       networkFetcherImplemented: true,
       sitemapTargets: this.sitemapPolicy.listAllowed(),
@@ -32,8 +37,9 @@ export class CrawlerService {
       snapshotRepository: 'IN_MEMORY_PROCESS_LOCAL',
       productQueue: this.pipeline.getProductQueueStatus(),
       killSwitch: this.killSwitch.getState(),
+      browserRun: this.browser.getState(),
       safetyNotice:
-        'No request-on-view and no account, checkout, CAPTCHA, Cloudflare or hidden-endpoint automation.',
+        'Playwright reads public catalog HTML only. No request-on-view and no account, checkout, CAPTCHA, Cloudflare or hidden-endpoint automation.',
     };
   }
 
@@ -74,6 +80,18 @@ export class CrawlerService {
 
   runOnce() {
     return this.pipeline.runOnce();
+  }
+
+  startBrowserRun() {
+    return this.browser.start();
+  }
+
+  stopBrowserRun() {
+    return this.browser.stop();
+  }
+
+  refreshBook(bookId: string) {
+    return this.browser.refreshBook(bookId);
   }
 
   listObservations() {

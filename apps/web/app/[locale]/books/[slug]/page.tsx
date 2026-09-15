@@ -2,17 +2,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BookDetailsPage } from "../../../components/storefront/BookDetailsPage";
 import { StorefrontShell } from "../../../components/storefront/StorefrontShell";
-import { books, getBookBySlug } from "../../../lib/catalog-data";
-import { isLocale, locales, type Locale } from "../../../components/storefront/i18n";
+import { isLocale, type Locale } from "../../../components/storefront/i18n";
 import { localeAlternates } from "../../../components/storefront/locale-seo";
+import { getServerBookBySlug, getServerCatalog } from "../../../lib/server-catalog-api";
 
-export function generateStaticParams() {
-  return locales.flatMap((locale) => books.map((book) => ({ locale, slug: book.slug })));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const book = getBookBySlug(slug);
+  const book = isLocale(locale) ? await getServerBookBySlug(slug, locale).catch(() => null) : null;
   if (!isLocale(locale) || !book) return { title: "LUMI Books" };
   const fallback = locale === "hy"
     ? "Գրքի նկարագրությունը ցուցադրվում է հրատարակության լեզվով։"
@@ -29,7 +27,10 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function LocalizedBook({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
-  const book = getBookBySlug(slug);
+  const book = await getServerBookBySlug(slug, locale).catch(() => null);
   if (!book) notFound();
-  return <StorefrontShell locale={locale as Locale}><BookDetailsPage book={book} related={books.filter((item) => item.id !== book.id).slice(0, 4)} /></StorefrontShell>;
+  const related = await getServerCatalog({ locale, available: true, sort: "new", limit: 5 })
+    .then((result) => result.items.filter((item) => item.id !== book.id).slice(0, 4))
+    .catch(() => []);
+  return <StorefrontShell locale={locale as Locale}><BookDetailsPage book={book} related={related} /></StorefrontShell>;
 }

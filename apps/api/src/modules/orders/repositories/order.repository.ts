@@ -17,12 +17,19 @@ export class FiscalReceiptNumberAlreadyUsedError extends Error {
   }
 }
 
+export class ConcurrentOrderModificationError extends Error {
+  constructor(readonly orderId: string) {
+    super(`Order ${orderId} was modified by another request`);
+    this.name = 'ConcurrentOrderModificationError';
+  }
+}
+
 export interface OrderRepository {
   createIdempotently(order: OrderRecord): Promise<IdempotentCreateResult>;
   findById(id: string): Promise<OrderRecord | null>;
   findByIdempotencyKey(key: string): Promise<OrderRecord | null>;
   findByFiscalReceiptNumber(fiscalReceiptNumber: string): Promise<OrderRecord | null>;
   list(): Promise<OrderRecord[]>;
-  save(order: OrderRecord): Promise<OrderRecord>;
+  save(order: OrderRecord, expectedUpdatedAt?: string): Promise<OrderRecord>;
   countByStatus(): Promise<Record<OrderStatus, number>>;
 }

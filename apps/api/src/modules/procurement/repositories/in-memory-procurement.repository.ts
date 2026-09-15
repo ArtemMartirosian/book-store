@@ -4,7 +4,10 @@ import {
   type ProcurementStatus,
   type ProcurementTaskRecord,
 } from '../procurement.model';
-import type { ProcurementRepository } from './procurement.repository';
+import {
+  ConcurrentProcurementModificationError,
+  type ProcurementRepository,
+} from './procurement.repository';
 
 @Injectable()
 export class InMemoryProcurementRepository implements ProcurementRepository {
@@ -38,12 +41,22 @@ export class InMemoryProcurementRepository implements ProcurementRepository {
 
   async list(): Promise<ProcurementTaskRecord[]> {
     return [...this.tasks.values()]
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+      )
       .map((task) => structuredClone(task));
   }
 
-  async save(task: ProcurementTaskRecord): Promise<ProcurementTaskRecord> {
-    if (!this.tasks.has(task.id)) throw new Error('Cannot save an unknown procurement task');
+  async save(
+    task: ProcurementTaskRecord,
+    expectedUpdatedAt?: string,
+  ): Promise<ProcurementTaskRecord> {
+    const previous = this.tasks.get(task.id);
+    if (!previous) throw new Error('Cannot save an unknown procurement task');
+    if (expectedUpdatedAt && previous.updatedAt !== expectedUpdatedAt) {
+      throw new ConcurrentProcurementModificationError(task.id);
+    }
     this.tasks.set(task.id, structuredClone(task));
     this.taskIdsByOrderId.set(task.orderId, task.id);
     return structuredClone(task);

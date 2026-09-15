@@ -26,6 +26,20 @@ export class CrawlerAdminController {
     return this.crawler.runOnce();
   }
 
+  @Post('browser-run')
+  @ApiOperation({
+    summary: 'Start a background Playwright crawl of every public catalog page and book',
+  })
+  startBrowserRun() {
+    return this.crawler.startBrowserRun();
+  }
+
+  @Post('browser-run/stop')
+  @ApiOperation({ summary: 'Request a graceful stop of the active Playwright crawl' })
+  stopBrowserRun() {
+    return this.crawler.stopBrowserRun();
+  }
+
   @Get('observations')
   @ApiOperation({ summary: 'List recent process-local crawler observations' })
   listObservations() {

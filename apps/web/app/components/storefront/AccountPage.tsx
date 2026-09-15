@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
-import { Logo, useStorefront } from "./StorefrontShell";
+import { useStorefront } from "./StorefrontShell";
 import { dictionary, localized } from "./i18n";
-import { cx, eyebrow } from "./ui";
+import { container, cx, eyebrow, sectionTitle } from "./ui";
 
 export function AccountPage() {
   const { locale } = useStorefront();
@@ -18,27 +18,41 @@ export function AccountPage() {
   };
 
   return (
-    <div className="grid min-h-[760px] grid-cols-[1.05fr_.95fr] max-lg:grid-cols-1">
-      <section className="relative flex min-h-[760px] flex-col justify-between overflow-hidden bg-[#0b0c10] px-[max(3.5rem,calc((100vw-1440px)/2))] py-16 text-white max-lg:min-h-[680px] max-sm:min-h-[630px] max-sm:px-6 max-sm:py-12">
-        <div className="absolute -bottom-44 -right-36 size-[520px] rounded-[100px] bg-[#6558ff] opacity-90" />
-        <Link className="relative z-10 self-start" href={localized(locale)}><Logo inverse /></Link>
-        <div className="relative z-10"><span className={cx(eyebrow, "text-[#c9ff3d]")}>{t.overline}</span><h1 className="my-6 text-[clamp(3.8rem,7vw,7rem)] font-black leading-[.8] tracking-[-.085em]">{t.title}<br /><em className="not-italic text-[#8f85ff]">{t.accent}</em></h1><p className="max-w-[490px] text-[13px] font-medium leading-7 text-white/55 max-sm:text-[11px]">{t.intro}</p></div>
-        <div className="relative z-10 max-w-[460px] border-l-4 border-[#c9ff3d] pl-6"><blockquote className="text-[15px] font-black leading-6 text-white/82">{t.quote}</blockquote><small className="mt-3 block text-[8px] font-bold uppercase tracking-[.12em] text-white/40">{t.team}</small></div>
-      </section>
+    <div className="min-h-[70vh] bg-[#f5f6fb] py-10 max-sm:py-4">
+      <div className={cx(container, "grid grid-cols-[.9fr_1.1fr] overflow-hidden rounded-[34px] border border-[#e2e4ed] bg-white shadow-[0_28px_80px_rgba(39,42,72,.1)] max-lg:grid-cols-1 max-sm:rounded-[24px]")}>
+        <section className="lumi-mesh lumi-grid relative flex min-h-[650px] flex-col justify-between overflow-hidden p-[clamp(2rem,5vw,4.5rem)] text-white max-lg:min-h-[430px] max-sm:min-h-[390px]">
+          <div className="absolute -bottom-32 -right-28 size-[380px] rounded-full border-[60px] border-white/8" />
+          <div className="relative z-10"><span className={cx(eyebrow, "bg-white/10 text-[#d9ff69]")}>{t.overline}</span><h1 className={cx(sectionTitle, "my-6 max-w-[620px] text-white")}>{t.title}<br /><em className="not-italic text-[#d9ff69]">{t.accent}</em></h1><p className="max-w-[470px] text-[12px] leading-7 text-white/58">{t.intro}</p></div>
+          <div className="relative z-10 max-w-[460px] rounded-[22px] border border-white/12 bg-white/[.07] p-5 backdrop-blur"><blockquote className="text-[18px] font-bold leading-7 text-white/82">{t.quote}</blockquote><small className="mt-4 block text-[8px] font-black uppercase tracking-[.14em] text-[#d9ff69]">{t.team}</small></div>
+        </section>
 
-      <section className="flex flex-col items-center justify-center bg-[#f1f2f4] px-[clamp(3rem,7vw,7rem)] py-20 max-sm:px-6 max-sm:py-16">
-        <div className="w-[min(420px,100%)]">
-          {!sent ? <>
-            <span className={eyebrow}>{t.passwordless}</span><h2 className="mb-3 mt-3 text-[48px] font-black leading-[.88] tracking-[-.07em]">{t.welcome}</h2><p className="mb-7 text-[11px] font-medium leading-5 text-black/48">{t.prompt}</p>
-            <form onSubmit={sendCode}><label className="grid gap-2 text-[9px] font-black uppercase text-black/55">{t.phone}<div className="flex h-14 items-center rounded-[12px] border-2 border-black bg-white"><b className="border-r-2 border-black px-3.5 text-[11px]">+374</b><input className="h-full min-w-0 flex-1 bg-transparent px-3.5 text-xs font-bold outline-none" value={phone} onChange={(event) => { setPhone(event.target.value); setAuthError(""); }} required inputMode="tel" placeholder="00 00 00 00" /></div></label><button className="mt-3.5 flex h-14 w-full items-center justify-between rounded-[12px] bg-[#2447ff] px-6 text-[10px] font-black uppercase text-white transition hover:bg-[#0b0c10]" type="submit">{t.getCode}<span className="text-lg">→</span></button>{authError && <p className="mt-3 rounded-[12px] border-2 border-black bg-[#ff715b] p-3 text-[9px] font-bold leading-4 text-[#0b0c10]" role="alert">{authError}</p>}</form>
-            <div className="relative my-6 border-t border-black/12 text-center"><span className="relative -top-2 bg-[#f1f2f4] px-3 text-[8px] font-bold text-black/42">{t.or}</span></div><Link className="block text-center text-[10px] font-black underline decoration-2 underline-offset-4" href={localized(locale, "/catalog")}>{t.guest}</Link>
-          </> : <>
-            <button className="mb-7 border-b border-black/35 bg-transparent pb-1 text-[9px] font-bold text-black/45" type="button" onClick={() => setSent(false)}>← {t.back}</button><span className={eyebrow}>{t.sent}</span><h2 className="mb-3 mt-3 text-[48px] font-black leading-[.88] tracking-[-.07em]">{t.checkPhone}</h2><p className="mb-7 text-[11px] font-medium leading-5 text-black/45">{t.codeText} +374 {phone}.</p><form onSubmit={(event) => event.preventDefault()}><div className="grid grid-cols-4 gap-2.5">{[0,1,2,3].map((item) => <input className="h-16 w-full rounded-[12px] border-2 border-black bg-white text-center text-2xl font-black outline-none focus:border-[#6558ff]" key={item} aria-label={`${t.digit} ${item + 1}`} inputMode="numeric" maxLength={1} />)}</div><button className="mt-3.5 flex h-13 w-full items-center justify-between rounded-[12px] bg-[#2447ff] px-6 text-[10px] font-black uppercase text-white" type="submit">{t.signIn}<span>→</span></button></form><button className="mx-auto mt-5 block border-b border-black/35 bg-transparent pb-1 text-[9px] font-bold text-black/45" type="button">{t.resend}</button>
-          </>}
-          <small className="mt-7 block text-center text-[7px] font-medium leading-3 text-black/32">{t.legal}</small>
-        </div>
-        <div className="mt-16 grid w-[min(520px,100%)] grid-cols-3 gap-4 max-sm:grid-cols-1">{t.benefits.map(([title, text], index) => <div className="grid grid-cols-[30px_1fr] border-t-2 border-black pt-3" key={title}><span className="text-[9px] font-black text-[#6558ff]">0{index + 1}</span><p className="grid gap-1"><strong className="text-[11px] font-black">{title}</strong><small className="text-[7px] font-medium leading-3 text-black/42">{text}</small></p></div>)}</div>
-      </section>
+        <section className="flex flex-col items-center justify-center px-[clamp(2rem,7vw,6rem)] py-16 max-sm:px-5 max-sm:py-10">
+          <div className="w-[min(430px,100%)]">
+            {!sent ? <>
+              <span className={eyebrow}>{t.passwordless}</span>
+              <h2 className="mb-4 mt-5 text-[44px] font-black leading-[.9] tracking-[-.065em]">{t.welcome}</h2>
+              <p className="mb-8 text-[11px] leading-6 text-[#737685]">{t.prompt}</p>
+              <form onSubmit={sendCode}>
+                <label className="grid gap-2 text-[9px] font-black uppercase tracking-[.06em] text-[#666978]">{t.phone}<div className="flex min-h-14 items-center rounded-2xl border border-[#dfe1ea] bg-[#f6f7fb] focus-within:border-[#6258ff] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(98,88,255,.08)]"><b className="border-r border-[#dfe1ea] px-4 text-[12px] font-black">+374</b><input className="min-h-14 min-w-0 flex-1 bg-transparent px-4 text-[13px] outline-none" value={phone} onChange={(event) => { setPhone(event.target.value); setAuthError(""); }} required inputMode="tel" placeholder="00 00 00 00" aria-label={t.phone} /></div></label>
+                <button className="mt-3.5 flex min-h-14 w-full items-center justify-between rounded-2xl bg-[#6258ff] px-5 text-[9px] font-black uppercase tracking-[.07em] text-white shadow-[0_14px_32px_rgba(98,88,255,.22)] transition hover:-translate-y-0.5 hover:bg-[#473dd4]" type="submit">{t.getCode}<span className="text-lg">↗</span></button>
+                {authError && <p className="mt-3 rounded-[9px] border border-[#e5b8a8] bg-[#f3ded3] p-3 text-[10px] leading-5 text-[#8f3e27]" role="alert">{authError}</p>}
+              </form>
+              <div className="relative my-7 border-t border-[#e2e4ed] text-center"><span className="relative -top-2 bg-white px-3 text-[9px] text-[#858897]">{t.or}</span></div>
+              <Link className="block text-center text-[9px] font-black uppercase tracking-[.07em] text-[#5147e2]" href={localized(locale, "/catalog")}>{t.guest} ↗</Link>
+            </> : <>
+              <button className="mb-7 text-[10px] text-[#70766f] underline underline-offset-4" type="button" onClick={() => setSent(false)}>← {t.back}</button>
+              <span className={eyebrow}>{t.sent}</span><h2 className="font-display mb-3 mt-3 text-[42px] font-semibold leading-[.95]">{t.checkPhone}</h2><p className="mb-7 text-[12px] leading-6 text-[#70766f]">{t.codeText} +374 {phone}.</p>
+              <form onSubmit={(event) => event.preventDefault()}><div className="grid grid-cols-4 gap-2.5">{[0,1,2,3].map((item) => <input className="h-16 w-full rounded-[9px] border border-[#d3cfc6] bg-[#f8f6f1] text-center text-2xl font-semibold outline-none focus:border-[#c85f3a]" key={item} aria-label={t.digit + " " + (item + 1)} inputMode="numeric" maxLength={1} />)}</div><button className="mt-3.5 flex min-h-13 w-full items-center justify-between rounded-[9px] bg-[#c85f3a] px-5 text-[10px] font-bold uppercase text-white" type="submit">{t.signIn}<span>→</span></button></form>
+              <button className="mx-auto mt-5 block text-[10px] text-[#70766f] underline underline-offset-4" type="button">{t.resend}</button>
+            </>}
+            <small className="mt-7 block text-center text-[8px] leading-4 text-[#92978f]">{t.legal}</small>
+          </div>
+
+          <div className="mt-12 grid w-[min(560px,100%)] grid-cols-3 gap-3 border-t border-[#e2e4ed] pt-6 max-sm:grid-cols-1">
+            {t.benefits.map(([title, text], index) => <div className="rounded-2xl bg-[#f6f7fb] p-3" key={title}><span className="text-[8px] font-black text-[#5147e2]">0{index + 1}</span><p className="mt-2 grid gap-1"><strong className="text-[10px] font-bold">{title}</strong><small className="text-[8px] leading-4 text-[#7c7f8d]">{text}</small></p></div>)}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

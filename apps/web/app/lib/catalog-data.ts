@@ -214,12 +214,12 @@ export function booksForFacet(facet: (typeof storefrontFacets)[number]) {
 }
 
 export function newestBooks(limit = 5) {
-  return [...books].sort((a, b) => b.year - a.year || b.rating - a.rating).slice(0, limit);
+  return [...books].sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || (b.rating ?? 0) - (a.rating ?? 0)).slice(0, limit);
 }
 
 export function popularBooks(limit = 5) {
   return [...books]
-    .sort((a, b) => b.rating * Math.log10(b.reviews + 10) - a.rating * Math.log10(a.reviews + 10))
+    .sort((a, b) => (b.rating ?? 0) * Math.log10((b.reviews ?? 0) + 10) - (a.rating ?? 0) * Math.log10((a.reviews ?? 0) + 10))
     .slice(0, limit);
 }
 

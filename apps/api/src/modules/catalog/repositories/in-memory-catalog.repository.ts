@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { BookRecord } from '../book.model';
+import type { BookRecord, CatalogCategoryRecord } from '../book.model';
 import type {
+  CatalogCategorySnapshot,
   CatalogRepository,
   CatalogSearch,
   CatalogSearchResult,
+  LocalizedBookCandidate,
 } from './catalog.repository';
 
 const FIXTURE_BOOKS: BookRecord[] = [
@@ -156,6 +158,7 @@ const FIXTURE_BOOKS: BookRecord[] = [
 @Injectable()
 export class InMemoryCatalogRepository implements CatalogRepository {
   private readonly books = new Map(FIXTURE_BOOKS.map((book) => [book.id, structuredClone(book)]));
+  private readonly categories = new Map<string, CatalogCategoryRecord>();
 
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim().toLocaleLowerCase();
@@ -164,10 +167,59 @@ export class InMemoryCatalogRepository implements CatalogRepository {
         const isAvailable = book.availability === 'PRELIMINARY_AVAILABLE';
         if (isAvailable !== input.available) return false;
       }
-      if (query && !`${book.title} ${book.author} ${book.isbn ?? ''}`.toLocaleLowerCase().includes(query)) {
+      if (input.language && book.language !== input.language) return false;
+      if (
+        input.category &&
+        !book.categories?.some(({ supplierCategoryId }) => supplierCategoryId === input.category)
+      ) return false;
+      const localized = book.localizations?.[input.locale ?? 'hy'];
+      const includes = (
+        expected: string | undefined,
+        ...values: Array<string | null | undefined>
+      ) => !expected?.trim() || values.some((value) =>
+        value?.toLocaleLowerCase().includes(expected.trim().toLocaleLowerCase()),
+      );
+      if (!includes(input.title, book.title, localized?.title)) return false;
+      if (!includes(input.author, book.author, localized?.author)) return false;
+      if (!includes(input.description, book.description, localized?.description)) return false;
+      if (!includes(input.productCode, book.productCode, localized?.productCode)) return false;
+      if (!includes(input.barcode, book.barcode, localized?.barcode)) return false;
+      if (!includes(input.isbn, book.isbn, localized?.isbn)) return false;
+      if (!includes(input.publisher, book.publisher, localized?.publisher)) return false;
+      if (!includes(input.series, book.series, localized?.series)) return false;
+      const localizedSearchText = Object.values(book.localizations ?? {})
+        .map((localization) => [
+          localization?.title,
+          localization?.author,
+          localization?.description,
+          localization?.isbn,
+          localization?.productCode,
+          localization?.barcode,
+          localization?.publisher,
+          localization?.series,
+        ].filter(Boolean).join(' '))
+        .join(' ');
+      const searchText = [
+        book.title,
+        book.author,
+        book.description,
+        book.isbn,
+        book.productCode,
+        book.barcode,
+        book.publisher,
+        book.series,
+        localizedSearchText,
+      ].filter(Boolean).join(' ');
+      if (query && !searchText.toLocaleLowerCase().includes(query)) {
         return false;
       }
       return true;
+    });
+    matched.sort((left, right) => {
+      if (input.sort === 'price-asc') return left.sourcePriceAmd - right.sourcePriceAmd;
+      if (input.sort === 'price-desc') return right.sourcePriceAmd - left.sourcePriceAmd;
+      if (input.sort === 'title') return left.title.localeCompare(right.title);
+      return new Date(right.observedAt).valueOf() - new Date(left.observedAt).valueOf();
     });
 
     return {
@@ -183,6 +235,11 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return book ? structuredClone(book) : null;
   }
 
+  async findBySlug(slug: string): Promise<BookRecord | null> {
+    const book = [...this.books.values()].find((candidate) => candidate.slug === slug);
+    return book ? structuredClone(book) : null;
+  }
+
   async findByIds(ids: string[]): Promise<BookRecord[]> {
     return ids
       .map((id) => this.books.get(id))
@@ -190,7 +247,104 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       .map((book) => structuredClone(book));
   }
 
+  async findLocalizedSlugsObservedSince(
+    input: LocalizedBookCandidate[],
+    observedSince: string,
+    parserVersion: string,
+  ): Promise<Set<string>> {
+    const candidates = new Set(input.map(({ slug, locale }) => `${slug}:${locale}`));
+    return new Set(
+      [...this.books.values()].flatMap((book) =>
+        Object.values(book.localizations ?? {})
+          .filter(
+            (localization) =>
+              localization &&
+              candidates.has(`${book.slug}:${localization.locale}`) &&
+              localization.parserVersion === parserVersion &&
+              new Date(localization.observedAt).valueOf() >= new Date(observedSince).valueOf(),
+          )
+          .map((localization) => `${book.slug}:${localization!.locale}`),
+      ),
+    );
+  }
+
+  async listCategories(): Promise<CatalogCategoryRecord[]> {
+    return [...this.categories.values()]
+      .sort((left, right) => left.position - right.position)
+      .map((category) => structuredClone(category));
+  }
+
+  async upsertCategories(input: CatalogCategorySnapshot[]): Promise<void> {
+    for (const category of input) {
+      const existing = this.categories.get(category.supplierCategoryId);
+      this.categories.set(category.supplierCategoryId, {
+        id: category.id,
+        supplierCategoryId: category.supplierCategoryId,
+        parentSupplierCategoryId: category.parentSupplierCategoryId,
+        position: category.position,
+        observedAt: category.observedAt,
+        localizations: {
+          ...(existing?.localizations ?? {}),
+          [category.locale]: {
+            locale: category.locale,
+            name: category.name,
+            sourceUrl: category.sourceUrl,
+            observedAt: category.observedAt,
+          },
+        },
+      });
+    }
+  }
+
+  async linkBooksToCategory(
+    slugs: string[],
+    supplierCategoryId: string,
+    _observedAt: string,
+  ): Promise<number> {
+    const category = this.categories.get(supplierCategoryId);
+    if (!category) return 0;
+    let linked = 0;
+    const requested = new Set(slugs);
+    for (const [id, book] of this.books) {
+      if (!requested.has(book.slug)) continue;
+      const categories = book.categories ?? [];
+      if (!categories.some((item) => item.id === category.id)) {
+        categories.push(structuredClone(category));
+        linked += 1;
+      }
+      this.books.set(id, { ...book, categories });
+    }
+    return linked;
+  }
+
+  async linkUncategorizedBooksToCategory(
+    supplierCategoryId: string,
+    _observedAt: string,
+  ): Promise<number> {
+    const category = this.categories.get(supplierCategoryId);
+    if (!category) return 0;
+    let linked = 0;
+    for (const [id, book] of this.books) {
+      if (book.categories?.length) continue;
+      this.books.set(id, { ...book, categories: [structuredClone(category)] });
+      linked += 1;
+    }
+    return linked;
+  }
+
   async upsert(book: BookRecord): Promise<void> {
-    this.books.set(book.id, structuredClone(book));
+    const existing = this.books.get(book.id);
+    this.books.set(
+      book.id,
+      structuredClone({
+        ...existing,
+        ...book,
+        imageUrls: [...new Set([...(existing?.imageUrls ?? []), ...(book.imageUrls ?? [])])],
+        localizations: {
+          ...(existing?.localizations ?? {}),
+          ...(book.localizations ?? {}),
+        },
+      }),
+    );
   }
 }

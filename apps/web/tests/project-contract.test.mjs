@@ -38,11 +38,13 @@ test("contains the storefront, account, cart and admin product surfaces", async 
     access(path.join(root, "app/components/storefront/CatalogPage.tsx")),
     access(path.join(root, "app/components/storefront/CartPage.tsx")),
     access(path.join(root, "app/components/storefront/AccountPage.tsx")),
+    access(path.join(root, "app/components/storefront/AdvancedSearchPage.tsx")),
+    access(path.join(root, "app/components/storefront/FavoritesPage.tsx")),
     access(path.join(root, "public/og.png")),
   ]);
 });
 
-test("uses the LUMI digital-bookstore system with stable filters and honest data", async () => {
+test("uses the LUMI modern digital-bookstore system with stable filters and honest data", async () => {
   const home = await readFile(path.join(root, "app/components/storefront/HomePage.tsx"), "utf8");
   const shell = await readFile(path.join(root, "app/components/storefront/StorefrontShell.tsx"), "utf8");
   const catalog = await readFile(path.join(root, "app/components/storefront/CatalogPage.tsx"), "utf8");
@@ -52,12 +54,19 @@ test("uses the LUMI digital-bookstore system with stable filters and honest data
   assert.match(home, /BookShelf/);
   assert.match(home, /variant="compact"/);
   assert.match(shell, /categoryNav/);
-  assert.match(home, /#6558ff/);
-  assert.match(home, /#c9ff3d/);
+  assert.match(home, /#6258ff/);
+  assert.match(home, /#d9ff69/);
+  assert.match(home, /lumi-mesh/);
+  assert.match(home, /featuredCategories/);
+  assert.match(home, /publisherNames/);
+  assert.match(home, /journalCards/);
+  assert.match(home, /copy\.questions/);
   assert.match(shell, /LUMI/);
-  assert.match(catalog, /catalogCategoryDefinitions/);
+  assert.match(shell, /lumi-favorites/);
+  assert.match(catalog, /\/catalog\/books/);
+  assert.match(catalog, /pageSize = 24/);
   assert.match(catalog, /history\.replaceState/);
-  assert.match(catalog, /grid-cols-4/);
+  assert.match(catalog, /grid-cols-3/);
   assert.doesNotMatch(data, /count:\s*(?:824|318|466|592)/);
   assert.doesNotMatch(shell, /\+374 00 00 00 00/);
 });
@@ -67,6 +76,9 @@ test("renders crawler safety data from the current nested API status contract", 
 
   assert.match(admin, /crawler\.budget\.remaining/);
   assert.match(admin, /crawler\.gate\.writtenPermission/);
+  assert.match(admin, /\/admin\/crawler\/browser-run/);
+  assert.match(admin, /crawler\.browserRun\.imported/);
+  assert.match(admin, /crawler\.liveRunAllowed/);
   assert.doesNotMatch(admin, /crawler\.dailyRequestBudget/);
 });
 
@@ -106,7 +118,11 @@ test("keeps locale SEO path-aware and document language server-driven", async ()
   assert.match(rootLayout, /<html lang=\{lang\}>/);
   assert.match(localeLayout, /siteName:\s*"LUMI Books"/);
   assert.match(localeLayout, /url:\s*"\/og\.png"/);
-  assert.match(shell, /<a className=.*href=\{localePath\(item\)\}/);
+  assert.match(shell, /window\.location\.assign\(localePath\(next\)\)/);
+  assert.match(shell, /<select className=.*value=\{locale\}.*onChange=.*changeLocale/);
+  assert.match(shell, /🇦🇲.*Հայերեն/);
+  assert.match(shell, /🇷🇺.*Русский/);
+  assert.match(shell, /🇬🇧.*English/);
 });
 
 test("submits checkout to Nest with UUID products, quote guard and durable idempotency", async () => {

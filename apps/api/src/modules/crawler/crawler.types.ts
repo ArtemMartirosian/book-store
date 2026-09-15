@@ -10,6 +10,19 @@ export const BOOKS_SITEMAPS = [
 export type CrawlerLocale = (typeof BOOKS_SITEMAPS)[number]['locale'];
 export type CrawlerDocumentKind = 'SITEMAP_XML' | 'PRODUCT_HTML';
 
+export interface ParsedBookAttribute {
+  code: string | null;
+  label: string;
+  value: string;
+}
+
+export interface ParsedBookDetailSection {
+  code: string | null;
+  title: string;
+  content: string;
+  attributes: ParsedBookAttribute[];
+}
+
 export interface UrlEligibilityDecision {
   eligible: boolean;
   normalizedUrl: string | null;
@@ -27,17 +40,29 @@ export interface UrlEligibilityDecision {
 }
 
 export interface ParsedBookSnapshot {
-  parserVersion: 'books-html-v1';
+  parserVersion: 'books-html-v3';
   sourceUrl: string;
   canonicalUrl: string;
   supplierSku: string;
+  productCode: string;
   title: string;
   author: string | null;
   description: string | null;
   isbn: string | null;
   publisher: string | null;
   language: string | null;
+  weight: string | null;
+  barcode: string | null;
+  isNew: boolean | null;
+  pageCount: number | null;
+  coverType: string | null;
+  dimensions: string | null;
+  publicationYear: number | null;
+  series: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
+  attributes: ParsedBookAttribute[];
+  detailSections: ParsedBookDetailSection[];
   sourcePriceAmd: number;
   currency: 'AMD';
   preliminarilySalable: boolean;
@@ -115,4 +140,34 @@ export interface CrawlerProductQueueState {
   refreshDue: number;
   capacity: number;
   persistence: 'IN_MEMORY_PROCESS_LOCAL';
+}
+
+export type CrawlerBrowserRunStatus =
+  | 'IDLE'
+  | 'RUNNING'
+  | 'STOPPING'
+  | 'COMPLETED'
+  | 'PAUSED'
+  | 'STOPPED'
+  | 'FAILED';
+
+export interface CrawlerBrowserRunState {
+  status: CrawlerBrowserRunStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  currentUrl: string | null;
+  resumeCatalogUrl: string | null;
+  catalogPagesVisited: number;
+  discoveredProducts: number;
+  productsAttempted: number;
+  imported: number;
+  quarantined: number;
+  failedProducts: number;
+  navigationRetries: number;
+  productsSkipped: number;
+  catalogSegmentsDiscovered: number;
+  catalogSegmentsCompleted: number;
+  activeCatalogSegment: string | null;
+  finishReason: string | null;
+  errors: Array<{ sourceUrl: string; code: string }>;
 }

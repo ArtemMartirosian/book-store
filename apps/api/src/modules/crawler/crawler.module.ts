@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AdminApiKeyGuard } from '../../common/guards/admin-api-key.guard';
+import { CatalogModule } from '../catalog/catalog.module';
 import { BooksHtmlParserService } from './books-html-parser.service';
 import { CrawlerAdminController } from './crawler-admin.controller';
+import { CrawlerBrowserService } from './crawler-browser.service';
+import { CrawlerCatalogDiscoveryService } from './crawler-catalog-discovery.service';
 import { CrawlerChallengeDetectorService } from './crawler-challenge-detector.service';
+import { CrawlerCheckpointRepository } from './crawler-checkpoint.repository';
 import { CrawlerFixtureService } from './crawler-fixture.service';
 import {
   CRAWLER_FETCH,
@@ -21,11 +25,15 @@ import { CrawlerUrlPolicyService } from './crawler-url-policy.service';
 import { CrawlerXmlDiscoveryService } from './crawler-xml-discovery.service';
 
 @Module({
+  imports: [CatalogModule],
   controllers: [CrawlerAdminController],
   providers: [
     AdminApiKeyGuard,
     BooksHtmlParserService,
+    CrawlerBrowserService,
+    CrawlerCatalogDiscoveryService,
     CrawlerChallengeDetectorService,
+    CrawlerCheckpointRepository,
     CrawlerFixtureService,
     CrawlerHttpFetcherService,
     CrawlerKillSwitchService,

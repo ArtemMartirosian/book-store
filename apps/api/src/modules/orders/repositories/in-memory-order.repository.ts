@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ORDER_STATUSES, type OrderRecord, type OrderStatus } from '../order.model';
 import {
+  ConcurrentOrderModificationError,
   FiscalReceiptNumberAlreadyUsedError,
   type IdempotentCreateResult,
   type OrderRepository,
@@ -51,13 +52,19 @@ export class InMemoryOrderRepository implements OrderRepository {
 
   async list(): Promise<OrderRecord[]> {
     return [...this.orders.values()]
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+      )
       .map((order) => structuredClone(order));
   }
 
-  async save(order: OrderRecord): Promise<OrderRecord> {
+  async save(order: OrderRecord, expectedUpdatedAt?: string): Promise<OrderRecord> {
     const previous = this.orders.get(order.id);
     if (!previous) throw new Error('Cannot save an unknown order');
+    if (expectedUpdatedAt && previous.updatedAt !== expectedUpdatedAt) {
+      throw new ConcurrentOrderModificationError(order.id);
+    }
     this.assertFiscalReceiptNumberAvailable(order);
     const previousReceipt = previous.cod.fiscalReceiptNumber;
     if (

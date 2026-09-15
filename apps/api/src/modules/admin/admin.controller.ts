@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { AdminApiKeyGuard } from '../../common/guards/admin-api-key.guard';
+import { PrismaService } from '../../database/prisma.service';
 import {
   EvaluateCrawlerUrlDto,
   ObserveUpstreamStatusDto,
@@ -38,6 +39,7 @@ export class AdminController {
     private readonly crawler: CrawlerService,
     private readonly procurement: ProcurementService,
     private readonly procurementWorkflow: AdminProcurementWorkflowService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('dashboard')
@@ -48,7 +50,9 @@ export class AdminController {
       ordersByStatus: await this.orders.countByStatus(),
       procurementsByStatus: await this.procurement.countByStatus(),
       crawler: this.crawler.getStatus(),
-      persistence: 'IN_MEMORY_DEVELOPMENT_ADAPTER',
+      persistence: this.prisma.isPostgres
+        ? 'POSTGRESQL_PRISMA_ADAPTER'
+        : 'IN_MEMORY_DEVELOPMENT_ADAPTER',
     };
   }
 

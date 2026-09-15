@@ -1,12 +1,13 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import type { OrderRecord } from '../orders/order.model';
 import type { TransitionProcurementDto } from './dto/transition-procurement.dto';
 import type {
   ProcurementStatus,
   ProcurementTaskRecord,
 } from './procurement.model';
+import { createProcurementTaskForOrder } from './procurement-task.factory';
 import {
+  ConcurrentProcurementModificationError,
   PROCUREMENT_REPOSITORY,
   type ProcurementRepository,
 } from './repositories/procurement.repository';
@@ -19,36 +20,7 @@ export class ProcurementService {
   ) {}
 
   async ensureForOrder(order: OrderRecord): Promise<ProcurementTaskRecord> {
-    const now = new Date().toISOString();
-    return this.repository.createForOrder({
-      id: randomUUID(),
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: 'PENDING_OPERATOR',
-      supplierName: 'Books.am',
-      currency: 'AMD',
-      supplierItemsSubtotalAmd: order.items.reduce(
-        (total, item) => total + item.sourceUnitPriceAmd * item.quantity,
-        0,
-      ),
-      supplierDeliveryFeeAmd: null,
-      supplierTotalAmd: null,
-      items: order.items.map((item) => ({
-        productId: item.productId,
-        supplierSku: item.supplierSku,
-        title: item.title,
-        author: item.author,
-        sourceUrl: item.sourceUrl,
-        quantity: item.quantity,
-        observedSourceUnitPriceAmd: item.sourceUnitPriceAmd,
-      })),
-      supplierReference: null,
-      operatorNote: null,
-      confirmedAt: null,
-      resolvedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    });
+    return this.repository.createForOrder(createProcurementTaskForOrder(order));
   }
 
   async list(): Promise<ProcurementTaskRecord[]> {
@@ -116,22 +88,39 @@ export class ProcurementService {
 
     const supplierReference = suppliedReference ?? task.supplierReference;
 
-    const transitionedAt = new Date().toISOString();
-    return this.repository.save({
-      ...task,
-      status: input.status,
-      supplierReference,
-      operatorNote: note,
-      confirmedAt:
-        input.status === 'SUPPLIER_CONFIRMED'
-          ? (task.confirmedAt ?? transitionedAt)
-          : task.confirmedAt,
-      resolvedAt: input.status === 'SUPPLIER_CONFIRMED' ? null : transitionedAt,
-      updatedAt: transitionedAt,
-    });
+    const transitionedAt = this.nextTimestamp(task.updatedAt);
+    try {
+      return await this.repository.save(
+        {
+          ...task,
+          status: input.status,
+          supplierReference,
+          operatorNote: note,
+          confirmedAt:
+            input.status === 'SUPPLIER_CONFIRMED'
+              ? (task.confirmedAt ?? transitionedAt)
+              : task.confirmedAt,
+          resolvedAt: input.status === 'SUPPLIER_CONFIRMED' ? null : transitionedAt,
+          updatedAt: transitionedAt,
+        },
+        task.updatedAt,
+      );
+    } catch (error) {
+      if (error instanceof ConcurrentProcurementModificationError) {
+        throw new ConflictException({
+          code: 'PROCUREMENT_WAS_UPDATED_RETRY',
+          message: 'The procurement task changed in another operator session; reload and retry',
+        });
+      }
+      throw error;
+    }
   }
 
   countByStatus(): Promise<Record<ProcurementStatus, number>> {
     return this.repository.countByStatus();
+  }
+
+  private nextTimestamp(previous: string): string {
+    return new Date(Math.max(Date.now(), Date.parse(previous) + 1)).toISOString();
   }
 }

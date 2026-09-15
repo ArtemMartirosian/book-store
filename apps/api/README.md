@@ -1,6 +1,8 @@
 # Books Store API
 
-NestJS 11 + Fastify modular monolith for the Yerevan books storefront. The current persistence adapters are deliberately in-memory so the UI and workflows can be developed without pretending that the production database is ready.
+NestJS 11 + Fastify modular monolith for the Yerevan books storefront. Persistence is
+runtime-selectable: development/tests default to in-memory repositories, while Docker
+uses Prisma/PostgreSQL for orders and procurement tasks.
 
 ## Modules
 
@@ -22,6 +24,10 @@ npm ci
 npm run start:dev
 ```
 
+To use PostgreSQL outside Docker, set `PERSISTENCE_ADAPTER=POSTGRES`, provide
+`DATABASE_URL`, run `npm run prisma:migrate:deploy`, then start the API. The catalog and
+crawler state remain local fixtures/process state in this MVP.
+
 Before using any operator endpoint, replace the example `ADMIN_API_KEY` with a private value of at least 32 characters. Production startup requires an explicitly configured key and rejects the committed placeholder and the development default. The smoke test applies the same checks and must receive exactly the key used by the running API.
 
 `TRUST_PROXY_HOPS` defaults to `0`, so direct clients cannot spoof `X-Forwarded-For` to evade IP rate limits. Set it only to the exact number of trusted reverse-proxy hops in the deployed topology; never enable blanket proxy trust.
@@ -33,14 +39,18 @@ npm run typecheck
 npm test
 npm run build
 npm run prisma:validate
+npm run prisma:migrate:deploy # requires DATABASE_URL
 npm run smoke # requires a separately running API and ADMIN_API_KEY
 ```
 
 The committed npm lockfile is synchronized with the exact versions in `package.json`; use `npm ci` for reproducible local and container installs. Public catalog and order responses carry a `hy`, `ru` or `en` locale, with `hy` as the content fallback locale.
 
-## Production-shaped in-memory order contract
+## Order persistence contract
 
-The MVP still stores data in memory, but its public contract is shaped so that it can be moved to the proposed PostgreSQL schema without weakening business invariants. Idempotency is currently process-local: the guarantees below hold only for the lifetime of one API process, and a restart loses both orders and their idempotency-key index.
+`PERSISTENCE_ADAPTER=IN_MEMORY` is intended for isolated development and tests; its data
+is process-local. `PERSISTENCE_ADAPTER=POSTGRES` stores orders, their idempotency index
+and procurement tasks durably. Docker Compose explicitly selects PostgreSQL and blocks
+API startup until all checked-in migrations have completed successfully.
 
 Every `POST /api/v1/orders` request must include an 8-128 character `Idempotency-Key` header. The service stores the key together with a SHA-256 hash of the canonicalized request payload:
 
@@ -52,7 +62,7 @@ Checkout also sends an integer `expectedTotalAmd` and `expectedPricingRuleVersio
 
 Delivery is restricted to one of the twelve Yerevan district codes: `AJAPNYAK`, `ARABKIR`, `AVAN`, `DAVTASHEN`, `EREBUNI`, `KANAKER_ZEYTUN`, `KENTRON`, `MALATIA_SEBASTIA`, `NOR_NORK`, `NORK_MARASH`, `NUBARASHEN` or `SHENGAVIT`. Free-form delivery addresses remain required, but they do not replace the district allowlist.
 
-Cash on delivery is stored independently from the customer-facing order status. A new order records `cashDueAmd` and starts in `CASH_DUE`. The only MVP cash states are `CASH_DUE`, `CASH_COLLECTED`, `CASH_RECONCILED` and `CASH_REFUSED`. Collection records `collectedAt` and the seller's `fiscalReceiptNumber`; reconciliation records `reconciledAt` and a `cashReconciliationReference`. Refusal records a non-empty `cashRefusalReason`. `cashDueAmd` is an integer AMD snapshot of the amount the courier must collect and must equal the accepted order total for this COD-only MVP. A fiscal receipt number can belong to only one order; reuse on another order returns HTTP `409` with `FISCAL_RECEIPT_NUMBER_ALREADY_USED`. `DELIVERED` is rejected until cash has passed through collection and reached `CASH_RECONCILED`.
+Cash on delivery is stored independently from the customer-facing order status. A new order records `cod.dueAmd` and starts in `CASH_DUE`. The only MVP cash states are `CASH_DUE`, `CASH_COLLECTED`, `CASH_RECONCILED` and `CASH_REFUSED`. Collection records `cod.collectedAt` and the seller's `cod.fiscalReceiptNumber`; reconciliation records `cod.reconciledAt` and `cod.reconciliationReference`. Refusal records a non-empty `cod.refusalReason`. `cod.dueAmd` is an integer AMD snapshot of the amount the courier must collect and must equal the accepted order total for this COD-only MVP. A fiscal receipt number can belong to only one order; reuse on another order returns HTTP `409` with `FISCAL_RECEIPT_NUMBER_ALREADY_USED`. `DELIVERED` is rejected until cash has passed through collection and reached `CASH_RECONCILED`.
 
 Creating an order also creates exactly one `ProcurementTask` in `PENDING_OPERATOR`. Its supported outcomes are `SUPPLIER_CONFIRMED`, `SOURCE_UNAVAILABLE` and `CANCELLED`. Supplier confirmation requires a non-empty manual `supplierReference`; unavailable and cancelled outcomes require an operator note. Repeating the same outcome is idempotent only when the normalized `supplierReference` and `note` match the evidence already stored; a divergent replay returns HTTP `409` with `PROCUREMENT_EVIDENCE_CONFLICT`. The task stores the observed supplier item subtotal and immutable per-item snapshots of the product id, supplier SKU, title, source URL, quantity and observed source unit price. Supplier delivery and final supplier totals remain `null` until a future authorized manual quote workflow records them; the MVP never invents them. Operator actions must update this task instead of interpreting parsed HTML as supplier confirmation.
 
@@ -94,7 +104,7 @@ Live `run-once` is accepted only when all of these are true:
 
 The protected admin endpoints are `GET /api/v1/admin/crawler/status`, `GET /api/v1/admin/crawler/dry-run`, `POST /api/v1/admin/crawler/run-once` and `GET /api/v1/admin/crawler/observations`. They require `x-admin-api-key`. Keep all live flags false while developing; `POST /api/v1/admin/crawler/parse-fixture` remains the safe local workflow.
 
-## Moving from memory to PostgreSQL
+## PostgreSQL persistence
 
 Repository ports live in:
 
@@ -102,8 +112,13 @@ Repository ports live in:
 - `src/modules/orders/repositories/order.repository.ts`
 - `src/modules/procurement/repositories/procurement.repository.ts`
 
-The proposed relational starting point is in `prisma/schema.prisma`; the current runtime does not yet connect these repositories to it. The schema defines a unique order idempotency key, the twelve-value Yerevan district enum, COD collection fields and a one-to-one procurement task with immutable item snapshots.
+The canonical schema is in `prisma/schema.prisma` and every database change must have a
+checked-in migration under `prisma/migrations`. The Docker `migrate` service runs
+`prisma migrate deploy`; do not use `prisma db push` as a deployment mechanism.
 
-A production adapter must enforce idempotency in PostgreSQL, not with a process-local check-then-insert. It must create the order, its items, the idempotency key/request hash and exactly one procurement task in one database transaction. A concurrent unique-key conflict must re-read the committed row and return it only when the stored request hash matches; a different hash remains a conflict. Downstream work should be recorded through an outbox in the same transaction. Until that adapter and reviewed migrations are deployed and tested, restart-safe or multi-instance idempotency must not be claimed. Do not use `db push` against production.
+The PostgreSQL adapter creates the order, immutable item snapshots, idempotency key/request
+hash and its one procurement task atomically. A concurrent unique-key conflict is re-read
+and returns the existing order only for the same request hash; a different hash remains a
+conflict. A transactional outbox is still required before asynchronous production work.
 
 Before enabling production traffic, add customer/admin identity, encrypted PII storage, an outbox/queue, fiscal receipt integration, audit logs, monitoring, backups and a written Books.am crawling/content-use/procurement agreement.

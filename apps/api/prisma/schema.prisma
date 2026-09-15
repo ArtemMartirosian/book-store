@@ -7,20 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ProductStatus {
-  DRAFT
-  ACTIVE
-  OUT_OF_STOCK
-  QUARANTINED
-  SOURCE_MISSING
-}
-
-enum OfferStatus {
-  PRELIMINARY_OBSERVED
-  CONFIRMED
-  UNAVAILABLE
-}
-
 enum OrderStatus {
   REQUEST_RECEIVED
   CUSTOMER_CONFIRMED
@@ -31,21 +17,6 @@ enum OrderStatus {
   DELIVERED
   CUSTOMER_REFUSED
   CANCELLED
-}
-
-enum YerevanDistrict {
-  AJAPNYAK
-  ARABKIR
-  AVAN
-  DAVTASHEN
-  EREBUNI
-  KANAKER_ZEYTUN
-  KENTRON
-  MALATIA_SEBASTIA
-  NOR_NORK
-  NORK_MARASH
-  NUBARASHEN
-  SHENGAVIT
 }
 
 enum CashStatus {
@@ -62,184 +33,200 @@ enum ProcurementStatus {
   CANCELLED
 }
 
-enum CrawlRunStatus {
-  CREATED
-  RUNNING
-  STOPPED
-  COMPLETED
-  FAILED
-}
-
-model Product {
-  id           String          @id @default(uuid()) @db.Uuid
-  supplierSku  String          @map("supplier_sku")
-  title        String
-  author       String?
-  language     String
-  locale       String          @default("hy")
-  isbn         String?
-  canonicalUrl String          @map("canonical_url")
-  status       ProductStatus   @default(DRAFT)
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  offers       SupplierOffer[]
-  orderItems   OrderItem[]
-
-  @@unique([supplierSku, canonicalUrl])
-  @@index([status, language])
-  @@map("products")
-}
-
-model SupplierOffer {
-  id             String      @id @default(uuid()) @db.Uuid
-  productId      String      @map("product_id") @db.Uuid
-  sourcePriceAmd Int         @map("source_price_amd")
-  currency       String      @default("AMD")
-  status         OfferStatus @default(PRELIMINARY_OBSERVED)
-  salable        Boolean
-  observedAt     DateTime    @map("observed_at")
-  sourceUrl      String      @map("source_url")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  product        Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
-
-  @@index([productId, observedAt(sort: Desc)])
-  @@map("supplier_offers")
-}
-
+/// Durable order envelope. Scalar fields enforce operational invariants and
+/// support indexed admin queries; payload is the exact API domain snapshot.
 model Order {
-  id                          String           @id @default(uuid()) @db.Uuid
-  orderNumber                 String           @unique @map("order_number")
-  idempotencyKey              String           @unique @map("idempotency_key") @db.VarChar(128)
-  requestHash                 String           @map("request_hash") @db.Char(64)
-  status                      OrderStatus      @default(REQUEST_RECEIVED)
-  locale                      String           @default("hy")
-  customerName                String           @map("customer_name")
-  customerPhone               String           @map("customer_phone")
-  customerEmail               String?          @map("customer_email")
-  deliveryCity                String           @default("YEREVAN") @map("delivery_city")
-  deliveryDistrict            YerevanDistrict  @map("delivery_district")
-  deliveryAddress             String           @map("delivery_address")
-  paymentMethod               String           @default("CASH_ON_DELIVERY") @map("payment_method")
-  currency                    String           @default("AMD")
-  itemsSubtotalAmd            Int              @map("items_subtotal_amd")
-  deliveryFeeAmd              Int              @map("delivery_fee_amd")
-  totalAmd                    Int              @map("total_amd")
-  pricingRule                 String           @map("pricing_rule")
-  cashDueAmd                  Int              @map("cash_due_amd")
-  cashStatus                  CashStatus       @default(CASH_DUE) @map("cash_status")
-  collectedAt                 DateTime?        @map("collected_at")
-  reconciledAt                DateTime?        @map("reconciled_at")
-  fiscalReceiptNumber         String?          @unique @map("fiscal_receipt_number")
-  cashReconciliationReference String?          @map("cash_reconciliation_reference")
-  cashRefusalReason           String?          @map("cash_refusal_reason")
-  createdAt                   DateTime         @default(now()) @map("created_at")
-  updatedAt                   DateTime         @updatedAt @map("updated_at")
-  items                       OrderItem[]
-  procurementTask             ProcurementTask?
+  id                  String           @id @db.Uuid
+  orderNumber         String           @unique @map("order_number") @db.VarChar(64)
+  idempotencyKey      String           @unique @map("idempotency_key") @db.VarChar(128)
+  requestHash         String           @map("request_hash") @db.Char(64)
+  status              OrderStatus
+  cashStatus          CashStatus       @map("cash_status")
+  fiscalReceiptNumber String?          @unique @map("fiscal_receipt_number") @db.VarChar(100)
+  createdAt           DateTime         @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @map("updated_at") @db.Timestamptz(3)
+  payload             Json             @db.JsonB
+  procurementTask     ProcurementTask?
 
-  @@index([status, createdAt(sort: Desc)])
-  @@index([cashStatus, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
   @@map("orders")
 }
 
-model OrderItem {
-  id                   String                   @id @default(uuid()) @db.Uuid
-  orderId              String                   @map("order_id") @db.Uuid
-  productId            String                   @map("product_id") @db.Uuid
-  titleSnapshot        String                   @map("title_snapshot")
-  supplierSkuSnapshot  String                   @map("supplier_sku_snapshot")
-  quantity             Int
-  sourceUnitPriceAmd   Int                      @map("source_unit_price_amd")
-  customerUnitPriceAmd Int                      @map("customer_unit_price_amd")
-  customerSubtotalAmd  Int                      @map("customer_subtotal_amd")
-  order                Order                    @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  product              Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
-  procurementSnapshot  ProcurementItemSnapshot?
-
-  @@index([orderId])
-  @@map("order_items")
-}
-
+/// One operator procurement task per order. Its payload mirrors the supplier
+/// evidence snapshot returned by the existing admin API.
 model ProcurementTask {
-  id                       String                    @id @default(uuid()) @db.Uuid
-  orderId                  String                    @unique @map("order_id") @db.Uuid
-  status                   ProcurementStatus         @default(PENDING_OPERATOR)
-  supplierNameSnapshot     String                    @default("Books.am") @map("supplier_name_snapshot")
-  supplierItemsSubtotalAmd Int                       @map("supplier_items_subtotal_amd")
-  supplierDeliveryFeeAmd   Int?                      @map("supplier_delivery_fee_amd")
-  supplierTotalAmd         Int?                      @map("supplier_total_amd")
-  supplierReference        String?                   @map("supplier_reference")
-  operatorNote             String?                   @map("operator_note")
-  confirmedAt              DateTime?                 @map("confirmed_at")
-  resolvedAt               DateTime?                 @map("resolved_at")
-  createdAt                DateTime                  @default(now()) @map("created_at")
-  updatedAt                DateTime                  @updatedAt @map("updated_at")
-  order                    Order                     @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  itemSnapshots            ProcurementItemSnapshot[]
+  id          String            @id @db.Uuid
+  orderId     String            @unique @map("order_id") @db.Uuid
+  orderNumber String            @map("order_number") @db.VarChar(64)
+  status      ProcurementStatus
+  createdAt   DateTime          @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @map("updated_at") @db.Timestamptz(3)
+  payload     Json              @db.JsonB
+  order       Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
-  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
   @@map("procurement_tasks")
 }
 
-model ProcurementItemSnapshot {
-  id                           String          @id @default(uuid()) @db.Uuid
-  procurementTaskId            String          @map("procurement_task_id") @db.Uuid
-  orderItemId                  String          @unique @map("order_item_id") @db.Uuid
-  productIdSnapshot            String          @map("product_id_snapshot") @db.Uuid
-  supplierSkuSnapshot          String          @map("supplier_sku_snapshot")
-  titleSnapshot                String          @map("title_snapshot")
-  sourceUrlSnapshot            String          @map("source_url_snapshot")
-  quantitySnapshot             Int             @map("quantity_snapshot")
-  sourceUnitPriceAmdSnapshot   Int             @map("source_unit_price_amd_snapshot")
-  customerUnitPriceAmdSnapshot Int             @map("customer_unit_price_amd_snapshot")
-  createdAt                    DateTime        @default(now()) @map("created_at")
-  procurementTask              ProcurementTask @relation(fields: [procurementTaskId], references: [id], onDelete: Restrict)
-  orderItem                    OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+/// Durable Books.am catalog projection. Repeated crawler runs update the same
+/// supplier SKU instead of creating duplicate products.
+model CatalogBook {
+  id              String                   @id @db.Uuid
+  supplierSku     String                   @unique @map("supplier_sku") @db.VarChar(128)
+  slug            String                   @unique @db.VarChar(180)
+  title           String                   @db.VarChar(500)
+  author          String                   @db.VarChar(500)
+  description     String                   @db.Text
+  language        String                   @db.VarChar(2)
+  locale          String                   @db.VarChar(2)
+  isbn            String?                  @db.VarChar(64)
+  publisher       String?                  @db.VarChar(500)
+  productCode     String?                  @map("product_code") @db.VarChar(128)
+  weight          String?                  @db.VarChar(64)
+  barcode         String?                  @db.VarChar(256)
+  isNew           Boolean?                 @map("is_new")
+  pageCount       Int?                     @map("page_count")
+  coverType       String?                  @map("cover_type") @db.VarChar(256)
+  dimensions      String?                  @db.VarChar(256)
+  publicationYear Int?                     @map("publication_year")
+  series          String?                  @db.Text
+  imageUrls       String[]                 @default([]) @map("image_urls")
+  attributes      Json                     @default("[]") @db.JsonB
+  detailSections  Json                     @default("[]") @map("detail_sections") @db.JsonB
+  parserVersion   String                   @default("books-html-v1") @map("parser_version") @db.VarChar(64)
+  manualEdited    Boolean                  @default(false) @map("manual_edited")
+  sourcePriceAmd  Int                      @map("source_price_amd")
+  availability    String                   @db.VarChar(32)
+  sourceUrl       String                   @unique @map("source_url") @db.VarChar(2048)
+  coverImageUrl   String?                  @map("cover_image_url") @db.VarChar(2048)
+  observedAt      DateTime                 @map("observed_at") @db.Timestamptz(3)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  translations    CatalogBookTranslation[]
+  categories      CatalogBookCategory[]
 
-  @@index([procurementTaskId])
-  @@map("procurement_item_snapshots")
+  @@index([observedAt(sort: Desc), id(sort: Desc)])
+  @@index([availability, observedAt(sort: Desc), id(sort: Desc)])
+  @@map("catalog_books")
 }
 
-model CrawlRun {
-  id            String         @id @default(uuid()) @db.Uuid
-  status        CrawlRunStatus @default(CREATED)
-  parserVersion String         @map("parser_version")
-  startedAt     DateTime?      @map("started_at")
-  finishedAt    DateTime?      @map("finished_at")
-  stoppedReason String?        @map("stopped_reason")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  snapshots     HtmlSnapshot[]
+/// Books.am category tree. Supplier category ids are stable across the three
+/// interface locales, while labels and source URLs are localized separately.
+model CatalogCategory {
+  id                 String                       @id @db.Uuid
+  supplierCategoryId String                       @unique @map("supplier_category_id") @db.VarChar(128)
+  parentId           String?                      @map("parent_id") @db.Uuid
+  position           Int                          @default(0)
+  manualEdited       Boolean                      @default(false) @map("manual_edited")
+  observedAt         DateTime                     @map("observed_at") @db.Timestamptz(3)
+  createdAt          DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  parent             CatalogCategory?             @relation("CatalogCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children           CatalogCategory[]            @relation("CatalogCategoryTree")
+  translations       CatalogCategoryTranslation[]
+  books              CatalogBookCategory[]
 
-  @@index([status, createdAt(sort: Desc)])
-  @@map("crawl_runs")
+  @@index([parentId, position, id])
+  @@map("catalog_categories")
 }
 
-model HtmlSnapshot {
-  id           String        @id @default(uuid()) @db.Uuid
-  crawlRunId   String        @map("crawl_run_id") @db.Uuid
-  sourceUrl    String        @map("source_url")
-  finalUrl     String        @map("final_url")
-  httpStatus   Int           @map("http_status")
-  contentHash  String        @map("content_hash")
-  storageRef   String        @map("storage_ref")
-  fetchedAt    DateTime      @map("fetched_at")
-  crawlRun     CrawlRun      @relation(fields: [crawlRunId], references: [id], onDelete: Restrict)
-  parserResult ParserResult?
+model CatalogCategoryTranslation {
+  id           String          @id @db.Uuid
+  categoryId   String          @map("category_id") @db.Uuid
+  locale       String          @db.VarChar(2)
+  name         String          @db.VarChar(500)
+  manualEdited Boolean         @default(false) @map("manual_edited")
+  sourceUrl    String          @map("source_url") @db.VarChar(2048)
+  observedAt   DateTime        @map("observed_at") @db.Timestamptz(3)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  category     CatalogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@index([crawlRunId, fetchedAt])
-  @@index([sourceUrl])
-  @@map("html_snapshots")
+  @@unique([categoryId, locale])
+  @@unique([sourceUrl])
+  @@index([locale, name])
+  @@map("catalog_category_translations")
 }
 
-model ParserResult {
-  id               String       @id @default(uuid()) @db.Uuid
-  htmlSnapshotId   String       @unique @map("html_snapshot_id") @db.Uuid
-  parserVersion    String       @map("parser_version")
-  extracted        Json
-  warnings         Json
-  quarantineReason String?      @map("quarantine_reason")
-  parsedAt         DateTime     @default(now()) @map("parsed_at")
-  htmlSnapshot     HtmlSnapshot @relation(fields: [htmlSnapshotId], references: [id], onDelete: Restrict)
+/// A book can be listed in more than one Books.am category.
+model CatalogBookCategory {
+  bookId     String          @map("book_id") @db.Uuid
+  categoryId String          @map("category_id") @db.Uuid
+  observedAt DateTime        @map("observed_at") @db.Timestamptz(3)
+  book       CatalogBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category   CatalogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@map("parser_results")
+  @@id([bookId, categoryId])
+  @@index([categoryId, bookId])
+  @@map("catalog_book_categories")
+}
+
+/// One complete Books.am page snapshot per interface locale. Raw localized
+/// attributes and bottom detail sections are retained alongside normalized
+/// columns, so newly introduced supplier fields are not silently lost.
+model CatalogBookTranslation {
+  id              String      @id @db.Uuid
+  bookId          String      @map("book_id") @db.Uuid
+  locale          String      @db.VarChar(2)
+  parserVersion   String      @map("parser_version") @db.VarChar(64)
+  manualEdited    Boolean     @default(false) @map("manual_edited")
+  title           String      @db.VarChar(500)
+  author          String      @db.VarChar(500)
+  description     String      @db.Text
+  languageLabel   String?     @map("language_label") @db.VarChar(256)
+  isbn            String?     @db.VarChar(64)
+  publisher       String?     @db.VarChar(500)
+  productCode     String      @map("product_code") @db.VarChar(128)
+  weight          String?     @db.VarChar(64)
+  barcode         String?     @db.VarChar(256)
+  isNew           Boolean?    @map("is_new")
+  pageCount       Int?        @map("page_count")
+  coverType       String?     @map("cover_type") @db.VarChar(256)
+  dimensions      String?     @db.VarChar(256)
+  publicationYear Int?        @map("publication_year")
+  series          String?     @db.Text
+  imageUrls       String[]    @default([]) @map("image_urls")
+  attributes      Json        @default("[]") @db.JsonB
+  detailSections  Json        @default("[]") @map("detail_sections") @db.JsonB
+  sourceUrl       String      @unique @map("source_url") @db.VarChar(2048)
+  observedAt      DateTime    @map("observed_at") @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  book            CatalogBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, locale])
+  @@index([locale, observedAt(sort: Desc), bookId])
+  @@map("catalog_book_translations")
+}
+
+/// Durable checkpoint for the long-running Books.am browser crawl. The crawler
+/// saves the current catalog page so an unexpected process restart only repeats
+/// at most one page; catalog upserts keep those repeats idempotent.
+model CrawlerCheckpoint {
+  id                        String    @id @db.VarChar(64)
+  status                    String    @db.VarChar(32)
+  startedAt                 DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt               DateTime? @map("completed_at") @db.Timestamptz(3)
+  currentUrl                String?   @map("current_url") @db.VarChar(2048)
+  resumeCatalogUrl          String?   @map("resume_catalog_url") @db.VarChar(2048)
+  catalogPagesVisited       Int       @default(0) @map("catalog_pages_visited")
+  discoveredProducts        Int       @default(0) @map("discovered_products")
+  productsAttempted         Int       @default(0) @map("products_attempted")
+  imported                  Int       @default(0)
+  quarantined               Int       @default(0)
+  failedProducts            Int       @default(0) @map("failed_products")
+  navigationRetries         Int       @default(0) @map("navigation_retries")
+  productsSkipped           Int       @default(0) @map("products_skipped")
+  catalogSegmentsDiscovered Int       @default(0) @map("catalog_segments_discovered")
+  catalogSegmentsCompleted  Int       @default(0) @map("catalog_segments_completed")
+  activeCatalogSegment      String?   @map("active_catalog_segment") @db.VarChar(2048)
+  catalogSegments           Json      @default("[]") @map("catalog_segments") @db.JsonB
+  completedCatalogSegments  Json      @default("[]") @map("completed_catalog_segments") @db.JsonB
+  finishReason              String?   @map("finish_reason") @db.Text
+  errors                    Json      @default("[]") @db.JsonB
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("crawler_checkpoints")
 }

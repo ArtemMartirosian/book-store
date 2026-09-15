@@ -1,9 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PrismaService } from '../../database/prisma.service';
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
+  constructor(private readonly prisma: PrismaService) {}
+
   @Get('live')
   @ApiOperation({ summary: 'Kubernetes-style liveness probe' })
   live() {
@@ -16,12 +19,21 @@ export class HealthController {
   }
 
   @Get('ready')
-  @ApiOperation({ summary: 'Development readiness probe' })
-  ready() {
-    return {
-      status: 'ready',
-      persistence: 'in-memory',
-      timestamp: new Date().toISOString(),
-    };
+  @ApiOperation({ summary: 'Readiness probe including durable persistence' })
+  async ready() {
+    try {
+      await this.prisma.ping();
+      return {
+        status: 'ready',
+        persistence: this.prisma.isPostgres ? 'postgresql' : 'in-memory',
+        timestamp: new Date().toISOString(),
+      };
+    } catch {
+      throw new ServiceUnavailableException({
+        status: 'not_ready',
+        persistence: 'postgresql',
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 }

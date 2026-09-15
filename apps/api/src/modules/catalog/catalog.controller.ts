@@ -14,11 +14,32 @@ export class CatalogController {
   search(@Query() query: SearchBooksQueryDto) {
     return this.catalog.search({
       query: query.q,
+      title: query.title,
+      author: query.author,
+      description: query.description,
+      productCode: query.productCode,
+      barcode: query.barcode,
+      isbn: query.isbn,
+      publisher: query.publisher,
+      series: query.series,
       locale: query.locale,
+      language: query.language,
+      category: query.category,
       available: query.available,
+      sort: query.sort,
       offset: query.offset,
       limit: query.limit,
     });
+  }
+
+  @Get('by-slug/:slug')
+  @ApiOperation({ summary: 'Return a local catalog book by its public slug' })
+  getBySlug(@Param('slug') slug: string, @Query('locale') localeValue = 'hy') {
+    const locale = this.parseLocale(localeValue);
+    if (!/^[\p{L}\p{N}][\p{L}\p{N}._~-]{0,179}$/u.test(slug)) {
+      throw new BadRequestException('slug is invalid');
+    }
+    return this.catalog.getPublicBookBySlug(slug, locale);
   }
 
   @Get(':id')
@@ -27,10 +48,13 @@ export class CatalogController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('locale') localeValue = 'hy',
   ) {
-    if (!['hy', 'ru', 'en'].includes(localeValue)) {
+    return this.catalog.getPublicBook(id, this.parseLocale(localeValue));
+  }
+
+  private parseLocale(value: string): StoreLocale {
+    if (!['hy', 'ru', 'en'].includes(value)) {
       throw new BadRequestException('locale must be hy, ru, or en');
     }
-    const locale = localeValue as StoreLocale;
-    return this.catalog.getPublicBook(id, locale);
+    return value as StoreLocale;
   }
 }

@@ -82,4 +82,84 @@ describe('InMemoryCatalogRepository fixtures', () => {
     expect(result.total).toBe(8);
     expect(new Set(result.items.map((book) => book.language))).toEqual(new Set(['hy', 'ru', 'en']));
   });
+
+  it('filters by edition language and sorts by source price', async () => {
+    const repository = new InMemoryCatalogRepository();
+
+    const result = await repository.search({
+      language: 'ru',
+      sort: 'price-asc',
+      offset: 0,
+      limit: 100,
+    });
+
+    expect(result.total).toBe(6);
+    expect(result.items.every((book) => book.language === 'ru')).toBe(true);
+    expect(result.items.map((book) => book.sourcePriceAmd)).toEqual([2700, 2800, 3100, 4500, 6200, 6900]);
+  });
+
+  it('combines precise advanced-search fields', async () => {
+    const repository = new InMemoryCatalogRepository();
+
+    await expect(repository.search({
+      title: 'Маленький',
+      author: 'Сент-Экзюпери',
+      offset: 0,
+      limit: 10,
+    })).resolves.toMatchObject({ total: 1, items: [{ slug: 'the-little-prince' }] });
+    await expect(repository.search({
+      title: 'Маленький',
+      author: 'Джеймс Клир',
+      offset: 0,
+      limit: 10,
+    })).resolves.toMatchObject({ total: 0, items: [] });
+  });
+
+  it('finds a defensive copy by public slug', async () => {
+    const repository = new InMemoryCatalogRepository();
+
+    const book = await repository.findBySlug('the-little-prince');
+    expect(book).toMatchObject({ title: 'Маленький принц' });
+    if (!book) throw new Error('Fixture is missing');
+    book.title = 'changed';
+    await expect(repository.findBySlug('the-little-prince')).resolves.toMatchObject({
+      title: 'Маленький принц',
+    });
+  });
+
+  it('stores localized categories and links one category to matching books', async () => {
+    const repository = new InMemoryCatalogRepository();
+    const observedAt = '2026-09-04T07:00:00.000Z';
+    const id = '11111111-1111-5111-8111-111111111111';
+    await repository.upsertCategories(
+      ([
+        ['hy', 'Դասական գրականություն'],
+        ['ru', 'Классическая литература'],
+        ['en', 'Classic literature'],
+      ] as const).map(([locale, name]) => ({
+        id,
+        supplierCategoryId: '7476',
+        parentId: null,
+        parentSupplierCategoryId: null,
+        position: 1,
+        locale,
+        name,
+        sourceUrl: `https://www.books.am/${locale === 'hy' ? 'am' : locale}/catalog/category/view/id/7476/`,
+        observedAt,
+      })),
+    );
+
+    await expect(
+      repository.linkBooksToCategory(['the-little-prince'], '7476', observedAt),
+    ).resolves.toBe(1);
+    await expect(
+      repository.search({ category: '7476', offset: 0, limit: 10 }),
+    ).resolves.toMatchObject({ total: 1, items: [{ slug: 'the-little-prince' }] });
+    const categories = await repository.listCategories();
+    expect(categories[0]?.localizations).toMatchObject({
+      hy: { name: 'Դասական գրականություն' },
+      ru: { name: 'Классическая литература' },
+      en: { name: 'Classic literature' },
+    });
+  });
 });
