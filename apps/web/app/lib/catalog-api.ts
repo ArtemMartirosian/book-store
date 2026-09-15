@@ -130,7 +130,7 @@ export function mapCatalogBook(book: CatalogApiBook): Book {
     category:
       book.categories?.find(({ supplierCategoryId }) => supplierCategoryId !== "7463")?.name ??
       book.categories?.[0]?.name ??
-      "Books.am",
+      { hy: "Գրքեր", ru: "Книги", en: "Books" }[book.locale],
     categories: book.categories ?? [],
     language: languageLabels[book.language],
     price: book.price.amount,

@@ -28,9 +28,9 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
   const description = book.description.trim() || t.fallback;
   const publisherLabel = { hy: "Հրատարակիչ", ru: "Издательство", en: "Publisher" }[locale];
   const detailLabels = {
-    hy: { productCode: "Ապրանքի կոդ", weight: "Քաշ", barcode: "Բարկոդ", newness: "Նորույթ", yes: "Այո", no: "Ոչ", format: "Չափս", series: "Շարք", images: "Նկարներ", sourceSections: "Բոլոր տվյալները" },
-    ru: { productCode: "Код товара", weight: "Вес", barcode: "Штрих-код", newness: "Новинка", yes: "Да", no: "Нет", format: "Формат", series: "Серия", images: "Изображения", sourceSections: "Все данные" },
-    en: { productCode: "Product code", weight: "Weight", barcode: "Barcode", newness: "Newness", yes: "Yes", no: "No", format: "Printing format", series: "Series", images: "Images", sourceSections: "All source details" },
+    hy: { productCode: "Ապրանքի կոդ", weight: "Քաշ", barcode: "Շտրիխ կոդ", newness: "Նորույթ", yes: "Այո", no: "Ոչ", format: "Չափս", series: "Շարք", images: "Նկարներ", sourceSections: "Ավելին հրատարակության մասին" },
+    ru: { productCode: "Код товара", weight: "Вес", barcode: "Штрих-код", newness: "Новинка", yes: "Да", no: "Нет", format: "Формат", series: "Серия", images: "Изображения", sourceSections: "Дополнительно об издании" },
+    en: { productCode: "Product code", weight: "Weight", barcode: "Barcode", newness: "New release", yes: "Yes", no: "No", format: "Format", series: "Series", images: "Images", sourceSections: "More about this edition" },
   }[locale];
   const detailSections = book.detailSections ?? [];
   const images = book.imageUrls?.length ? book.imageUrls : (book.coverImageUrl ? [book.coverImageUrl] : []);
@@ -88,7 +88,6 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
           <p className="text-[15px] font-semibold text-[#707382]">{book.author}</p>
           {book.rating !== undefined ? <div className="mt-4 flex items-center gap-3"><strong className="text-[12px]">{book.rating}</strong><span className="text-[11px] tracking-wider text-[#b6502f]">★ ★ ★ ★ ★</span>{book.reviews !== undefined ? <a className="text-[10px] text-[#777d77] underline underline-offset-4" href="#details">{book.reviews} {t.reviews}</a> : null}</div> : null}
           <p className="mt-7 max-w-[720px] text-[13px] leading-7 text-[#646777] max-sm:line-clamp-4">{description}</p>
-          {locale !== "ru" && <small className="mt-2 block text-[9px] leading-4 text-[#92978f]">{t.fallback}</small>}
           {binding || book.isbn ? <div className="mt-7 grid grid-cols-2 border-y border-[#dedbd2] text-[11px] max-sm:grid-cols-1">
             {binding ? <div className="py-4 pr-4 max-sm:border-b max-sm:border-[#dedbd2]"><span className="block text-[9px] uppercase tracking-[.06em] text-[#92978f]">{t.binding}</span><strong className="mt-1 block font-semibold">{binding}</strong></div> : null}
             {book.isbn ? <div className={cx("py-4", binding && "border-l border-[#dedbd2] pl-4 max-sm:border-l-0 max-sm:pl-0")}><span className="block text-[9px] uppercase tracking-[.06em] text-[#92978f]">ISBN</span><strong className="mt-1 block font-semibold">{book.isbn}</strong></div> : null}
