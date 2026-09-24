@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PricingService } from '../pricing/pricing.service';
 import type {
   BookRecord,
@@ -13,6 +13,11 @@ import {
   type CatalogSearch,
 } from './repositories/catalog.repository';
 
+type PublicCatalogSearch = Omit<CatalogSearch, 'minSourcePriceAmd' | 'maxSourcePriceAmd'> & {
+  minPrice?: number;
+  maxPrice?: number;
+};
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -20,7 +25,7 @@ export class CatalogService {
     private readonly pricing: PricingService,
   ) {}
 
-  async search(input: CatalogSearch): Promise<{
+  async search(input: PublicCatalogSearch): Promise<{
     items: PublicBook[];
     total: number;
     offset: number;
@@ -28,7 +33,24 @@ export class CatalogService {
     locale: 'hy' | 'ru' | 'en';
     fallbackLocale: StoreLocale;
   }> {
-    const result = await this.repository.search(input);
+    const { minPrice, maxPrice, ...query } = input;
+    for (const price of [minPrice, maxPrice]) {
+      if (price !== undefined && (!Number.isSafeInteger(price) || price < 0 || price > 2147483647)) {
+        throw new BadRequestException('Price bounds must be integer AMD amounts between 0 and 2147483647');
+      }
+    }
+    if (minPrice !== undefined && maxPrice !== undefined && maxPrice < minPrice) {
+      throw new BadRequestException('maxPrice must be greater than or equal to minPrice');
+    }
+    // The active pricing rule is a fixed per-item spread. Derive it through the
+    // pricing service rather than duplicating the configured 500 AMD default.
+    const markup = minPrice !== undefined || maxPrice !== undefined ? this.pricing.customerUnitPrice(1) - 1 : 0;
+    const result = await this.repository.search({
+      ...query,
+      ...(minPrice !== undefined ? { minSourcePriceAmd: Math.max(1, minPrice - markup) } : {}),
+      // A maximum below the markup intentionally produces an empty result.
+      ...(maxPrice !== undefined ? { maxSourcePriceAmd: Math.max(0, maxPrice - markup) } : {}),
+    });
     return {
       ...result,
       items: result.items.map((book) => this.toPublicBook(book, input.locale ?? 'hy')),

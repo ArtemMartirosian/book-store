@@ -1,6 +1,17 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, Validate, ValidatorConstraint, type ValidationArguments, type ValidatorConstraintInterface } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+const queryBoolean = ({ value }: { value: unknown }) => value === 'true' ? true : value === 'false' ? false : value;
+
+@ValidatorConstraint({ name: 'validPriceRange', async: false })
+class ValidPriceRange implements ValidatorConstraintInterface {
+  validate(value: unknown, args: ValidationArguments) {
+    const minimum = (args.object as SearchBooksQueryDto).minPrice;
+    return minimum === undefined || typeof value !== 'number' || value >= minimum;
+  }
+  defaultMessage() { return 'maxPrice must be greater than or equal to minPrice'; }
+}
 
 export class SearchBooksQueryDto {
   @ApiPropertyOptional({ maxLength: 120 })
@@ -56,6 +67,35 @@ export class SearchBooksQueryDto {
   @IsString()
   @MaxLength(256)
   series?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 2147483647, description: 'Minimum customer price in AMD, including the active item markup' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  minPrice?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 2147483647, description: 'Maximum customer price in AMD, including the active item markup' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  @Validate(ValidPriceRange)
+  maxPrice?: number;
+
+  @ApiPropertyOptional({ type: Boolean, description: 'Filter editions with a cover image; false selects editions without an image' })
+  @IsOptional()
+  @Transform(queryBoolean)
+  @IsBoolean()
+  hasCover?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean, description: 'Filter the actual parsed newness flag; unknown flags match neither true nor false' })
+  @IsOptional()
+  @Transform(queryBoolean)
+  @IsBoolean()
+  isNew?: boolean;
 
   @ApiPropertyOptional({
     enum: ['hy', 'ru', 'en'],

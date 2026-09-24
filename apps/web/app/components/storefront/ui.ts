@@ -4,9 +4,9 @@ export function cx(...classes: Array<string | false | null | undefined>) {
 
 export const container = "lumi-container";
 export const serif = "font-display";
-export const eyebrow = "editorial-rule text-xs font-medium uppercase tracking-[.15em] text-[#526b56]";
-export const sectionTitle = "font-display text-[clamp(2rem,4vw,3.5rem)] leading-[1.08] tracking-[-.035em]";
-export const primaryButton = "inline-flex min-h-12 items-center justify-center gap-5 rounded-full bg-[#243e35] px-7 text-sm font-medium text-[#fffefa] transition duration-300 hover:bg-[#162c24] hover:shadow-[0_8px_20px_rgba(36,62,53,.12)] focus-visible:outline-offset-4 disabled:opacity-50";
+export const eyebrow = "text-xs font-semibold uppercase tracking-[.12em] text-[var(--accent)]";
+export const sectionTitle = "font-display text-[clamp(1.6rem,3vw,2.5rem)] font-bold leading-[1.15] tracking-[-.035em]";
+export const primaryButton = "inline-flex min-h-12 items-center justify-center gap-5 rounded-xl bg-[var(--accent)] px-7 text-sm font-semibold text-white transition duration-200 hover:bg-[var(--accent-deep)] hover:shadow-[0_8px_20px_rgba(98,88,255,.15)] focus-visible:outline-offset-4 disabled:opacity-50";
 
 export const accentClasses = {
   amber: "bg-[#cba85e] text-[#23312a]",

@@ -45,24 +45,24 @@ test("contains the storefront, account, cart and admin product surfaces", async 
   ]);
 });
 
-test("uses the Grqaser editorial bookstore system with stable filters and honest data", async () => {
+test("uses the Grqaser bookstore structure with stable filters and honest data", async () => {
   const home = await readFile(path.join(root, "app/components/storefront/HomePage.tsx"), "utf8");
   const shell = await readFile(path.join(root, "app/components/storefront/StorefrontShell.tsx"), "utf8");
   const catalog = await readFile(path.join(root, "app/components/storefront/CatalogPage.tsx"), "utf8");
   const data = await readFile(path.join(root, "app/lib/catalog-data.ts"), "utf8");
 
-  assert.match(home, /storefrontFacets/);
   assert.match(home, /BookShelf/);
   assert.match(home, /variant="compact"/);
   assert.match(shell, /categoryNav/);
-  assert.match(home, /#243e35/);
-  assert.match(home, /#e9bf71/);
-  assert.match(home, /reading-stage/);
-  assert.match(home, /font-display/);
-  assert.doesNotMatch(home, /lumi-mesh|#6258ff|#d9ff69/);
+  assert.match(home, /var\(--accent\)/);
+  assert.match(home, /#6258ff/);
+  assert.match(home, /data-home-section="new-by-category"/);
+  assert.match(home, /data-home-section="discounts"/);
+  assert.match(home, /book\.isNew === true/);
+  assert.doesNotMatch(home, /lumi-mesh|reading-stage/);
   assert.match(home, /featuredCategories/);
   assert.match(home, /publisherNames/);
-  assert.match(home, /copy\.questions/);
+  assert.match(home, /aria-controls="home-promotion-content"/);
   assert.match(shell, /brandName\(locale\)/);
   assert.match(shell, /\/brand\/grqaser-mark\.png/);
   assert.match(shell, /lumi-favorites/);

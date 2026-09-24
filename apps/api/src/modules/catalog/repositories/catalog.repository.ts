@@ -14,6 +14,11 @@ export interface CatalogSearch {
   isbn?: string;
   publisher?: string;
   series?: string;
+  /** Internal source-price bounds derived by CatalogService from customer AMD prices. */
+  minSourcePriceAmd?: number;
+  maxSourcePriceAmd?: number;
+  hasCover?: boolean;
+  isNew?: boolean;
   locale?: 'hy' | 'ru' | 'en';
   language?: 'hy' | 'ru' | 'en';
   category?: string;

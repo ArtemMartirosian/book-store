@@ -68,6 +68,10 @@ export type CatalogQuery = {
   isbn?: string;
   publisher?: string;
   series?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  hasCover?: boolean;
+  isNew?: boolean;
   language?: CatalogLanguage;
   category?: string;
   available?: boolean;
@@ -175,6 +179,10 @@ export function catalogQueryString(query: CatalogQuery): string {
   if (query.isbn?.trim()) params.set("isbn", query.isbn.trim());
   if (query.publisher?.trim()) params.set("publisher", query.publisher.trim());
   if (query.series?.trim()) params.set("series", query.series.trim());
+  if (query.minPrice !== undefined) params.set("minPrice", String(query.minPrice));
+  if (query.maxPrice !== undefined) params.set("maxPrice", String(query.maxPrice));
+  if (query.hasCover !== undefined) params.set("hasCover", String(query.hasCover));
+  if (query.isNew !== undefined) params.set("isNew", String(query.isNew));
   if (query.language) params.set("language", query.language);
   if (query.category) params.set("category", query.category);
   if (query.available !== undefined) params.set("available", String(query.available));

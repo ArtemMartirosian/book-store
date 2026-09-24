@@ -16,13 +16,13 @@ export default function NotFound() {
   const text = copy[locale];
 
   return (
-    <main className="grid min-h-[72vh] place-items-center bg-[#f6f3ed] px-5 py-16 text-[#202722]">
+    <main className="grid min-h-[72vh] place-items-center bg-[#f7f8fc] px-5 py-16 text-[#18192d]">
       <section className="max-w-[680px] text-center">
-        <span className="inline-flex rounded-full bg-[#e8eee9] px-4 py-2 text-[10px] font-bold text-[#173d32]">{text.label}</span>
+        <span className="inline-flex rounded-full bg-[#f0eeff] px-4 py-2 text-[10px] font-bold text-[#6258ff]">{text.label}</span>
         <div className="font-display my-5 text-[clamp(4rem,12vw,8.5rem)] font-semibold leading-none text-[#d9d5cc]" aria-hidden="true">404</div>
         <h1 className="font-display text-[clamp(2.4rem,6vw,4.6rem)] font-semibold leading-[.98] tracking-[-.045em]">{text.title}</h1>
-        <p className="mx-auto mt-5 max-w-[540px] text-[14px] leading-7 text-[#70766f]">{text.description}</p>
-        <Link className="mt-7 inline-flex min-h-12 items-center gap-6 rounded-[9px] bg-[#173d32] px-6 text-[12px] font-bold text-white transition hover:bg-[#245343]" href={"/" + locale + "/catalog"}>{text.action} <span>→</span></Link>
+        <p className="mx-auto mt-5 max-w-[540px] text-[14px] leading-7 text-[#727789]">{text.description}</p>
+        <Link className="mt-7 inline-flex min-h-12 items-center gap-6 rounded-[9px] bg-[#6258ff] px-6 text-[12px] font-bold text-white transition hover:bg-[#5147e2]" href={"/" + locale + "/catalog"}>{text.action} <span>→</span></Link>
       </section>
     </main>
   );

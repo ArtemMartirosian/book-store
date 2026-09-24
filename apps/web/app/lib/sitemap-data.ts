@@ -7,7 +7,7 @@ export const BOOKS_PER_SITEMAP = 100;
 export const MAX_SITEMAP_ENTRIES = 50_000;
 export const MAX_SITEMAP_BYTES = 50 * 1024 * 1024;
 export const SITEMAP_LOCALES: readonly CatalogLanguage[] = ["hy", "ru", "en"];
-const staticPaths = ["", "/catalog", "/information", "/contacts"];
+const staticPaths = ["", "/catalog", "/information", "/contacts", "/journal", "/journal/book-gift", "/journal/reading-habit", "/journal/choose-edition"];
 const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
 
 export type SitemapBook = {

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { Book } from "../../lib/types";
 import { accentClasses, coverSizeClasses, cx } from "./ui";
 
@@ -8,11 +11,12 @@ export function BookCover({
   book: Book;
   size?: "mini" | "card" | "hero" | "detail";
 }) {
-  if (book.coverImageUrl) {
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  if (book.coverImageUrl && failedImage !== book.coverImageUrl) {
     return (
       <div
         className={cx(
-          "relative isolate shrink-0 overflow-hidden rounded-[2px_5px_5px_2px] bg-white shadow-[-3px_3px_0_rgba(63,67,48,.1),0_12px_22px_rgba(37,45,32,.16)]",
+          "relative isolate max-w-full shrink-0 overflow-hidden rounded-[2px_5px_5px_2px] bg-white shadow-[-2px_2px_0_rgba(37,34,62,.06),0_10px_18px_rgba(37,34,62,.13)]",
           coverSizeClasses[size],
         )}
       >
@@ -22,6 +26,11 @@ export function BookCover({
           alt={book.title}
           className="absolute inset-0 size-full object-contain"
           loading={size === "mini" || size === "card" ? "lazy" : "eager"}
+          decoding="async"
+          fetchPriority={size === "detail" ? "high" : undefined}
+          width={160}
+          height={240}
+          onError={() => setFailedImage(book.coverImageUrl ?? null)}
           referrerPolicy="no-referrer"
           src={book.coverImageUrl}
         />
@@ -33,7 +42,7 @@ export function BookCover({
   return (
     <div
       className={cx(
-        "relative isolate flex shrink-0 flex-col justify-between overflow-hidden [container-type:inline-size] rounded-[2px_5px_5px_2px] shadow-[-3px_3px_0_rgba(63,67,48,.1),0_12px_22px_rgba(37,45,32,.16)] before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:border-r before:border-black/10 before:bg-black/5",
+        "relative isolate flex max-w-full shrink-0 flex-col justify-between overflow-hidden [container-type:inline-size] rounded-[2px_5px_5px_2px] shadow-[-2px_2px_0_rgba(37,34,62,.06),0_10px_18px_rgba(37,34,62,.13)] before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:border-r before:border-black/10 before:bg-black/5",
         accentClasses[book.accent],
         coverSizeClasses[size],
       )}

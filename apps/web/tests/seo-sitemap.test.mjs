@@ -61,9 +61,9 @@ test("empty catalog still has a static sitemap but does not invent products", ()
 
 test("static sitemap includes only translated public landing pages", () => {
   const xml = sitemap.renderStaticSitemap();
-  assert.equal((xml.match(/<url>/gu) || []).length, 12);
+  assert.equal((xml.match(/<url>/gu) || []).length, 24);
   for (const locale of ["hy", "ru", "en"]) {
-    for (const path of ["", "/catalog", "/contacts", "/information"]) assert.ok(xml.includes(`<loc>https://grqaser.am/${locale}${path}</loc>`));
+    for (const path of ["", "/catalog", "/contacts", "/information", "/journal", "/journal/book-gift", "/journal/reading-habit", "/journal/choose-edition"]) assert.ok(xml.includes(`<loc>https://grqaser.am/${locale}${path}</loc>`));
   }
   for (const path of ["admin", "account", "cart", "favorites", "search", "?category="]) assert.ok(!xml.includes(path));
   assert.ok(xml.includes('hreflang="x-default" href="https://grqaser.am/hy"'));

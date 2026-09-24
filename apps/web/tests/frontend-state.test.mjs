@@ -8,7 +8,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
 const { defaultCatalogState, parseCatalogState, catalogStateSearch, updateCatalogSearch, mergeSearchPage, createLatestRequestGate, homeCatalogResult } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputText).toString("base64"));
 
 test("catalog URL round-trips every supported filter and Unicode search", () => {
-  const state = { query: " Հայերեն & книга ", language: "hy", category: "7481", sort: "price-asc", availableOnly: false, page: 12 };
+  const state = { ...defaultCatalogState, query: " Հայերեն & книга ", author: "Հեղինակ", publisher: "Zangak", series: "Classics", minPrice: 0, maxPrice: 6500, hasCover: true, isNew: false, language: "hy", category: "7481", sort: "price-asc", availableOnly: false, page: 12 };
   assert.deepEqual(parseCatalogState(catalogStateSearch(state)), state);
   assert.deepEqual(parseCatalogState(""), defaultCatalogState);
   assert.equal(catalogStateSearch(defaultCatalogState), "");
@@ -19,12 +19,13 @@ test("invalid URL values safely fall back instead of creating invalid offsets", 
     const state = parseCatalogState(`?language=fr&sort=unknown&category=invalid&page=${page}`);
     assert.deepEqual(state, defaultCatalogState);
   }
-  assert.equal(parseCatalogState("q=" + "x".repeat(700)).query.length, 500);
+  assert.equal(parseCatalogState("q=" + "x".repeat(700)).query.length, 120);
+  for (const search of ["minPrice=-1", "maxPrice=1.5", "minPrice=2147483648", "minPrice=7000&maxPrice=2000", "hasCover=yes&isNew=0"]) assert.deepEqual(parseCatalogState(search), defaultCatalogState);
 });
 
 test("filter edits reset pagination, while page changes preserve all filters", () => {
-  const original = "q=Murakami&language=ru&category=123&sort=title&available=all&page=5";
-  for (const patch of [{ query: "Dune" }, { language: "en" }, { category: "7481" }, { sort: "new" }, { availableOnly: true }]) {
+  const original = "q=Murakami&publisher=Zangak&author=Author&series=Classics&minPrice=0&maxPrice=6500&hasCover=true&isNew=false&language=ru&category=123&sort=title&available=all&page=5";
+  for (const patch of [{ query: "Dune" }, { publisher: "Antares" }, { author: "Author" }, { series: "New series" }, { minPrice: 1000 }, { maxPrice: 4000 }, { hasCover: undefined }, { isNew: true }, { language: "en" }, { category: "7481" }, { sort: "new" }, { availableOnly: true }]) {
     assert.equal(parseCatalogState(updateCatalogSearch(original, patch)).page, 1);
   }
   assert.deepEqual(parseCatalogState(updateCatalogSearch(original, { page: 6 })), { ...parseCatalogState(original), page: 6 });

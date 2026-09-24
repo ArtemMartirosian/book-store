@@ -163,6 +163,14 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim().toLocaleLowerCase();
     const matched = [...this.books.values()].filter((book) => {
+      if (input.minSourcePriceAmd !== undefined && book.sourcePriceAmd < input.minSourcePriceAmd) return false;
+      if (input.maxSourcePriceAmd !== undefined && book.sourcePriceAmd > input.maxSourcePriceAmd) return false;
+      const display = book.localizations?.[input.locale ?? 'hy'] ?? book.localizations?.[book.locale];
+      if (input.isNew !== undefined && (display ? display.isNew : book.isNew) !== input.isNew) return false;
+      if (input.hasCover !== undefined) {
+        const hasCover = Boolean(book.coverImageUrl) || (display ? display.imageUrls.length > 0 : (book.imageUrls?.length ?? 0) > 0);
+        if (hasCover !== input.hasCover) return false;
+      }
       if (input.available !== undefined) {
         const isAvailable = book.availability === 'PRELIMINARY_AVAILABLE';
         if (isAvailable !== input.available) return false;

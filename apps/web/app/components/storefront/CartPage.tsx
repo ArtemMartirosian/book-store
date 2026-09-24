@@ -241,16 +241,16 @@ export function CartPage() {
   };
 
   if (submitState === "success") return (
-    <div className="min-h-[70vh] bg-[#f7f5f0] text-[#202c28]">
+    <div className="min-h-[70vh] bg-[#f7f8fc] text-[#18192d]">
       <div className={cx(container, "flex min-h-[650px] flex-col items-center justify-center px-5 py-16 text-center")}>
-        <span className="mb-6 grid size-16 place-items-center rounded-[20px] bg-[#e9bf71] text-xl font-semibold text-[#243e35] shadow-[0_16px_35px_rgba(36,62,53,.08)]">✓</span>
+        <span className="mb-6 grid size-16 place-items-center rounded-[20px] bg-[#e9bf71] text-xl font-semibold text-[#6258ff] shadow-[0_16px_35px_rgba(36,62,53,.08)]">✓</span>
         <small className={eyebrow}>{t.successPrefix} #{orderNumber}</small>
         <h1 className={cx(sectionTitle, "my-4 max-w-[680px] whitespace-pre-line")}>{t.successTitle}</h1>
-        <p className="max-w-[560px] text-[14px] leading-7 text-[#626e64]">{t.successText}</p>
+        <p className="max-w-[560px] text-[14px] leading-7 text-[#727789]">{t.successText}</p>
         <p className="mt-5 rounded-full bg-[#efe4d2] px-5 py-2 text-[14px] font-bold text-[#a94728]">{t.successTotal}: {formatAmd(orderTotal)}</p>
-        <div className="my-7 rounded-[20px] border border-[#dedfd5] bg-[#fffdf8] px-7 py-5 text-left shadow-[0_16px_45px_rgba(36,62,53,.025)]">
+        <div className="my-7 rounded-[20px] border border-[#e3e5ef] bg-[#ffffff] px-7 py-5 text-left shadow-[0_16px_45px_rgba(36,62,53,.025)]">
           <strong className="text-[13px] font-bold uppercase tracking-[.08em]">{t.next}</strong>
-          <ol className="mt-3 flex gap-8 max-sm:flex-col max-sm:gap-2">{t.nextSteps.map((step, stepIndex) => <li className="flex items-center gap-2 text-[14px] text-[#626e64]" key={step}><span className="grid size-5 place-items-center rounded-full bg-[#e8ede5] text-[13px] font-bold text-[#2f7654]">{stepIndex + 1}</span>{step}</li>)}</ol>
+          <ol className="mt-3 flex gap-8 max-sm:flex-col max-sm:gap-2">{t.nextSteps.map((step, stepIndex) => <li className="flex items-center gap-2 text-[14px] text-[#727789]" key={step}><span className="grid size-5 place-items-center rounded-full bg-[#f0eeff] text-[13px] font-bold text-[#2f7654]">{stepIndex + 1}</span>{step}</li>)}</ol>
         </div>
         <Link className={primaryButton} href={localized(locale, "/catalog")}>{t.backCatalog}<span>→</span></Link>
       </div>
@@ -261,67 +261,67 @@ export function CartPage() {
 
   if (pending) {
     const submitted = JSON.parse(pending.body) as SubmittedCheckout;
-    return <div className="min-h-[70vh] bg-[#f7f5f0] text-[#202c28]">
+    return <div className="min-h-[70vh] bg-[#f7f8fc] text-[#18192d]">
       <div className={cx(container, "py-14")}>
-        <section className="mx-auto max-w-2xl rounded-[20px] border border-[#dedfd5] bg-[#fffdf8] p-6 shadow-[0_12px_40px_rgba(36,62,53,.04)] sm:p-10">
+        <section className="mx-auto max-w-2xl rounded-[20px] border border-[#e3e5ef] bg-[#ffffff] p-6 shadow-[0_12px_40px_rgba(36,62,53,.04)] sm:p-10">
           <h1 className="font-display text-3xl font-normal leading-tight tracking-[-.02em] sm:text-4xl">{pendingText.title}</h1>
-          <p className="mt-4 text-base leading-7 text-[#626e64]">{pendingText.text}</p>
-          <dl className="my-6 grid gap-3 rounded-2xl bg-[#e8ede5] p-5">
+          <p className="mt-4 text-base leading-7 text-[#727789]">{pendingText.text}</p>
+          <dl className="my-6 grid gap-3 rounded-2xl bg-[#f0eeff] p-5">
             <div className="flex justify-between gap-5"><dt>{pendingText.items}</dt><dd>{submitted.items.reduce((sum, item) => sum + item.quantity, 0)}</dd></div>
             <div className="flex justify-between gap-5 font-bold"><dt>{t.toPay}</dt><dd>{formatAmd(submitted.expectedTotalAmd)}</dd></div>
           </dl>
           {submitError && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">{submitError}</p>}
           <button type="button" className={cx(primaryButton, "w-full disabled:opacity-60")} disabled={submitState === "submitting"} onClick={() => void sendPendingRequest(pending)}>{submitState === "submitting" ? t.submitting : pendingText.retry}</button>
-          <Link className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-[#243e35] underline underline-offset-4" href={localized(locale, "/contacts")}>{dictionary[locale].footer.contacts}</Link>
+          <Link className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-[#6258ff] underline underline-offset-4" href={localized(locale, "/contacts")}>{dictionary[locale].footer.contacts}</Link>
         </section>
       </div>
     </div>;
   }
 
   if (cart.length === 0) return (
-    <div className="min-h-[70vh] bg-[#f7f5f0] text-[#202c28]">
+    <div className="min-h-[70vh] bg-[#f7f8fc] text-[#18192d]">
       <div className={cx(container, "pb-28")}>
-        <nav className="flex min-h-14 items-center gap-2 text-[14px] text-[#626e64]"><Link href={localized(locale)}>{t.home}</Link><span>/</span><span>{t.cart}</span></nav>
+        <nav className="flex min-h-14 items-center gap-2 text-[14px] text-[#727789]"><Link href={localized(locale)}>{t.home}</Link><span>/</span><span>{t.cart}</span></nav>
         <div className="flex min-h-[560px] flex-col items-center justify-center px-5 text-center">
-          <div className="relative mb-8 h-[130px] w-[165px]" aria-hidden="true"><i className="absolute bottom-0 left-2 h-[108px] w-[68px] -rotate-6 rounded-[5px_11px_11px_5px] bg-[#e9bf71] shadow-xl" /><i className="absolute bottom-0 right-2 h-[118px] w-[72px] rotate-6 rounded-[5px_11px_11px_5px] bg-[#243e35] shadow-xl" /><span className="absolute -right-2 top-0 grid size-10 place-items-center rounded-2xl bg-[#243e35] text-lg font-semibold text-white">+</span></div>
+          <div className="relative mb-8 h-[130px] w-[165px]" aria-hidden="true"><i className="absolute bottom-0 left-2 h-[108px] w-[68px] -rotate-6 rounded-[5px_11px_11px_5px] bg-[#e9bf71] shadow-xl" /><i className="absolute bottom-0 right-2 h-[118px] w-[72px] rotate-6 rounded-[5px_11px_11px_5px] bg-[#6258ff] shadow-xl" /><span className="absolute -right-2 top-0 grid size-10 place-items-center rounded-2xl bg-[#6258ff] text-lg font-semibold text-white">+</span></div>
           {submitError && <p role="alert" className="mb-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{submitError}</p>}
           <span className={eyebrow}>{t.emptyOverline}</span>
           <h1 className={cx(sectionTitle, "mt-3")}>{t.emptyTitle}</h1>
-          <p className="my-5 max-w-[440px] text-[14px] leading-6 text-[#626e64]">{t.emptyText}</p>
+          <p className="my-5 max-w-[440px] text-[14px] leading-6 text-[#727789]">{t.emptyText}</p>
           <Link className={primaryButton} href={localized(locale, "/catalog")}>{t.toCatalog}<span>→</span></Link>
         </div>
       </div>
     </div>
   );
 
-  const inputClass = "w-full min-w-0 rounded-xl border border-[#dedfd5] bg-[#f7f5f0] px-4 py-3.5 text-base text-[#202c28] outline-none transition placeholder:text-[#969e94] focus:border-[#243e35] focus:bg-[#fffdf8] focus:shadow-[0_0_0_3px_rgba(36,62,53,.08)]";
-  const fieldClass = "grid min-w-0 gap-2 text-sm font-medium text-[#637064]";
+  const inputClass = "w-full min-w-0 rounded-xl border border-[#e3e5ef] bg-[#f7f8fc] px-4 py-3.5 text-base text-[#18192d] outline-none transition placeholder:text-[#9296a6] focus:border-[#6258ff] focus:bg-[#ffffff] focus:shadow-[0_0_0_3px_rgba(36,62,53,.08)]";
+  const fieldClass = "grid min-w-0 gap-2 text-sm font-medium text-[#727789]";
 
   return (
-    <div className="min-h-[70vh] bg-[#f7f5f0] text-[#202c28]">
+    <div className="min-h-[70vh] bg-[#f7f8fc] text-[#18192d]">
       <div className={cx(container, "pb-28")}>
-        <nav className="flex min-h-14 items-center gap-2 text-[14px] text-[#626e64]"><Link href={localized(locale)}>{t.home}</Link><span>/</span><span>{t.cart}</span></nav>
-        <header className="pb-9 pt-7"><span className={eyebrow}>{t.selection}</span><h1 className="font-display my-4 text-[clamp(2.8rem,5.5vw,4.5rem)] font-normal leading-[1.08] tracking-[-.035em]">{t.cart} <sup className="ml-1 inline-flex size-8 items-center justify-center rounded-full bg-[#e8ede5] align-middle font-sans text-sm font-medium tracking-normal text-[#243e35]">{cartCount}</sup></h1><p className="text-[14px] text-[#626e64]">{t.intro}</p></header>
+        <nav className="flex min-h-14 items-center gap-2 text-[14px] text-[#727789]"><Link href={localized(locale)}>{t.home}</Link><span>/</span><span>{t.cart}</span></nav>
+        <header className="pb-9 pt-7"><span className={eyebrow}>{t.selection}</span><h1 className="font-display my-4 text-[clamp(2.8rem,5.5vw,4.5rem)] font-normal leading-[1.08] tracking-[-.035em]">{t.cart} <sup className="ml-1 inline-flex size-8 items-center justify-center rounded-full bg-[#f0eeff] align-middle font-sans text-sm font-medium tracking-normal text-[#6258ff]">{cartCount}</sup></h1><p className="text-[14px] text-[#727789]">{t.intro}</p></header>
 
         <form id="checkout-form" noValidate className="grid grid-cols-[minmax(0,1fr)_350px] items-start gap-7 max-lg:grid-cols-1" onSubmit={submitOrder} onChange={(event) => {
           const field = event.target.getAttribute("name") as CheckoutField | null;
           if (field) setFieldErrors((current) => ({ ...current, [field]: false }));
         }}>
           <div className="grid gap-4">
-            <section className="rounded-[20px] border border-[#dedfd5] bg-[#fffdf8] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4">
+            <section className="rounded-[20px] border border-[#e3e5ef] bg-[#ffffff] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4">
               <SectionHeading index="01" title={t.books} action={submitState === "submitting" ? undefined : t.clear} onAction={clearCart} />
-              {!snapshot && <div className="my-4 rounded-xl bg-[#e8ede5] p-4 text-sm" role={refreshFailed ? "alert" : "status"}>
+              {!snapshot && <div className="my-4 rounded-xl bg-[#f0eeff] p-4 text-sm" role={refreshFailed ? "alert" : "status"}>
                 {refreshFailed ? copy.refreshError : copy.checking}
                 {refreshFailed && <button className="mt-3 block min-h-11 font-bold underline" type="button" onClick={() => setRefreshAttempt((value) => value + 1)}>{copy.retry}</button>}
               </div>}
-              {cart.map(({ book, quantity }) => <article className="grid grid-cols-[82px_minmax(0,1fr)_auto] items-center gap-5 border-b border-[#dedfd5] py-5 last:border-0 last:pb-0 max-sm:grid-cols-[70px_minmax(0,1fr)] max-sm:items-start max-sm:gap-3" key={book.id}>
+              {cart.map(({ book, quantity }) => <article className="grid grid-cols-[82px_minmax(0,1fr)_auto] items-center gap-5 border-b border-[#e3e5ef] py-5 last:border-0 last:pb-0 max-sm:grid-cols-[70px_minmax(0,1fr)] max-sm:items-start max-sm:gap-3" key={book.id}>
                 <Link href={localized(locale, "/books/" + book.slug)}><BookCover book={book} size="mini" /></Link>
-                <div className="flex min-w-0 flex-col"><small className="text-[13px] font-semibold uppercase tracking-[.05em] text-[#626e64]">{book.language} · {localizeBookCategory(locale, book.category)}</small><Link className="font-display mt-1.5 overflow-hidden text-ellipsis whitespace-nowrap text-xl font-normal leading-snug tracking-[-.02em] max-sm:text-lg" href={localized(locale, "/books/" + book.slug)}>{book.title}</Link><span className="mt-1 text-[14px] text-[#626e64]">{book.author}</span>{snapshot?.unavailableIds.includes(book.id) && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{copy.unavailable}</p>}{snapshot && savedCart.find((line) => line.book.id === book.id)?.book.price !== book.price && <p className="mt-2 text-sm font-semibold text-[#243e35]">{copy.changed} {formatAmd(book.price)}</p>}<button disabled={submitState === "submitting"} className="mt-4 min-h-11 self-start text-[13px] font-semibold text-[#a94728] underline underline-offset-4" type="button" onClick={() => removeFromCart(book.id)}>{t.remove}</button></div>
-                <div className="flex flex-col items-end gap-4 max-sm:col-start-2 max-sm:flex-row-reverse max-sm:items-center max-sm:justify-between"><strong className="text-[14px] font-bold">{formatAmd(book.price * quantity)}</strong><div className="grid min-h-10 grid-cols-[44px_32px_44px] items-center rounded-[9px] border border-[#dedfd5] bg-[#f7f5f0]"><button className="min-h-11 text-base" type="button" disabled={submitState === "submitting"} aria-label={copy.decrease + ": " + book.title} onClick={() => setQuantity(book.id, quantity - 1)}>−</button><span className="text-center text-[14px] font-semibold">{quantity}</span><button className="min-h-11 text-base disabled:cursor-not-allowed disabled:opacity-30" type="button" disabled={quantity >= 10 || submitState === "submitting"} aria-label={copy.increase + ": " + book.title} onClick={() => setQuantity(book.id, quantity + 1)}>+</button></div></div>
+                <div className="flex min-w-0 flex-col"><small className="text-[13px] font-semibold uppercase tracking-[.05em] text-[#727789]">{book.language} · {localizeBookCategory(locale, book.category)}</small><Link className="font-display mt-1.5 overflow-hidden text-ellipsis whitespace-nowrap text-xl font-normal leading-snug tracking-[-.02em] max-sm:text-lg" href={localized(locale, "/books/" + book.slug)}>{book.title}</Link><span className="mt-1 text-[14px] text-[#727789]">{book.author}</span>{snapshot?.unavailableIds.includes(book.id) && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{copy.unavailable}</p>}{snapshot && savedCart.find((line) => line.book.id === book.id)?.book.price !== book.price && <p className="mt-2 text-sm font-semibold text-[#6258ff]">{copy.changed} {formatAmd(book.price)}</p>}<button disabled={submitState === "submitting"} className="mt-4 min-h-11 self-start text-[13px] font-semibold text-[#a94728] underline underline-offset-4" type="button" onClick={() => removeFromCart(book.id)}>{t.remove}</button></div>
+                <div className="flex flex-col items-end gap-4 max-sm:col-start-2 max-sm:flex-row-reverse max-sm:items-center max-sm:justify-between"><strong className="text-[14px] font-bold">{formatAmd(book.price * quantity)}</strong><div className="grid min-h-10 grid-cols-[44px_32px_44px] items-center rounded-[9px] border border-[#e3e5ef] bg-[#f7f8fc]"><button className="min-h-11 text-base" type="button" disabled={submitState === "submitting"} aria-label={copy.decrease + ": " + book.title} onClick={() => setQuantity(book.id, quantity - 1)}>−</button><span className="text-center text-[14px] font-semibold">{quantity}</span><button className="min-h-11 text-base disabled:cursor-not-allowed disabled:opacity-30" type="button" disabled={quantity >= 10 || submitState === "submitting"} aria-label={copy.increase + ": " + book.title} onClick={() => setQuantity(book.id, quantity + 1)}>+</button></div></div>
               </article>)}
             </section>
 
-            <section className="rounded-[20px] border border-[#dedfd5] bg-[#fffdf8] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4"><SectionHeading index="02" title={t.recipient} /><div className="grid grid-cols-2 gap-5 pt-6 max-sm:grid-cols-1">
+            <section className="rounded-[20px] border border-[#e3e5ef] bg-[#ffffff] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4"><SectionHeading index="02" title={t.recipient} /><div className="grid grid-cols-2 gap-5 pt-6 max-sm:grid-cols-1">
               <label className={fieldClass}>{t.name}<input className={inputClass} name="name" defaultValue={draft.name ?? ""} disabled={submitState === "submitting"} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "name-error" : undefined} autoComplete="name" required minLength={2} maxLength={100} placeholder={t.namePlaceholder} /><FieldError field="name" message={fieldErrors.name ? copy.name : undefined} /></label>
               <label className={fieldClass}>{t.phone}<input className={inputClass} name="phone" defaultValue={draft.phone ?? ""} disabled={submitState === "submitting"} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "phone-error" : undefined} autoComplete="tel" required type="tel" inputMode="tel" minLength={8} maxLength={20} placeholder="+374 00 00 00 00" /><FieldError field="phone" message={fieldErrors.phone ? copy.phone : undefined} /></label>
               <label className={cx(fieldClass, "col-span-2 max-sm:col-span-1")}>{t.address}<input className={inputClass} name="address" defaultValue={draft.address ?? ""} disabled={submitState === "submitting"} aria-invalid={Boolean(fieldErrors.address)} aria-describedby={fieldErrors.address ? "address-error" : undefined} autoComplete="street-address" required minLength={5} maxLength={200} placeholder={t.addressPlaceholder} /><FieldError field="address" message={fieldErrors.address ? copy.address : undefined} /></label>
@@ -330,26 +330,26 @@ export function CartPage() {
               <label className={cx(fieldClass, "col-span-2 max-sm:col-span-1")}>{t.comment}<textarea className={cx(inputClass, "resize-y")} name="comment" defaultValue={draft.comment ?? ""} disabled={submitState === "submitting"} maxLength={300} rows={3} placeholder={t.commentPlaceholder} /></label>
             </div></section>
 
-            <section className="rounded-[20px] border border-[#dedfd5] bg-[#fffdf8] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4"><SectionHeading index="03" title={t.payment} /><div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#cbd6c7] bg-[#e8ede5] p-4"><i className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#243e35] text-base font-semibold not-italic text-white">✓</i><div className="grid gap-1"><strong className="text-[14px] font-bold">{t.onDelivery}</strong><small className="text-[13px] text-[#626e64]">{t.onDeliveryHint}</small></div><b className="ml-auto rounded-full bg-[#fffdf8] px-3 py-2 text-[13px] font-semibold uppercase text-[#243e35] max-sm:hidden">{t.selected}</b></div></section>
+            <section className="rounded-[20px] border border-[#e3e5ef] bg-[#ffffff] p-6 shadow-[0_18px_55px_rgba(36,62,53,.025)] max-sm:rounded-[20px] max-sm:p-4"><SectionHeading index="03" title={t.payment} /><div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#cbd6c7] bg-[#f0eeff] p-4"><i className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#6258ff] text-base font-semibold not-italic text-white">✓</i><div className="grid gap-1"><strong className="text-[14px] font-bold">{t.onDelivery}</strong><small className="text-[13px] text-[#727789]">{t.onDeliveryHint}</small></div><b className="ml-auto rounded-full bg-[#ffffff] px-3 py-2 text-[13px] font-semibold uppercase text-[#6258ff] max-sm:hidden">{t.selected}</b></div></section>
           </div>
 
-          <aside id="checkout-summary" className="scroll-mt-40 xl:scroll-mt-44 sticky top-28 overflow-hidden rounded-[20px] bg-[#243e35] p-7 text-white shadow-[0_25px_65px_rgba(36,62,53,.12)] max-lg:static max-sm:rounded-[20px] max-sm:p-6">
+          <aside id="checkout-summary" className="scroll-mt-40 xl:scroll-mt-44 sticky top-28 overflow-hidden rounded-[20px] bg-[#6258ff] p-7 text-white shadow-[0_25px_65px_rgba(36,62,53,.12)] max-lg:static max-sm:rounded-[20px] max-sm:p-6">
             <span className={cx(eyebrow, "text-[#e9bf71]")}>{t.total}</span><h2 className="font-display mb-7 mt-3 text-3xl font-normal leading-tight">{t.yourOrder}</h2>
             <dl className="grid gap-3"><div className="flex justify-between"><dt className="text-[14px] text-white/70">{t.books} ({cartCount})</dt><dd className="text-[14px] font-semibold">{formatAmd(cartSubtotal)}</dd></div><div className="flex justify-between"><dt className="text-[14px] text-white/70">{t.delivery}</dt><dd className="text-[14px] font-semibold">{formatAmd(deliveryPrice)}</dd></div>{serverAdjustmentAmd !== 0 && <div className="flex justify-between text-[#e9bf71]"><dt className="text-[13px]">{t.serverAdjustment}</dt><dd className="text-[14px]">{formatAmd(serverAdjustmentAmd)}</dd></div>}</dl>
             <div className="mt-6 flex items-center justify-between border-t border-white/15 py-5"><span className="text-[14px] font-semibold">{t.toPay}</span><strong className="text-[23px] font-bold tracking-[-.03em]">{formatAmd(displayedTotalAmd)}</strong></div>
             {submitError && <p className="mb-4 rounded-[9px] border border-[#e9bf71]/30 bg-[#e9bf71]/10 p-3 text-[13px] leading-4 text-[#f3dfb7]" role="alert">{submitError}</p>}
-            <button className="flex min-h-13 w-full items-center justify-between rounded-xl bg-[#e9bf71] px-5 text-sm font-semibold text-[#202c28] transition hover:bg-[#f0cf96] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={submitState === "submitting" || !checkoutReady}>{submitState === "submitting" ? t.submitting : t.submit}<span className="text-lg">↗</span></button>
+            <button className="flex min-h-13 w-full items-center justify-between rounded-xl bg-[#e9bf71] px-5 text-sm font-semibold text-[#18192d] transition hover:bg-[#f0cf96] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={submitState === "submitting" || !checkoutReady}>{submitState === "submitting" ? t.submitting : t.submit}<span className="text-lg">↗</span></button>
             <p className="mt-4 flex gap-2 text-[13px] leading-5 text-white/75"><i className="grid size-4 shrink-0 place-items-center rounded-full bg-[#466a55] text-[7px] not-italic text-white">✓</i>{t.submitHint}</p><small className="mt-3 block text-[13px] leading-5 text-white/60">{t.legal}</small><Link className="mt-3 inline-flex min-h-11 items-center text-sm text-white/80 underline underline-offset-4" href={localized(locale, "/information")}>{pendingText.info}</Link>
           </aside>
         </form>
-        <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center justify-between gap-4 border-t border-[#dedfd5] bg-[#fffdf8]/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_24px_rgba(36,62,53,.06)] backdrop-blur max-lg:flex"><div><span className="block text-xs text-[#626e64]">{t.toPay}</span><strong className="text-xl font-semibold">{formatAmd(displayedTotalAmd)}</strong></div><a className="flex min-h-12 items-center rounded-xl bg-[#243e35] px-5 text-sm font-bold text-white" href="#checkout-summary">{copy.review} ↓</a></div>
+        <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center justify-between gap-4 border-t border-[#e3e5ef] bg-[#ffffff]/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_24px_rgba(36,62,53,.06)] backdrop-blur max-lg:flex"><div><span className="block text-xs text-[#727789]">{t.toPay}</span><strong className="text-xl font-semibold">{formatAmd(displayedTotalAmd)}</strong></div><a className="flex min-h-12 items-center rounded-xl bg-[#6258ff] px-5 text-sm font-bold text-white" href="#checkout-summary">{copy.review} ↓</a></div>
       </div>
     </div>
   );
 }
 
 function SectionHeading({ index, title, action, onAction }: { index: string; title: string; action?: string; onAction?: () => void }) {
-  return <div className="flex items-center gap-3 border-b border-[#dedfd5] pb-5"><span className="grid size-9 shrink-0 place-items-center rounded-full border border-[#dedfd5] bg-[#e8ede5] text-xs font-medium text-[#243e35]">{index}</span><h2 className="font-display text-2xl font-normal tracking-[-.025em]">{title}</h2>{action && <button className="ml-auto min-h-11 shrink-0 text-sm font-medium text-[#243e35] underline underline-offset-4" type="button" onClick={onAction}>{action}</button>}</div>;
+  return <div className="flex items-center gap-3 border-b border-[#e3e5ef] pb-5"><span className="grid size-9 shrink-0 place-items-center rounded-full border border-[#e3e5ef] bg-[#f0eeff] text-xs font-medium text-[#6258ff]">{index}</span><h2 className="font-display text-2xl font-normal tracking-[-.025em]">{title}</h2>{action && <button className="ml-auto min-h-11 shrink-0 text-sm font-medium text-[#6258ff] underline underline-offset-4" type="button" onClick={onAction}>{action}</button>}</div>;
 }
 
 function FieldError({ field, message }: { field: CheckoutField; message?: string }) {

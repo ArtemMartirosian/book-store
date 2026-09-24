@@ -134,7 +134,7 @@ test("catalog pagination is self-canonical; faceted and search variants are noin
   assert.match(String(page2.alternates.canonical), /\/ru\/catalog\?page=2$/u);
   assert.match(JSON.stringify(page2.title), /Страница 2/u);
   assert.notEqual(page2.robots?.index, false);
-  for (const query of [{ q: "test" }, { language: "hy" }, { category: "123" }, { sort: "price-asc" }, { available: "all" }]) {
+  for (const query of [{ q: "test" }, { author: "Author" }, { publisher: "Publisher" }, { series: "Series" }, { minPrice: "0" }, { maxPrice: "5000" }, { hasCover: "true" }, { hasCover: "false" }, { isNew: "false" }, { isNew: "true" }, { language: "hy" }, { category: "123" }, { sort: "price-asc" }, { available: "all" }]) {
     assert.equal((await get(query)).robots.index, false, JSON.stringify(query));
   }
   assert.match(String((await get({ page: "garbage" })).alternates.canonical), /\/ru\/catalog$/u);
@@ -262,4 +262,31 @@ test("out-of-range catalog pages return 404 and API outages stay errors", async 
   await assert.rejects(missing.default(args), /NEXT_HTTP_ERROR_FALLBACK;404/u);
   const outage = modules({ api: { getServerCatalog: async () => { throw new Error("Timeout"); } } })("app/[locale]/catalog/page.tsx");
   await assert.rejects(outage.default(args), /Timeout/u);
+});
+
+test("catalog facets reach SSR, accessible controls and page links without losing zero or false", async () => {
+  const filters = { publisher: "Զանգակ", author: "Author", series: "Classics", minPrice: "0", maxPrice: "6500", hasCover: "true", isNew: "false", page: "2" };
+  const requests = [];
+  const load = modules({ locale: "en", search: new URLSearchParams(filters).toString(), api: { getServerCatalog: async (query) => { requests.push(query); return { items: [book], total: 100, offset: 24, limit: 24 }; } } });
+  const route = load("app/[locale]/catalog/page.tsx");
+  const args = { params: Promise.resolve({ locale: "en" }), searchParams: Promise.resolve(filters) };
+  const html = renderToStaticMarkup(await route.default(args));
+  assert.equal(requests[0].publisher, "Զանգակ");
+  assert.equal(requests[0].author, "Author");
+  assert.equal(requests[0].series, "Classics");
+  assert.equal(requests[0].minPrice, 0);
+  assert.equal(requests[0].maxPrice, 6500);
+  assert.equal(requests[0].hasCover, true);
+  assert.equal(requests[0].isNew, false);
+  assert.match(html, /name="minPrice"[^>]*value="0"/u);
+  assert.match(html, /name="publisher"[^>]*value="Զանգակ"/u);
+  assert.match(html, /hasCover=true&amp;isNew=false&amp;page=3/u);
+  assert.match(html, /With cover image/u);
+  assert.match(html, /New arrivals only/u);
+  const metadata = await route.generateMetadata(args);
+  assert.equal(metadata.robots.index, false);
+  assert.match(metadata.alternates.canonical, /hasCover=true&isNew=false&page=2$/u);
+  const { catalogQueryString } = load("app/lib/catalog-api.ts");
+  const apiQuery = new URLSearchParams(catalogQueryString(requests[0]));
+  for (const key of Object.keys(filters).filter((key) => key !== "page")) assert.equal(apiQuery.get(key), filters[key]);
 });

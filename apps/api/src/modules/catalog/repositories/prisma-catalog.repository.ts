@@ -67,6 +67,27 @@ const localizedTextFilter = (
   } as Prisma.CatalogBookWhereInput;
 };
 
+/** Apply the same requested-locale -> base-locale -> base-row fallback as CatalogService. */
+const displayedEditionFilter = (
+  requestedLocale: StoreLocale,
+  translation: Prisma.CatalogBookTranslationWhereInput,
+  base: Prisma.CatalogBookWhereInput,
+): Prisma.CatalogBookWhereInput => ({
+  OR: [
+    { translations: { some: { locale: requestedLocale, ...translation } } },
+    ...(['hy', 'ru', 'en'] as const).map((baseLocale) => ({
+      AND: [
+        { locale: baseLocale },
+        { translations: { none: { locale: requestedLocale } } },
+        { OR: [
+          { translations: { some: { locale: baseLocale, ...translation } } },
+          { AND: [{ translations: { none: { locale: baseLocale } } }, base] },
+        ] },
+      ],
+    })),
+  ],
+});
+
 const jsonArray = <T>(value: Prisma.JsonValue): T[] =>
   Array.isArray(value) ? (value as T[]) : [];
 
@@ -223,8 +244,24 @@ export class PrismaCatalogRepository implements CatalogRepository {
     ] as Array<Prisma.CatalogBookWhereInput | null>).filter(
       (filter): filter is Prisma.CatalogBookWhereInput => filter !== null,
     );
+    if (input.isNew !== undefined) {
+      advancedFilters.push(displayedEditionFilter(input.locale ?? 'hy', { isNew: input.isNew }, { isNew: input.isNew }));
+    }
+    if (input.hasCover !== undefined) {
+      const withCover: Prisma.CatalogBookWhereInput = { OR: [
+        { AND: [{ coverImageUrl: { not: null } }, { coverImageUrl: { not: '' } }] },
+        displayedEditionFilter(input.locale ?? 'hy', { imageUrls: { isEmpty: false } }, { imageUrls: { isEmpty: false } }),
+      ] };
+      advancedFilters.push(input.hasCover ? withCover : { NOT: withCover });
+    }
     const where: Prisma.CatalogBookWhereInput = {
       ...(advancedFilters.length > 0 ? { AND: advancedFilters } : {}),
+      ...(input.minSourcePriceAmd !== undefined || input.maxSourcePriceAmd !== undefined ? {
+        sourcePriceAmd: {
+          ...(input.minSourcePriceAmd !== undefined ? { gte: input.minSourcePriceAmd } : {}),
+          ...(input.maxSourcePriceAmd !== undefined ? { lte: input.maxSourcePriceAmd } : {}),
+        },
+      } : {}),
       ...(input.available === undefined
         ? {}
         : {

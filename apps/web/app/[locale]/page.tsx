@@ -21,10 +21,12 @@ export function generateStaticParams() { return locales.map((locale) => ({ local
 export default async function LocalizedHome({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [catalog, categories] = await Promise.allSettled([
+  const [catalog, categories, newBooks, affordableBooks] = await Promise.allSettled([
     getServerCatalog({ locale, available: true, sort: "new", limit: 36 }),
     getServerCategories(locale),
+    getServerCatalog({ locale, available: true, isNew: true, sort: "new", limit: 24 }),
+    getServerCatalog({ locale, available: true, sort: "price-asc", limit: 15 }),
   ]);
   const home = homeCatalogResult(catalog, categories);
-  return <StorefrontShell locale={locale as Locale}><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(homeSchema(locale)) }} /><HomePage {...home} /></StorefrontShell>;
+  return <StorefrontShell locale={locale as Locale}><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(homeSchema(locale)) }} /><HomePage {...home} newBooks={newBooks.status === "fulfilled" ? newBooks.value.items : []} affordableBooks={affordableBooks.status === "fulfilled" ? affordableBooks.value.items : []} showcaseLoadFailed={newBooks.status === "rejected" || affordableBooks.status === "rejected"} /></StorefrontShell>;
 }

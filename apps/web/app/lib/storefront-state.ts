@@ -2,6 +2,13 @@ import type { CatalogLanguage, CatalogSort } from "./catalog-api";
 
 export type CatalogState = {
   query: string;
+  author: string;
+  publisher: string;
+  series: string;
+  minPrice?: number;
+  maxPrice?: number;
+  hasCover?: boolean;
+  isNew?: boolean;
   language: CatalogLanguage | "all";
   category: string;
   sort: CatalogSort;
@@ -10,8 +17,19 @@ export type CatalogState = {
 };
 
 export const defaultCatalogState: CatalogState = {
-  query: "", language: "all", category: "all", sort: "new", availableOnly: true, page: 1,
+  query: "", author: "", publisher: "", series: "", language: "all", category: "all", sort: "new", availableOnly: true, page: 1,
+  minPrice: undefined, maxPrice: undefined, hasCover: undefined, isNew: undefined,
 };
+
+function priceBound(value: string | null): number | undefined {
+  if (value === null || !/^\d+$/u.test(value)) return undefined;
+  const amount = Number(value);
+  return Number.isSafeInteger(amount) && amount <= 2147483647 ? amount : undefined;
+}
+
+function optionalBoolean(value: string | null): boolean | undefined {
+  return value === "true" ? true : value === "false" ? false : undefined;
+}
 
 export function parseCatalogState(search: string): CatalogState {
   const params = new URLSearchParams(search);
@@ -19,8 +37,19 @@ export function parseCatalogState(search: string): CatalogState {
   const sort = params.get("sort");
   const category = params.get("category");
   const page = Number(params.get("page"));
+  const minimum = priceBound(params.get("minPrice"));
+  const maximum = priceBound(params.get("maxPrice"));
+  // Reject malformed bookmark ranges together; the price form prevents creating them.
+  const invalidRange = minimum !== undefined && maximum !== undefined && maximum < minimum;
   return {
-    query: (params.get("q") ?? "").slice(0, 500),
+    query: (params.get("q") ?? "").slice(0, 120),
+    author: (params.get("author") ?? "").slice(0, 500),
+    publisher: (params.get("publisher") ?? "").slice(0, 256),
+    series: (params.get("series") ?? "").slice(0, 256),
+    minPrice: invalidRange ? undefined : minimum,
+    maxPrice: invalidRange ? undefined : maximum,
+    hasCover: optionalBoolean(params.get("hasCover")),
+    isNew: optionalBoolean(params.get("isNew")),
     language: language === "hy" || language === "ru" || language === "en" ? language : "all",
     category: category && /^\d+$/u.test(category) ? category : "all",
     sort: sort === "popular" || sort === "price-asc" || sort === "price-desc" || sort === "title" ? sort : "new",
@@ -32,6 +61,13 @@ export function parseCatalogState(search: string): CatalogState {
 export function catalogStateSearch(state: CatalogState): string {
   const params = new URLSearchParams();
   if (state.query) params.set("q", state.query);
+  if (state.author) params.set("author", state.author);
+  if (state.publisher) params.set("publisher", state.publisher);
+  if (state.series) params.set("series", state.series);
+  if (state.minPrice !== undefined) params.set("minPrice", String(state.minPrice));
+  if (state.maxPrice !== undefined) params.set("maxPrice", String(state.maxPrice));
+  if (state.hasCover !== undefined) params.set("hasCover", String(state.hasCover));
+  if (state.isNew !== undefined) params.set("isNew", String(state.isNew));
   if (state.language !== "all") params.set("language", state.language);
   if (state.category !== "all") params.set("category", state.category);
   if (state.sort !== "new") params.set("sort", state.sort);
@@ -41,7 +77,7 @@ export function catalogStateSearch(state: CatalogState): string {
 }
 
 export function updateCatalogSearch(search: string, patch: Partial<CatalogState>): string {
-  const filterChanged = ["query", "language", "category", "sort", "availableOnly"].some((key) => key in patch);
+  const filterChanged = ["query", "author", "publisher", "series", "minPrice", "maxPrice", "hasCover", "isNew", "language", "category", "sort", "availableOnly"].some((key) => key in patch);
   const state = { ...parseCatalogState(search), ...(filterChanged ? { page: 1 } : {}), ...patch };
   return catalogStateSearch(parseCatalogState(catalogStateSearch(state)));
 }

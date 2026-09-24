@@ -40,7 +40,7 @@ export async function generateMetadata({ params, searchParams }: RouteProps): Pr
     description: paginated ? `${paginated}. ${copy.description}` : copy.description,
     path: `/catalog${search ? `?${search}` : ""}`,
     // Keep useful unfiltered pagination indexable, not faceted/search combinations.
-    noIndex: Boolean(state.query || state.language !== "all" || state.category !== "all" || state.sort !== "new" || !state.availableOnly),
+    noIndex: Boolean(state.query || state.author || state.publisher || state.series || state.minPrice !== undefined || state.maxPrice !== undefined || state.hasCover !== undefined || state.isNew !== undefined || state.language !== "all" || state.category !== "all" || state.sort !== "new" || !state.availableOnly),
   });
 }
 
@@ -51,6 +51,8 @@ export default async function LocalizedCatalog({ params, searchParams }: RoutePr
   const [catalog, categories] = await Promise.all([
     getServerCatalog({
       locale, q: state.query,
+      author: state.author, publisher: state.publisher, series: state.series,
+      minPrice: state.minPrice, maxPrice: state.maxPrice, hasCover: state.hasCover, isNew: state.isNew,
       language: state.language === "all" ? undefined : state.language,
       category: state.category === "all" ? undefined : state.category,
       available: state.availableOnly ? true : undefined,
