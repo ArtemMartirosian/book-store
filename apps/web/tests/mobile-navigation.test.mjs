@@ -96,6 +96,43 @@ function badgeIsHiddenFromAssistiveTechnology(link) {
   return false;
 }
 
+test("mobile header search uses a short localized placeholder and an accessible icon-only GET submit", () => {
+  const placeholders = { hy: "Փնտրել գիրք…", ru: "Найти книгу…", en: "Search books…" };
+  for (const locale of locales) {
+    const h = harness(locale);
+    const t = h.module("app/components/storefront/i18n.ts").dictionary[locale].header;
+    const html = renderToStaticMarkup(React.createElement(h.shell.StorefrontShell, { locale }));
+    const forms = [...html.matchAll(/(<form\b[^>]*>)([\s\S]*?)<\/form>/gu)].map(([, tag, body]) => ({ ...attributes(tag), body }));
+    const mobile = forms.filter((form) => form["data-testid"] === "mobile-header-search");
+    assert.equal(mobile.length, 1, `${locale} must render exactly one mobile search form`);
+    const form = mobile[0];
+    assert.equal(form.role, "search");
+    assert.equal(form.method, "get");
+    assert.equal(form.action, `/${locale}/catalog`);
+    const inputs = [...form.body.matchAll(/<input\b[^>]*>/gu)].map(([tag]) => attributes(tag));
+    assert.equal(inputs.length, 1);
+    assert.equal(inputs[0].name, "q");
+    assert.equal(inputs[0].type, "search");
+    assert.equal(inputs[0].enterkeyhint, "search");
+    assert.equal(inputs[0].maxlength, "120");
+    assert.equal(inputs[0].placeholder, placeholders[locale]);
+    assert.equal(inputs[0]["aria-label"], t.search, "The accessible input name retains the full search description");
+    assert.ok(placeholders[locale].length < t.search.length);
+    const submits = [...form.body.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/gu)].map(([, tag, body]) => ({ ...attributes(tag), body }));
+    assert.equal(submits.length, 1);
+    assert.equal(submits[0].type, "submit");
+    assert.equal(submits[0]["aria-label"], t.searchButton);
+    assert.ok(submits[0].class?.split(/\s/u).includes("size-11"), "Icon-only submit keeps a 44px touch target");
+    assert.match(submits[0].body, /<svg\b[^>]*aria-hidden="true"/u);
+    assert.equal(submits[0].body.replace(/<[^>]*>/gu, "").trim(), "", "Mobile submit must not reintroduce a wide visible text label");
+    const desktop = forms.find((candidate) => candidate["data-testid"] !== "mobile-header-search" && candidate.class?.split(/\s/u).includes("md:flex"));
+    assert.ok(desktop, "Desktop search remains separate from the mobile control");
+    const desktopInput = [...desktop.body.matchAll(/<input\b[^>]*>/gu)].map(([tag]) => attributes(tag)).find((input) => input.name === "q");
+    assert.equal(desktopInput?.placeholder, t.search);
+    assert.ok(desktop.body.includes(`>${t.searchButton}</button>`), "Desktop search keeps its visible submit label");
+  }
+});
+
 test("mobile navigation renders five actual localized links and is hidden from tablet/desktop layout", () => {
   for (const locale of locales) {
     const h = harness(locale);

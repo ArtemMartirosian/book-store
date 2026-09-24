@@ -15,6 +15,7 @@ export const dictionary = {
     header: {
       catalog: "Каталог", new: "Новинки", armenian: "На армянском", delivery: "Доставка",
       search: "Название, автор или ISBN", searchButton: "Найти", account: "Кабинет", favorites: "Избранное", cart: "Корзина",
+      mobileSearch: "Найти книгу…",
       announcement: "Доставка по Еревану — 1 000 ֏", menu: "Открыть меню",
       allCategories: "Все разделы", bestsellers: "Бестселлеры", english: "На английском", classics: "Классика", selfDevelopment: "Саморазвитие", howOrder: "Как заказать", city: "Ереван", cash: "Подтверждение по телефону",
     },
@@ -80,6 +81,7 @@ export const dictionary = {
     header: {
       catalog: "Գրացուցակ", new: "Նորույթներ", armenian: "Հայերեն գրքեր", delivery: "Առաքում",
       search: "Գիրք, հեղինակ կամ ISBN", searchButton: "Փնտրել", account: "Իմ էջը", favorites: "Նախընտրելի", cart: "Զամբյուղ",
+      mobileSearch: "Փնտրել գիրք…",
       announcement: "Առաքում Երևանում՝ 1 000 ֏", menu: "Բացել ընտրացանկը",
       allCategories: "Բոլոր բաժինները", bestsellers: "Բեսթսելերներ", english: "Անգլերեն", classics: "Դասականներ", selfDevelopment: "Ինքնազարգացում", howOrder: "Ինչպես պատվիրել", city: "Երևան", cash: "Հաստատում հեռախոսով",
     },
@@ -143,6 +145,7 @@ export const dictionary = {
     header: {
       catalog: "Catalog", new: "New arrivals", armenian: "Armenian books", delivery: "Delivery",
       search: "Title, author or ISBN", searchButton: "Search", account: "Account", favorites: "Favorites", cart: "Cart",
+      mobileSearch: "Search books…",
       announcement: "Yerevan delivery — 1,000 ֏", menu: "Open menu",
       allCategories: "All categories", bestsellers: "Bestsellers", english: "English books", classics: "Classics", selfDevelopment: "Self-development", howOrder: "How to order", city: "Yerevan", cash: "Confirmation by phone",
     },

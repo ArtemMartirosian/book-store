@@ -349,10 +349,9 @@ function Header() {
           </div>
         </div>
         <div className={cx(container, "pb-4 md:hidden")}>
-          <form className="flex h-12 items-center rounded-xl border border-[var(--line)] bg-[var(--paper)] pl-4 pr-1" action={localized(locale, "/catalog")} onSubmit={submitSearch}>
-            <Icon name="search" className="mr-2 size-[18px] shrink-0 text-[var(--muted)]" />
-            <input className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted)]" name="q" maxLength={120} placeholder={t.search} aria-label={t.search} />
-            <button className="h-11 rounded-lg bg-[var(--accent)] px-4 text-xs font-semibold text-white" type="submit">{t.searchButton}</button>
+          <form data-testid="mobile-header-search" role="search" aria-label={t.searchButton} className="flex h-14 items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-1 transition focus-within:border-[var(--accent)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--accent)]/10" method="get" action={localized(locale, "/catalog")} onSubmit={submitSearch}>
+            <input className="h-11 min-w-0 flex-1 bg-transparent pl-3 pr-1 text-base leading-6 text-[var(--ink)] outline-none placeholder:text-[var(--muted)]" type="search" enterKeyHint="search" name="q" maxLength={120} placeholder={t.mobileSearch} aria-label={t.search} />
+            <button className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--accent)] text-white transition hover:bg-[var(--accent-deep)] active:scale-95" type="submit" aria-label={t.searchButton}><Icon name="search" className="size-5" /></button>
           </form>
         </div>
         <div className="hidden border-t border-[var(--line)]/65 xl:block">
