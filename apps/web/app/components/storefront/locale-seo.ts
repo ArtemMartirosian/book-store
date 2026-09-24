@@ -24,7 +24,7 @@ export type PageMetadataInput = {
 export function pageMetadata(locale: Locale, { title, description, path = "", noIndex = false, image, availableLocales, canonicalLocale }: PageMetadataInput): Metadata {
   const fullTitle = `${title} | ${brandName(locale)}`;
   const text = description.replace(/\s+/gu, " ").trim().slice(0, 170);
-  const socialImage = image && /^https?:\/\//iu.test(image) ? image : absoluteUrl(`/brand/og-${locale}.png`);
+  const socialImage = image && /^https?:\/\//iu.test(image) ? image : absoluteUrl(`/brand/og-${locale}.png?v=violet-20260924`);
   const supportedLocales = availableLocales ?? allLocales;
   const mayIndex = indexingEnabled() && !noIndex && supportedLocales.includes(locale);
   const resolvedLocale = canonicalLocale ?? (supportedLocales.includes(locale) ? locale : supportedLocales.includes(DEFAULT_LOCALE) ? DEFAULT_LOCALE : supportedLocales[0] ?? locale);

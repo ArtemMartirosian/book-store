@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     applicationName: brandName(locale),
     manifest: "/manifest.webmanifest",
-    icons: { icon: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/brand/icon-48.png", sizes: "48x48", type: "image/png" }], apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }] },
+    icons: { icon: [{ url: "/brand/icon-192.png?v=violet-20260924", sizes: "192x192", type: "image/png" }, { url: "/brand/icon-48.png?v=violet-20260924", sizes: "48x48", type: "image/png" }], apple: [{ url: "/brand/apple-touch-icon.png?v=violet-20260924", sizes: "180x180" }] },
     verification: { google: process.env.GOOGLE_SITE_VERIFICATION || undefined, yandex: process.env.YANDEX_SITE_VERIFICATION || undefined },
     robots: { index: indexingEnabled(), follow: true },
   };

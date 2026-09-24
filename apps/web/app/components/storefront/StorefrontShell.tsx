@@ -46,13 +46,13 @@ export function useStorefront() {
 
 export function Logo({ locale, inverse = false }: { locale: Locale; inverse?: boolean }) {
   return (
-    <span className={cx("inline-flex items-center gap-1.5 text-[var(--accent)] sm:gap-2.5", inverse && "text-[var(--paper)]")}>
+    <span className={cx("inline-flex max-w-full items-center gap-1.5 text-[var(--accent)] sm:gap-2.5", inverse && "text-[var(--paper)]")}>
       {/* A decorative mark pairs with searchable, accessible text in every language. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/grqaser-mark.png" alt="" aria-hidden="true" width={44} height={44} className={cx("size-7 shrink-0 object-contain sm:size-11", inverse && "brightness-0 invert")} />
-      <span className="flex flex-col gap-1">
-        <span className="whitespace-nowrap font-serif text-[22px] leading-none tracking-[-.025em] sm:text-[32px]">{brandName(locale)}</span>
-        <span className={cx("text-[8px] font-medium leading-none tracking-[.025em] text-[var(--muted)] sm:text-[9px] sm:tracking-[.06em]", inverse && "text-[#c1cdc3]")}>{BRAND_LABELS[locale]}</span>
+      <span className="flex min-w-0 flex-col gap-1">
+        <span className="whitespace-nowrap font-sans text-[20px] font-bold leading-[1.05] tracking-[-.035em] sm:text-[30px]">{brandName(locale)}</span>
+        <span className={cx("whitespace-nowrap font-sans text-[9px] font-medium leading-none tracking-[.015em] text-[var(--muted)] sm:tracking-[.04em]", inverse && "text-[var(--paper)]/75")}>{BRAND_LABELS[locale]}</span>
       </span>
     </span>
   );

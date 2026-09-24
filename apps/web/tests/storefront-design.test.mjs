@@ -46,7 +46,8 @@ function components(locale) {
     return mod.exports;
   }
   return {
-    component: (name) => load(path.join(root, "app/components/storefront", name + ".tsx"))[name],
+    component: (name, exportName = name) => load(path.join(root, "app/components/storefront", name + ".tsx"))[exportName],
+    module: (relativePath) => load(path.join(root, relativePath)),
     dictionary: load(path.join(root, "app/components/storefront/i18n.ts")).dictionary[locale],
   };
 }
@@ -60,6 +61,37 @@ function tagWith(html, tag, attribute, value) {
   assert.ok(candidate, `${tag}[${attribute}="${value}"] must exist`);
   return candidate;
 }
+
+test("localized logo uses a compact modern sans wordmark without hiding its real text", () => {
+  const names = { hy: "Գրքասեր", ru: "Гркасер", en: "Grqaser" };
+  const labels = { hy: "Գրախանութ", ru: "Книжный магазин", en: "Bookstore" };
+  for (const locale of locales) {
+    const Logo = components(locale).component("StorefrontShell", "Logo");
+    for (const inverse of [false, true]) {
+      const html = render(Logo, { locale, inverse });
+      const wordmark = [...html.matchAll(/<span\b[^>]*>[^<]*<\/span>/gu)].map(([span]) => span).find((span) => span.includes(`>${names[locale]}</span>`));
+      assert.ok(wordmark, "The brand name remains accessible localized HTML text");
+      for (const className of ["font-sans", "font-bold", "text-[20px]", "sm:text-[30px]", "whitespace-nowrap"]) assert.ok(wordmark.includes(className));
+      assert.doesNotMatch(wordmark, /font-serif|font-display|sr-only|hidden|truncate/u);
+      assert.ok(html.includes(`>${labels[locale]}</span>`));
+      const mark = tagWith(html, "img", "aria-hidden", "true");
+      assert.ok(mark.includes('alt=""'));
+      assert.ok(mark.includes('width="44"') && mark.includes('height="44"'));
+      assert.ok(mark.includes("size-7") && mark.includes("sm:size-11"));
+    }
+  }
+});
+
+test("installable app palette matches the purple storefront without changing its identity or start route", () => {
+  const manifest = components("hy").module("app/manifest.ts").default();
+  assert.equal(manifest.theme_color, "#6258ff");
+  assert.equal(manifest.background_color, "#f7f8fc");
+  assert.equal(manifest.name, "Գրքասեր · Grqaser");
+  assert.equal(manifest.short_name, "Գրքասեր");
+  assert.equal(manifest.lang, "hy");
+  assert.equal(manifest.start_url, "/hy");
+  assert.deepEqual(manifest.icons.map(({ sizes }) => sizes), ["192x192", "512x512"]);
+});
 
 test("book card and related-product links encode every slug as one route segment", () => {
   for (const locale of locales) {

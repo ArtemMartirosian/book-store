@@ -47,6 +47,7 @@ test("document language defaults to Armenian and remains localized for dotted bo
 
 test("generated social and app icons have the dimensions promised by metadata", async () => {
   const sizes = {
+    "logo-hy.png": [1800, 500], "logo-ru.png": [1800, 500], "logo-en.png": [1800, 500],
     "grqaser-mark.png": [192, 192], "icon-48.png": [48, 48], "icon-192.png": [192, 192], "icon-512.png": [512, 512], "apple-touch-icon.png": [180, 180],
     "og-hy.png": [1200, 630], "og-ru.png": [1200, 630], "og-en.png": [1200, 630],
   };
