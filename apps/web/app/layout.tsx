@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { DOCUMENT_LOCALE_HEADER, documentLocaleFromHeader } from "./lib/document-locale";
 import { BRAND_DESCRIPTIONS, brandName, SITE_URL, indexingEnabled } from "./lib/brand";
 import { pageMetadata } from "./components/storefront/locale-seo";
 import "./globals.css";
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

@@ -163,7 +163,7 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
         <div className="book-rail grid grid-cols-4 gap-x-6 gap-y-9 max-lg:grid-cols-2 max-sm:gap-x-3">{related.map((item) => <BookCard book={item} variant="compact" key={item.id} />)}</div>
       </section> : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center gap-3 border-t border-[var(--line)] bg-[var(--paper)]/95 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-5px_20px_rgba(31,40,34,.04)] backdrop-blur max-sm:flex">
+      <div data-sticky-action="book" className="storefront-bottom-action fixed inset-x-0 z-40 hidden items-center gap-3 border-t border-[var(--line)] bg-[var(--paper)]/95 px-4 pt-3 shadow-[0_-5px_20px_rgba(31,40,34,.04)] backdrop-blur max-sm:flex">
         <strong className="shrink-0 text-[15px] font-bold">{formatAmd(book.price)}</strong>
         <button className="flex min-h-12 flex-1 items-center justify-between rounded-xl bg-[var(--accent)] px-5 text-sm font-medium text-white disabled:bg-[#d9ddd3]" type="button" disabled={unavailable} onClick={() => addToCart(book, quantity)}>{unavailable ? t.unavailableButton : t.add}<span>→</span></button>
       </div>

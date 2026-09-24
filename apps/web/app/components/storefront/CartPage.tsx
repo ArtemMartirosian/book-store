@@ -342,7 +342,7 @@ export function CartPage() {
             <p className="mt-4 flex gap-2 text-[13px] leading-5 text-white/75"><i className="grid size-4 shrink-0 place-items-center rounded-full bg-[#466a55] text-[7px] not-italic text-white">✓</i>{t.submitHint}</p><small className="mt-3 block text-[13px] leading-5 text-white/60">{t.legal}</small><Link className="mt-3 inline-flex min-h-11 items-center text-sm text-white/80 underline underline-offset-4" href={localized(locale, "/information")}>{pendingText.info}</Link>
           </aside>
         </form>
-        <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center justify-between gap-4 border-t border-[#e3e5ef] bg-[#ffffff]/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_24px_rgba(36,62,53,.06)] backdrop-blur max-lg:flex"><div><span className="block text-xs text-[#727789]">{t.toPay}</span><strong className="text-xl font-semibold">{formatAmd(displayedTotalAmd)}</strong></div><a className="flex min-h-12 items-center rounded-xl bg-[#6258ff] px-5 text-sm font-bold text-white" href="#checkout-summary">{copy.review} ↓</a></div>
+        <div data-sticky-action="cart" className="storefront-bottom-action fixed inset-x-0 z-40 hidden items-center justify-between gap-4 border-t border-[#e3e5ef] bg-[#ffffff]/95 px-5 pt-3 shadow-[0_-6px_24px_rgba(36,62,53,.06)] backdrop-blur max-lg:flex"><div><span className="block text-xs text-[#727789]">{t.toPay}</span><strong className="text-xl font-semibold">{formatAmd(displayedTotalAmd)}</strong></div><a className="flex min-h-12 items-center rounded-xl bg-[#6258ff] px-5 text-sm font-bold text-white" href="#checkout-summary">{copy.review} ↓</a></div>
       </div>
     </div>
   );

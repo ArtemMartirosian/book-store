@@ -58,10 +58,11 @@ export function Logo({ locale, inverse = false }: { locale: Locale; inverse?: bo
   );
 }
 
-type IconName = "search" | "grid" | "user" | "heart" | "cart" | "menu" | "close" | "chevron";
+type IconName = "home" | "search" | "grid" | "user" | "heart" | "cart" | "menu" | "close" | "chevron";
 
 function Icon({ name, className = "size-5" }: { name: IconName; className?: string }) {
   const paths = {
+    home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h5v-6h4v6h5V9"/></>,
     search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></>,
     grid: <><rect x="4" y="4" width="5" height="5" rx="1" /><rect x="15" y="4" width="5" height="5" rx="1" /><rect x="4" y="15" width="5" height="5" rx="1" /><rect x="15" y="15" width="5" height="5" rx="1" /></>,
     user: <><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20c.7-4 2.9-6 6.5-6s5.8 2 6.5 6" /></>,
@@ -409,7 +410,7 @@ function Header() {
         )}
 
         {mobileOpen && (
-          <div id="mobile-navigation-menu" className="absolute inset-x-0 top-full max-h-[calc(100dvh-150px)] overflow-auto border-b border-[var(--line)] bg-[var(--paper)] p-5 shadow-[0_16px_30px_rgba(32,44,40,.08)] xl:hidden">
+          <div id="mobile-navigation-menu" className="absolute inset-x-0 top-full max-h-[calc(100dvh-200px-var(--mobile-nav-offset))] overflow-auto border-b border-[var(--line)] bg-[var(--paper)] p-5 shadow-[0_16px_30px_rgba(32,44,40,.08)] xl:hidden">
             <Link className="flex min-h-12 items-center justify-between rounded-full bg-[var(--accent)] px-5 text-sm font-medium text-white" href={localized(locale, "/catalog")} onClick={closeMenus}>{t.allCategories}<span className="text-lg" aria-hidden="true">↗</span></Link>
             <nav className="mt-3 grid gap-1" aria-label={t.menu}>
               {categoryNav.map((item) => <Link className="flex min-h-12 items-center justify-between rounded-xl px-3 text-sm font-medium hover:bg-[var(--paper)]" href={item.href} onClick={closeMenus} key={item.href}>{item.label}<Icon name="chevron" className="size-4 text-[var(--muted)]" /></Link>)}
@@ -487,16 +488,55 @@ function Footer() {
   );
 }
 
+const mobileNavigationCopy = {
+  hy: { navigation: "Հիմնական նավարկում", home: "Գլխավոր", catalog: "Գրքեր", favorites: "Սիրված", cart: "Զամբյուղ", account: "Իմ էջը" },
+  ru: { navigation: "Основная навигация", home: "Главная", catalog: "Каталог", favorites: "Избранное", cart: "Корзина", account: "Кабинет" },
+  en: { navigation: "Main navigation", home: "Home", catalog: "Catalog", favorites: "Favorites", cart: "Cart", account: "Account" },
+} as const;
+
+export function MobileBottomNavigation() {
+  const { locale, cartCount, favorites } = useStorefront();
+  const pathname = usePathname().replace(/\/+$/u, "");
+  const root = localized(locale);
+  const route = pathname === root ? "" : pathname.startsWith(root + "/") ? pathname.slice(root.length) : null;
+  const inSection = (path: string) => route === path || Boolean(route?.startsWith(path + "/"));
+  const t = mobileNavigationCopy[locale];
+  const items: Array<{ id: "home" | "catalog" | "favorites" | "cart" | "account"; path: string; icon: IconName; active: boolean; count?: number }> = [
+    { id: "home", path: "/", icon: "home", active: route === "" },
+    { id: "catalog", path: "/catalog", icon: "grid", active: inSection("/catalog") || inSection("/books") || inSection("/search") },
+    { id: "favorites", path: "/favorites", icon: "heart", active: inSection("/favorites"), count: favorites.length },
+    { id: "cart", path: "/cart", icon: "cart", active: inSection("/cart"), count: cartCount },
+    { id: "account", path: "/account", icon: "user", active: inSection("/account") },
+  ];
+
+  return <nav data-testid="mobile-bottom-navigation" className="storefront-mobile-nav fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-[var(--line)] bg-white/95 shadow-[0_-4px_24px_rgba(24,25,45,.07)] backdrop-blur-xl md:hidden" aria-label={t.navigation}>
+    <div className="grid h-full grid-cols-5 items-center gap-0.5 px-2">
+      {items.map((item) => {
+        const count = Number.isFinite(item.count) ? Math.max(0, Math.trunc(item.count!)) : 0;
+        return <Link key={item.id} data-nav-item={item.id} href={localized(locale, item.path)} prefetch={false}
+          aria-current={item.active ? "page" : undefined} aria-label={count > 0 ? t[item.id] + ": " + count : t[item.id]}
+          className={cx("flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10px] font-medium leading-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]", item.active ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]")}>
+          <span className={cx("relative grid h-7 w-11 place-items-center rounded-xl transition-colors", item.active && "bg-[var(--accent-soft)]")} aria-hidden="true">
+            <Icon name={item.icon} className="size-[21px]" />
+            {count > 0 ? <span data-nav-badge={item.id} className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full border border-white bg-[var(--accent)] px-1 text-[9px] font-bold leading-none text-white">{count > 99 ? "99+" : count}</span> : null}
+          </span>
+          <span className={cx("max-w-full whitespace-nowrap", item.active && "font-semibold")}>{t[item.id]}</span>
+        </Link>;
+      })}
+    </div>
+  </nav>;
+}
+
 function Toast() {
   const { notice } = useStorefront();
-  return <div className={cx("pointer-events-none fixed bottom-5 right-5 z-[100] flex max-w-[calc(100vw-2.5rem)] translate-y-3 items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-5 py-4 text-sm font-medium text-[var(--accent)] opacity-0 shadow-[0_12px_40px_rgba(32,44,40,.12)] transition", notice && "translate-y-0 opacity-100")} aria-live="polite"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--paper)] text-[13px] text-[var(--accent)]" aria-hidden="true">✓</span>{notice}</div>;
+  return <div className={cx("storefront-toast pointer-events-none fixed right-5 z-[100] flex max-w-[calc(100vw-2.5rem)] translate-y-3 items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-5 py-4 text-sm font-medium text-[var(--accent)] opacity-0 shadow-[0_12px_40px_rgba(32,44,40,.12)] transition", notice && "translate-y-0 opacity-100")} aria-live="polite"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--paper)] text-[13px] text-[var(--accent)]" aria-hidden="true">✓</span>{notice}</div>;
 }
 
 export function StorefrontShell({ children, locale }: { children: ReactNode; locale: Locale }) {
   return (
     <StorefrontProvider locale={locale}>
       <div className="lumi-store min-h-screen overflow-x-clip bg-[var(--paper)] font-sans text-[var(--ink)]">
-        <Header /><main>{children}</main><Footer /><Toast />
+        <Header /><main>{children}</main><Footer /><MobileBottomNavigation /><Toast />
       </div>
     </StorefrontProvider>
   );
