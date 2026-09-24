@@ -102,7 +102,6 @@ export class PricingService {
     return {
       currency: 'AMD',
       pricingRuleVersion: 'amd-fixed-v1',
-      markupPerItemAmd: this.markupPerItemAmd,
       deliveryFeeAmd: this.deliveryFeeAmd,
     };
   }

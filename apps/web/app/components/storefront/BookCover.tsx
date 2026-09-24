@@ -12,7 +12,7 @@ export function BookCover({
     return (
       <div
         className={cx(
-          "relative isolate shrink-0 overflow-hidden rounded-[4px_10px_10px_4px] border border-black/8 bg-white shadow-[-5px_6px_0_rgba(46,48,72,.09),0_18px_34px_rgba(31,34,60,.18)]",
+          "relative isolate shrink-0 overflow-hidden rounded-[2px_5px_5px_2px] bg-white shadow-[-3px_3px_0_rgba(63,67,48,.1),0_12px_22px_rgba(37,45,32,.16)]",
           coverSizeClasses[size],
         )}
       >
@@ -25,6 +25,7 @@ export function BookCover({
           referrerPolicy="no-referrer"
           src={book.coverImageUrl}
         />
+        <span className="pointer-events-none absolute inset-y-0 left-0 w-[5px] bg-gradient-to-r from-black/12 to-transparent" aria-hidden="true" />
       </div>
     );
   }
@@ -32,25 +33,25 @@ export function BookCover({
   return (
     <div
       className={cx(
-        "relative isolate flex shrink-0 flex-col justify-between overflow-hidden rounded-[4px_10px_10px_4px] border border-black/8 shadow-[-5px_6px_0_rgba(46,48,72,.09),0_18px_34px_rgba(31,34,60,.18)] before:absolute before:inset-y-0 before:left-0 before:w-2 before:border-r before:border-black/12 before:bg-white/10",
+        "relative isolate flex shrink-0 flex-col justify-between overflow-hidden [container-type:inline-size] rounded-[2px_5px_5px_2px] shadow-[-3px_3px_0_rgba(63,67,48,.1),0_12px_22px_rgba(37,45,32,.16)] before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:border-r before:border-black/10 before:bg-black/5",
         accentClasses[book.accent],
         coverSizeClasses[size],
       )}
       aria-label={book.title}
       role="img"
     >
-      <span className={cx("relative z-10 max-w-[80%] text-[7px] font-bold uppercase tracking-[0.12em]", size === "mini" && "text-[4px]")}>{book.category}</span>
+      <span className={cx("relative z-10 max-w-[90%] [overflow-wrap:anywhere] text-[8px] font-medium uppercase tracking-[0.13em]", size === "mini" && "text-[5px]")}>{book.category}</span>
       <strong className={cx(
-        "relative z-10 flex flex-col text-2xl font-bold uppercase leading-[.88] tracking-[-.065em] max-sm:text-base",
-        size === "hero" && "text-3xl",
-        size === "detail" && "text-[38px] max-sm:text-3xl",
-        size === "mini" && "text-[10px]",
+        "font-display relative z-10 flex min-w-0 max-w-full flex-col [overflow-wrap:anywhere] text-[clamp(15px,20cqw,23px)] font-medium leading-[1.08] tracking-[-.025em]",
+        size === "hero" && "text-[clamp(17px,19cqw,30px)]",
+        size === "detail" && "text-[clamp(25px,15cqw,36px)]",
+        size === "mini" && "text-[clamp(9px,21cqw,12px)]",
       )}>
-        {book.coverLabel.split("\n").map((line) => <span key={line}>{line}</span>)}
+        {book.coverLabel.split("\n").map((line) => <span className="min-w-0 max-w-full" key={line}>{line}</span>)}
       </strong>
-      <small className={cx("relative z-10 text-[9px] font-medium", size === "detail" && "text-xs", size === "mini" && "text-[5px]")}>{book.author}</small>
-      <i className="absolute -right-[12%] top-[35%] -z-0 h-[42%] w-[72%] rotate-[-12deg] border border-current opacity-20" />
-      <i className="absolute -right-[20%] top-[46%] z-0 h-3 w-[90%] rotate-[-12deg] bg-current opacity-15" />
+      <small className={cx("relative z-10 [overflow-wrap:anywhere] text-[10px] font-medium", size === "detail" && "text-xs", size === "mini" && "text-[6px]")}>{book.author}</small>
+      <i className="absolute -right-[25%] top-[25%] size-[90%] rounded-full border border-current opacity-20" />
+      <i className="absolute -right-[37%] top-[34%] size-[90%] rounded-full border border-current opacity-15" />
     </div>
   );
 }

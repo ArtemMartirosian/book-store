@@ -20,6 +20,19 @@ const createService = (overrides: Record<string, number> = {}): PricingService =
 };
 
 describe('PricingService', () => {
+  it('publishes customer pricing fields without exposing the internal markup', () => {
+    const service = createService();
+    expect(service.getPublicPolicy()).toEqual({
+      currency: 'AMD', pricingRuleVersion: 'amd-fixed-v1', deliveryFeeAmd: 1000,
+    });
+    expect(service.quote([{ productId: 'book-a', sourceUnitPriceAmd: 3000, quantity: 1 }]))
+      .toMatchObject({
+        customerTotalAmd: 4500,
+        markupSubtotalAmd: 500,
+        pricingRule: { markupPerItemAmd: 500 },
+      });
+  });
+
   it('adds 500 AMD per item and 1000 AMD once per order', () => {
     const quote = createService().quote([
       { productId: 'book-a', sourceUnitPriceAmd: 3000, quantity: 2 },

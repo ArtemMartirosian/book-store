@@ -12,5 +12,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
+  matcher: ["/:locale(hy|ru|en)/:path*", "/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };

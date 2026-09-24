@@ -7,7 +7,6 @@ import type {
 } from './procurement.model';
 import { createProcurementTaskForOrder } from './procurement-task.factory';
 import {
-  ConcurrentProcurementModificationError,
   PROCUREMENT_REPOSITORY,
   type ProcurementRepository,
 } from './repositories/procurement.repository';
@@ -39,11 +38,10 @@ export class ProcurementService {
     return task;
   }
 
-  async transition(
-    id: string,
+  prepareTransition(
+    task: ProcurementTaskRecord,
     input: TransitionProcurementDto,
-  ): Promise<ProcurementTaskRecord> {
-    const task = await this.get(id);
+  ): ProcurementTaskRecord {
     const suppliedReference = input.supplierReference?.trim() || null;
     const note = input.note?.trim() || null;
     if (input.status === 'SUPPLIER_CONFIRMED' && !suppliedReference) {
@@ -89,31 +87,18 @@ export class ProcurementService {
     const supplierReference = suppliedReference ?? task.supplierReference;
 
     const transitionedAt = this.nextTimestamp(task.updatedAt);
-    try {
-      return await this.repository.save(
-        {
-          ...task,
-          status: input.status,
-          supplierReference,
-          operatorNote: note,
-          confirmedAt:
-            input.status === 'SUPPLIER_CONFIRMED'
-              ? (task.confirmedAt ?? transitionedAt)
-              : task.confirmedAt,
-          resolvedAt: input.status === 'SUPPLIER_CONFIRMED' ? null : transitionedAt,
-          updatedAt: transitionedAt,
-        },
-        task.updatedAt,
-      );
-    } catch (error) {
-      if (error instanceof ConcurrentProcurementModificationError) {
-        throw new ConflictException({
-          code: 'PROCUREMENT_WAS_UPDATED_RETRY',
-          message: 'The procurement task changed in another operator session; reload and retry',
-        });
-      }
-      throw error;
-    }
+    return {
+      ...task,
+      status: input.status,
+      supplierReference,
+      operatorNote: note,
+      confirmedAt:
+        input.status === 'SUPPLIER_CONFIRMED'
+          ? (task.confirmedAt ?? transitionedAt)
+          : task.confirmedAt,
+      resolvedAt: input.status === 'SUPPLIER_CONFIRMED' ? null : transitionedAt,
+      updatedAt: transitionedAt,
+    };
   }
 
   countByStatus(): Promise<Record<ProcurementStatus, number>> {

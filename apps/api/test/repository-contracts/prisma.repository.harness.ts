@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/database/prisma.service';
+import { PrismaOrderProcurementUnitOfWork } from '../../src/modules/orders/repositories/prisma-order-procurement.unit-of-work';
+import type { OrderProcurementContractContext } from './order-procurement.unit-of-work.contract';
 import { PrismaOrderRepository } from '../../src/modules/orders/repositories/prisma-order.repository';
 import type { ProcurementTaskRecord } from '../../src/modules/procurement/procurement.model';
 import { PrismaProcurementRepository } from '../../src/modules/procurement/repositories/prisma-procurement.repository';
@@ -119,6 +121,7 @@ export interface IsolatedPostgresRepositoryHarness {
   teardown: () => Promise<void>;
   createOrderContext: () => Promise<PersistentOrderRepositoryContractContext>;
   createProcurementContext: () => Promise<PersistentProcurementRepositoryContractContext>;
+  createOrderProcurementContext: () => Promise<OrderProcurementContractContext>;
 }
 
 export const createIsolatedPostgresRepositoryHarness = (
@@ -215,5 +218,18 @@ export const createIsolatedPostgresRepositoryHarness = (
     teardown,
     createOrderContext,
     createProcurementContext,
+    createOrderProcurementContext: async () => {
+      const prisma = await connect(databaseUrl);
+      await resetRows(prisma);
+      return {
+        orders: new PrismaOrderRepository(prisma),
+        procurement: new PrismaProcurementRepository(prisma),
+        unitOfWork: new PrismaOrderProcurementUnitOfWork(prisma),
+        cleanup: async () => {
+          try { await resetRows(prisma); }
+          finally { await prisma.$disconnect(); }
+        },
+      };
+    },
   };
 };

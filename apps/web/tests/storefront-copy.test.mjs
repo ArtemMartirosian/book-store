@@ -49,12 +49,14 @@ const { mapCatalogBook } = await importDataModule("app/lib/catalog-api.ts");
 
 test("all three storefront languages use bookstore copy without internal sourcing details", () => {
   const bookstoreWords = { ru: /книжный интернет-магазин/u, hy: /առցանց գրախանութ/u, en: /online bookstore/u };
+  const brandNames = { ru: "Гркасер", hy: "Գրքասեր", en: "Grqaser" };
   for (const locale of locales) {
     for (const text of strings([dictionary[locale], localeMeta[locale]])) {
       assert.doesNotMatch(text, internalCopy, locale + ": " + text);
     }
     assert.match(dictionary[locale].footer.about, bookstoreWords[locale]);
-    assert.match(dictionary[locale].footer.about, /LUMI Books/u);
+    assert.ok(dictionary[locale].footer.about.includes(brandNames[locale]));
+    assert.doesNotMatch(strings(dictionary[locale]).join("\n"), /\bLUMI\b/u);
   }
 });
 

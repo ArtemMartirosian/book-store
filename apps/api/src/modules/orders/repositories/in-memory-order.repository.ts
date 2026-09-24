@@ -60,24 +60,34 @@ export class InMemoryOrderRepository implements OrderRepository {
   }
 
   async save(order: OrderRecord, expectedUpdatedAt?: string): Promise<OrderRecord> {
+    return this.prepareSave(order, expectedUpdatedAt)();
+  }
+
+  // Prepare every fallible check and clone before a multi-record commit begins.
+  // The returned commit must run synchronously, without yielding to another request.
+  prepareSave(order: OrderRecord, expectedUpdatedAt?: string): () => OrderRecord {
     const previous = this.orders.get(order.id);
     if (!previous) throw new Error('Cannot save an unknown order');
     if (expectedUpdatedAt && previous.updatedAt !== expectedUpdatedAt) {
       throw new ConcurrentOrderModificationError(order.id);
     }
     this.assertFiscalReceiptNumberAvailable(order);
+    const stored = structuredClone(order);
+    const result = structuredClone(order);
     const previousReceipt = previous.cod.fiscalReceiptNumber;
-    if (
-      previousReceipt &&
-      previousReceipt !== order.cod.fiscalReceiptNumber &&
-      this.orderIdsByFiscalReceiptNumber.get(previousReceipt) === order.id
-    ) {
-      this.orderIdsByFiscalReceiptNumber.delete(previousReceipt);
-    }
-    this.orders.set(order.id, structuredClone(order));
-    this.orderIdsByIdempotencyKey.set(order.idempotencyKey, order.id);
-    this.indexFiscalReceiptNumber(order);
-    return structuredClone(order);
+    return () => {
+      if (
+        previousReceipt &&
+        previousReceipt !== stored.cod.fiscalReceiptNumber &&
+        this.orderIdsByFiscalReceiptNumber.get(previousReceipt) === stored.id
+      ) {
+        this.orderIdsByFiscalReceiptNumber.delete(previousReceipt);
+      }
+      this.orders.set(stored.id, stored);
+      this.orderIdsByIdempotencyKey.set(stored.idempotencyKey, stored.id);
+      this.indexFiscalReceiptNumber(stored);
+      return result;
+    };
   }
 
   async countByStatus(): Promise<Record<OrderStatus, number>> {

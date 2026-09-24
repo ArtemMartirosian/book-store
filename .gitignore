@@ -18,4 +18,5 @@ playwright/.auth/
 
 # Local operating-system files and logs
 .DS_Store
+._*
 *.log

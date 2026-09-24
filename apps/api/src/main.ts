@@ -7,16 +7,12 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { buildTrustProxy } from './common/config/trust-proxy';
 
 async function bootstrap(): Promise<void> {
-  const rawTrustProxyHops = process.env.TRUST_PROXY_HOPS ?? '0';
-  if (!/^(?:0|[1-9]|10)$/.test(rawTrustProxyHops)) {
-    throw new Error('TRUST_PROXY_HOPS must be an integer between 0 and 10');
-  }
-  const trustProxyHops = Number(rawTrustProxyHops);
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: trustProxyHops === 0 ? false : trustProxyHops }),
+    new FastifyAdapter({ trustProxy: buildTrustProxy(process.env) }),
     { bufferLogs: true },
   );
   const config = app.get(ConfigService);

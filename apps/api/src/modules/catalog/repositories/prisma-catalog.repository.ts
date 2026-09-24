@@ -499,21 +499,37 @@ export class PrismaCatalogRepository implements CatalogRepository {
     await this.prisma.$transaction(async (transaction) => {
       const existing = await transaction.catalogBook.findUnique({
         where: { supplierSku: book.supplierSku },
-        select: { imageUrls: true, manualEdited: true },
+        select: {
+          imageUrls: true,
+          manualEdited: true,
+          translations: {
+            where: { locale: book.locale },
+            select: { manualEdited: true },
+          },
+        },
       });
-      data.imageUrls = [...new Set([...(existing?.imageUrls ?? []), ...data.imageUrls])];
+      const editorialProtected = Boolean(
+        existing?.manualEdited || existing?.translations[0]?.manualEdited,
+      );
+      data.imageUrls = options.force
+        ? data.imageUrls
+        : [...new Set([...(existing?.imageUrls ?? []), ...data.imageUrls])];
       data.coverImageUrl = data.imageUrls[0] ?? data.coverImageUrl;
       const { id: _id, ...update } = data;
       const persisted = await transaction.catalogBook.upsert({
         where: { supplierSku: book.supplierSku },
         create: data,
         update:
-          existing?.manualEdited && !options.force
-            ? {}
+          editorialProtected && !options.force
+            ? {
+                sourcePriceAmd: data.sourcePriceAmd,
+                availability: data.availability,
+                observedAt: data.observedAt,
+              }
             : { ...update, ...(options.force ? { manualEdited: false } : {}) },
         select: { id: true, manualEdited: true },
       });
-      if (!localization || (persisted.manualEdited && !options.force)) return;
+      if (!localization || (editorialProtected && !options.force)) return;
       const localizedData = translationData(persisted.id, localization);
       await transaction.catalogBookTranslation.upsert({
         where: {

@@ -1,39 +1,26 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { DOCUMENT_LOCALE_HEADER, documentLocaleFromHeader } from "./lib/document-locale";
+import { BRAND_DESCRIPTIONS, brandName, SITE_URL, indexingEnabled } from "./lib/brand";
+import { pageMetadata } from "./components/storefront/locale-seo";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `${protocol}://${host}`;
-  const socialImage = new URL("/og.png", origin).toString();
+  const locale = documentLocaleFromHeader(requestHeaders.get(DOCUMENT_LOCALE_HEADER));
 
   return {
-    metadataBase: new URL(origin),
+    ...pageMetadata(locale, { title: brandName(locale), description: BRAND_DESCRIPTIONS[locale] }),
+    metadataBase: new URL(SITE_URL),
     title: {
-      default: "LUMI Books — книги с доставкой по Еревану",
-      template: "%s · LUMI Books",
+      default: brandName(locale),
+      template: `%s | ${brandName(locale)}`,
     },
-    description:
-      "Современный книжный магазин с прозрачной ценой, аккуратной проверкой издания и доставкой по Еревану.",
-    applicationName: "LUMI Books",
-    keywords: ["книги", "Ереван", "книжный магазин", "գրքեր", "доставка книг"],
-    openGraph: {
-      title: "LUMI Books — книги, которые остаются с вами",
-      description: "Современный книжный магазин с доставкой по Еревану.",
-      type: "website",
-      locale: "ru_AM",
-      siteName: "LUMI Books",
-      images: [{ url: socialImage, width: 1659, height: 948, alt: "LUMI Books" }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: "LUMI Books",
-      description: "Книги с аккуратной доставкой по Еревану.",
-      images: [socialImage],
-    },
+    applicationName: brandName(locale),
+    manifest: "/manifest.webmanifest",
+    icons: { icon: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/brand/icon-48.png", sizes: "48x48", type: "image/png" }], apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }] },
+    verification: { google: process.env.GOOGLE_SITE_VERIFICATION || undefined, yandex: process.env.YANDEX_SITE_VERIFICATION || undefined },
+    robots: { index: indexingEnabled(), follow: true },
   };
 }
 

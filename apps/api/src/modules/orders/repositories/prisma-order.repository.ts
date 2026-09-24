@@ -68,7 +68,7 @@ export const hydrateOrder = (row: PersistedOrder): OrderRecord => {
   return payload;
 };
 
-const orderData = (order: OrderRecord) => ({
+export const orderData = (order: OrderRecord) => ({
   id: order.id,
   orderNumber: order.orderNumber,
   idempotencyKey: order.idempotencyKey,

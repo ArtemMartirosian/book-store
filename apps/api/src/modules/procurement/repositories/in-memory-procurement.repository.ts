@@ -52,14 +52,26 @@ export class InMemoryProcurementRepository implements ProcurementRepository {
     task: ProcurementTaskRecord,
     expectedUpdatedAt?: string,
   ): Promise<ProcurementTaskRecord> {
+    return this.prepareSave(task, expectedUpdatedAt)();
+  }
+
+  // Used by the in-memory unit of work; commit runs only after both records validate.
+  prepareSave(
+    task: ProcurementTaskRecord,
+    expectedUpdatedAt?: string,
+  ): () => ProcurementTaskRecord {
     const previous = this.tasks.get(task.id);
     if (!previous) throw new Error('Cannot save an unknown procurement task');
     if (expectedUpdatedAt && previous.updatedAt !== expectedUpdatedAt) {
       throw new ConcurrentProcurementModificationError(task.id);
     }
-    this.tasks.set(task.id, structuredClone(task));
-    this.taskIdsByOrderId.set(task.orderId, task.id);
-    return structuredClone(task);
+    const stored = structuredClone(task);
+    const result = structuredClone(task);
+    return () => {
+      this.tasks.set(stored.id, stored);
+      this.taskIdsByOrderId.set(stored.orderId, stored.id);
+      return result;
+    };
   }
 
   async countByStatus(): Promise<Record<ProcurementStatus, number>> {

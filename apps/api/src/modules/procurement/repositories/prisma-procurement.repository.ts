@@ -50,7 +50,7 @@ export const hydrateProcurementTask = (
   return payload;
 };
 
-const taskData = (task: ProcurementTaskRecord) => ({
+export const taskData = (task: ProcurementTaskRecord) => ({
   id: task.id,
   orderId: task.orderId,
   orderNumber: task.orderNumber,

@@ -4,22 +4,22 @@ export function cx(...classes: Array<string | false | null | undefined>) {
 
 export const container = "lumi-container";
 export const serif = "font-display";
-export const eyebrow = "inline-flex items-center gap-2.5 rounded-full bg-[#ebe9ff] px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#5147e2]";
-export const sectionTitle = "font-display text-[clamp(2.25rem,4.6vw,4.5rem)] font-black leading-[0.96] tracking-[-0.065em]";
-export const primaryButton = "inline-flex min-h-13 items-center justify-center gap-6 rounded-2xl bg-[#6258ff] px-6 text-[10px] font-black uppercase tracking-[.08em] text-white shadow-[0_14px_30px_rgba(98,88,255,.28)] transition duration-300 hover:-translate-y-1 hover:bg-[#473dd4] hover:shadow-[0_18px_38px_rgba(98,88,255,.34)]";
+export const eyebrow = "editorial-rule text-xs font-medium uppercase tracking-[.15em] text-[#526b56]";
+export const sectionTitle = "font-display text-[clamp(2rem,4vw,3.5rem)] leading-[1.08] tracking-[-.035em]";
+export const primaryButton = "inline-flex min-h-12 items-center justify-center gap-5 rounded-full bg-[#243e35] px-7 text-sm font-medium text-[#fffefa] transition duration-300 hover:bg-[#162c24] hover:shadow-[0_8px_20px_rgba(36,62,53,.12)] focus-visible:outline-offset-4 disabled:opacity-50";
 
 export const accentClasses = {
-  amber: "bg-[#ffbd5c] text-[#151722]",
-  coral: "bg-[#ff6b7a] text-white",
-  mint: "bg-[#d9ff69] text-[#151722]",
-  blue: "bg-[#506dff] text-white",
-  violet: "bg-[#7e64dd] text-white",
-  sand: "bg-[#ffdca8] text-[#151722]",
+  amber: "bg-[#cba85e] text-[#23312a]",
+  coral: "bg-[#b46650] text-[#fff8ea]",
+  mint: "bg-[#b8c6a7] text-[#243e35]",
+  blue: "bg-[#486976] text-[#fff8ea]",
+  violet: "bg-[#776378] text-[#fff8ea]",
+  sand: "bg-[#e5d7b9] text-[#4f4b35]",
 } as const;
 
 export const coverSizeClasses = {
-  mini: "h-[126px] w-[84px] p-[12px_8px_10px_14px]",
-  card: "h-[286px] w-[190px] p-[24px_19px_20px_24px] max-xl:h-[252px] max-xl:w-[168px] max-sm:h-[198px] max-sm:w-[132px] max-sm:p-[17px_12px_15px_18px]",
-  hero: "aspect-[.66] w-full p-[29px_23px_25px_29px]",
+  mini: "h-[114px] w-[76px] p-[12px_8px_10px_14px]",
+  card: "h-[240px] w-[160px] p-[22px_16px_18px_22px] max-sm:h-[186px] max-sm:w-[124px] max-sm:p-[16px_12px_14px_16px]",
+  hero: "aspect-[.66] w-full p-[26px_20px_22px_26px]",
   detail: "aspect-[.66] w-[min(330px,72vw)] p-[38px_31px_32px_39px] max-sm:w-[235px]",
 } as const;

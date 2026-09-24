@@ -10,6 +10,8 @@ import { CatalogService } from '../catalog/catalog.service';
 import { PricingService } from '../pricing/pricing.service';
 import { ProcurementService } from '../procurement/procurement.service';
 import type { ProcurementStatus } from '../procurement/procurement.model';
+import type { TransitionProcurementDto } from '../procurement/dto/transition-procurement.dto';
+import { ConcurrentProcurementModificationError } from '../procurement/repositories/procurement.repository';
 import type {
   CollectCashDto,
   ReconcileCashDto,
@@ -26,6 +28,12 @@ import {
   ORDER_REPOSITORY,
   type OrderRepository,
 } from './repositories/order.repository';
+import {
+  ORDER_PROCUREMENT_UNIT_OF_WORK,
+  type OrderProcurementChange,
+  type OrderProcurementPair,
+  type OrderProcurementUnitOfWork,
+} from './repositories/order-procurement.unit-of-work';
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   REQUEST_RECEIVED: ['CUSTOMER_CONFIRMED', 'CANCELLED'],
@@ -46,6 +54,8 @@ export class OrdersService {
     private readonly catalog: CatalogService,
     private readonly pricing: PricingService,
     private readonly procurement: ProcurementService,
+    @Inject(ORDER_PROCUREMENT_UNIT_OF_WORK)
+    private readonly unitOfWork: OrderProcurementUnitOfWork,
   ) {}
 
   async create(input: CreateOrderDto, rawIdempotencyKey: string | undefined): Promise<PublicOrder> {
@@ -186,21 +196,30 @@ export class OrdersService {
         message: 'Customer refusal is accepted only through the COD refusal command',
       });
     }
-    if (current.status === status) {
-      if (status === 'CANCELLED') await this.cancelProcurementForOrder(id);
-      return current;
+    if (status === 'CANCELLED') {
+      const task = await this.procurement.getByOrderId(id);
+      const updatedTask = task.status === 'PENDING_OPERATOR' || task.status === 'SUPPLIER_CONFIRMED'
+        ? this.procurement.prepareTransition(task, {
+            status: 'CANCELLED',
+            note: 'Order cancelled by an authenticated operator',
+          })
+        : task;
+      const result = await this.savePair({
+        order: this.prepareOrderTransition(current, status),
+        task: updatedTask,
+        expectedOrderUpdatedAt: current.updatedAt,
+        expectedTaskUpdatedAt: task.updatedAt,
+      });
+      return result.order;
     }
-
-    const updated = await this.saveTransition(current, status);
-    if (status === 'CANCELLED') await this.cancelProcurementForOrder(id);
-    return updated;
+    if (current.status === status) return current;
+    return this.saveTransition(current, status);
   }
 
-  async assertProcurementOutcomeAllowed(
-    orderId: string,
+  private assertProcurementOutcomeAllowed(
+    order: OrderRecord,
     procurementStatus: ProcurementStatus,
-  ): Promise<OrderRecord> {
-    const order = await this.getForAdmin(orderId);
+  ): void {
     if (procurementStatus === 'SUPPLIER_CONFIRMED') {
       if (order.status !== 'PROCUREMENT_PENDING' && order.status !== 'SUPPLIER_CONFIRMED') {
         throw new ConflictException({
@@ -209,7 +228,7 @@ export class OrdersService {
           requiredStatus: 'PROCUREMENT_PENDING',
         });
       }
-      return order;
+      return;
     }
     if (procurementStatus === 'SOURCE_UNAVAILABLE' || procurementStatus === 'CANCELLED') {
       if (order.status !== 'CANCELLED' && !ALLOWED_TRANSITIONS[order.status].includes('CANCELLED')) {
@@ -218,7 +237,7 @@ export class OrdersService {
           orderStatus: order.status,
         });
       }
-      return order;
+      return;
     }
     throw new ConflictException({
       code: 'INVALID_PROCUREMENT_OUTCOME',
@@ -226,17 +245,22 @@ export class OrdersService {
     });
   }
 
-  async applyProcurementOutcome(
-    orderId: string,
-    procurementStatus: ProcurementStatus,
-  ): Promise<OrderRecord> {
-    const order = await this.assertProcurementOutcomeAllowed(orderId, procurementStatus);
-    if (procurementStatus === 'SUPPLIER_CONFIRMED') {
-      if (order.status === 'SUPPLIER_CONFIRMED') return order;
-      return this.saveTransition(order, 'SUPPLIER_CONFIRMED');
-    }
-    if (order.status === 'CANCELLED') return order;
-    return this.saveTransition(order, 'CANCELLED');
+  async transitionProcurement(
+    taskId: string,
+    input: TransitionProcurementDto,
+  ): Promise<OrderProcurementPair> {
+    const task = await this.procurement.get(taskId);
+    const order = await this.getForAdmin(task.orderId);
+    this.assertProcurementOutcomeAllowed(order, input.status);
+    return this.savePair({
+      order: this.prepareOrderTransition(
+        order,
+        input.status === 'SUPPLIER_CONFIRMED' ? 'SUPPLIER_CONFIRMED' : 'CANCELLED',
+      ),
+      task: this.procurement.prepareTransition(task, input),
+      expectedOrderUpdatedAt: order.updatedAt,
+      expectedTaskUpdatedAt: task.updatedAt,
+    });
   }
 
   async collectCash(id: string, input: CollectCashDto): Promise<OrderRecord> {
@@ -334,6 +358,10 @@ export class OrdersService {
   }
 
   private async saveTransition(order: OrderRecord, status: OrderStatus): Promise<OrderRecord> {
+    return this.saveWithConcurrency(this.prepareOrderTransition(order, status), order.updatedAt);
+  }
+
+  private prepareOrderTransition(order: OrderRecord, status: OrderStatus): OrderRecord {
     if (order.status === status) return order;
     if (!ALLOWED_TRANSITIONS[order.status].includes(status)) {
       throw new ConflictException({
@@ -349,11 +377,11 @@ export class OrdersService {
         cashStatus: order.cod.status,
       });
     }
-    return this.saveWithConcurrency({
+    return {
       ...order,
       status,
       updatedAt: this.nextTimestamp(order.updatedAt),
-    }, order.updatedAt);
+    };
   }
 
   private async saveWithConcurrency(
@@ -377,13 +405,20 @@ export class OrdersService {
     return new Date(Math.max(Date.now(), Date.parse(previous) + 1)).toISOString();
   }
 
-  private async cancelProcurementForOrder(orderId: string): Promise<void> {
-    const task = await this.procurement.getByOrderId(orderId);
-    if (task.status === 'PENDING_OPERATOR' || task.status === 'SUPPLIER_CONFIRMED') {
-      await this.procurement.transition(task.id, {
-        status: 'CANCELLED',
-        note: 'Order cancelled by an authenticated operator',
-      });
+  private async savePair(change: OrderProcurementChange): Promise<OrderProcurementPair> {
+    try {
+      return await this.unitOfWork.savePair(change);
+    } catch (error) {
+      if (error instanceof ConcurrentOrderModificationError ||
+          error instanceof ConcurrentProcurementModificationError) {
+        throw new ConflictException({
+          code: error instanceof ConcurrentOrderModificationError
+            ? 'ORDER_WAS_UPDATED_RETRY'
+            : 'PROCUREMENT_WAS_UPDATED_RETRY',
+          message: 'The order or procurement changed in another operator session; reload and retry',
+        });
+      }
+      throw error;
     }
   }
 

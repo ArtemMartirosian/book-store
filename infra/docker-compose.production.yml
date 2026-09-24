@@ -1,0 +1,56 @@
+# Apply after docker-compose.yml; see docs/DEPLOYMENT.md.
+# NEXT_PUBLIC_SITE_URL must be the currently reachable host, not a future domain.
+x-rotating-logs: &rotating-logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    logging: *rotating-logs
+
+  redis:
+    logging: *rotating-logs
+    restart: unless-stopped
+
+  migrate:
+    logging: *rotating-logs
+
+  api:
+    environment:
+      CORS_ORIGINS: ${LUMI_CORS_ORIGINS:-https://grqaser.am}
+      TRUST_PROXY_HOPS: "1"
+      TRUST_PROXY_CIDRS: "172.18.0.1/32"
+    logging: *rotating-logs
+
+  worker:
+    environment:
+      # Fixture imports belong to local development, never the public catalog.
+      WORKER_ENABLED: "false"
+    # A disabled non-HTTP worker exits successfully; never restart it in a loop.
+    # Explicitly restore unless-stopped only when authorized live work is enabled.
+    restart: "no"
+    logging: *rotating-logs
+
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://grqaser.am}
+        SITE_INDEXING_ENABLED: ${SITE_INDEXING_ENABLED:-false}
+    environment:
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://grqaser.am}
+      SITE_INDEXING_ENABLED: ${SITE_INDEXING_ENABLED:-false}
+      NEXT_TELEMETRY_DISABLED: "1"
+    logging: *rotating-logs
+
+# This matches the existing production bridge. If moving to a different subnet,
+# inspect the actual proxy peer and update TRUST_PROXY_CIDRS at the same time.
+# Node/Postgres/Redis published ports remain bound to 127.0.0.1 by the base file.
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+          gateway: 172.18.0.1

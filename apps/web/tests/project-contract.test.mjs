@@ -22,7 +22,8 @@ test("uses the requested Next.js and Tailwind stack", async () => {
 
   assert.equal(packageJson.scripts.dev, "next dev");
   assert.equal(packageJson.scripts.build, "next build");
-  assert.equal(packageJson.dependencies.next, "16.2.6");
+  assert.equal(packageJson.dependencies.next, "16.3.5");
+  assert.equal(packageJson.devDependencies["@next/eslint-plugin-next"], packageJson.dependencies.next);
   assert.equal(packageJson.devDependencies?.vinext, undefined);
   assert.equal(packageJson.devDependencies?.wrangler, undefined);
   assert.equal(packageJson.devDependencies?.vite, undefined);
@@ -44,7 +45,7 @@ test("contains the storefront, account, cart and admin product surfaces", async 
   ]);
 });
 
-test("uses the LUMI modern digital-bookstore system with stable filters and honest data", async () => {
+test("uses the Grqaser editorial bookstore system with stable filters and honest data", async () => {
   const home = await readFile(path.join(root, "app/components/storefront/HomePage.tsx"), "utf8");
   const shell = await readFile(path.join(root, "app/components/storefront/StorefrontShell.tsx"), "utf8");
   const catalog = await readFile(path.join(root, "app/components/storefront/CatalogPage.tsx"), "utf8");
@@ -54,14 +55,16 @@ test("uses the LUMI modern digital-bookstore system with stable filters and hone
   assert.match(home, /BookShelf/);
   assert.match(home, /variant="compact"/);
   assert.match(shell, /categoryNav/);
-  assert.match(home, /#6258ff/);
-  assert.match(home, /#d9ff69/);
-  assert.match(home, /lumi-mesh/);
+  assert.match(home, /#243e35/);
+  assert.match(home, /#e9bf71/);
+  assert.match(home, /reading-stage/);
+  assert.match(home, /font-display/);
+  assert.doesNotMatch(home, /lumi-mesh|#6258ff|#d9ff69/);
   assert.match(home, /featuredCategories/);
   assert.match(home, /publisherNames/);
-  assert.match(home, /journalCards/);
   assert.match(home, /copy\.questions/);
-  assert.match(shell, /LUMI/);
+  assert.match(shell, /brandName\(locale\)/);
+  assert.match(shell, /\/brand\/grqaser-mark\.png/);
   assert.match(shell, /lumi-favorites/);
   assert.match(catalog, /\/catalog\/books/);
   assert.match(catalog, /pageSize = 24/);
@@ -111,18 +114,21 @@ test("keeps locale SEO path-aware and document language server-driven", async ()
   const shell = await readFile(path.join(root, "app/components/storefront/StorefrontShell.tsx"), "utf8");
 
   assert.match(seo, /"x-default"/);
-  assert.match(catalogPage, /localeAlternates\(locale, "\/catalog"\)/);
-  assert.match(bookPage, /localeAlternates\(locale, `\/books\/\$\{book\.slug\}`\)/);
+  assert.match(catalogPage, /pageMetadata\(locale,/);
+  assert.match(catalogPage, /state\.page > 1/);
+  assert.match(bookPage, /pageMetadata\(locale,/);
+  assert.match(bookPage, /availableLocales: localeSeo\.availableLocales/);
   assert.doesNotMatch(localeLayout, /canonical:/);
   assert.match(proxy, /DOCUMENT_LOCALE_HEADER/);
   assert.match(rootLayout, /<html lang=\{lang\}>/);
-  assert.match(localeLayout, /siteName:\s*"LUMI Books"/);
-  assert.match(localeLayout, /url:\s*"\/og\.png"/);
+  assert.match(localeLayout, /brandName\(locale\)/);
+  assert.match(seo, /siteName:/);
+  assert.match(seo, /openGraph:/);
   assert.match(shell, /window\.location\.assign\(localePath\(next\)\)/);
   assert.match(shell, /<select className=.*value=\{locale\}.*onChange=.*changeLocale/);
-  assert.match(shell, /🇦🇲.*Հայերեն/);
-  assert.match(shell, /🇷🇺.*Русский/);
-  assert.match(shell, /🇬🇧.*English/);
+  assert.match(shell, /value: "hy".*Հայերեն/);
+  assert.match(shell, /value: "ru".*Русский/);
+  assert.match(shell, /value: "en".*English/);
 });
 
 test("submits checkout to Nest with UUID products, quote guard and durable idempotency", async () => {
@@ -131,7 +137,11 @@ test("submits checkout to Nest with UUID products, quote guard and durable idemp
 
   assert.match(cart, /fetch\(`\$\{API_BASE_URL\}\/orders`/);
   assert.match(cart, /Idempotency-Key/);
-  assert.match(cart, /CHECKOUT_IDENTITY_STORAGE_KEY/);
+  assert.match(cart, /readPendingCheckout/);
+  assert.match(cart, /savePendingCheckout/);
+  assert.match(cart, /body: request.body/);
+  assert.match(cart, /classifyCheckoutResponse/);
+  assert.match(cart, /completeCheckout\(submitted.items\)/);
   assert.match(cart, /expectedTotalAmd:\s*displayedTotalAmd/);
   assert.match(cart, /expectedPricingRuleVersion:\s*displayedPricingRuleVersion/);
   assert.match(cart, /QUOTE_CHANGED/);

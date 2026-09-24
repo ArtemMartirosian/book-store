@@ -51,7 +51,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 4000
       TRUST_PROXY_HOPS: 0
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      CORS_ORIGINS: ${LUMI_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       ADMIN_API_KEY: ${LUMI_ADMIN_API_KEY:?Set LUMI_ADMIN_API_KEY in the root .env to a unique secret of at least 32 characters}
       ADMIN_USERNAME: ${LUMI_ADMIN_USERNAME:?Set LUMI_ADMIN_USERNAME in the root .env}
       ADMIN_PASSWORD: ${LUMI_ADMIN_PASSWORD:?Set LUMI_ADMIN_PASSWORD in the root .env to a unique secret of at least 16 characters}
@@ -121,11 +121,24 @@ services:
       context: ../apps/web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
         NEXT_PUBLIC_API_URL: /api/v1
         BACKEND_INTERNAL_URL: http://api:4000
+        SITE_INDEXING_ENABLED: ${SITE_INDEXING_ENABLED:-false}
     environment:
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      SITE_INDEXING_ENABLED: ${SITE_INDEXING_ENABLED:-false}
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      YANDEX_SITE_VERIFICATION: ${YANDEX_SITE_VERIFICATION:-}
       BACKEND_INTERNAL_URL: http://api:4000
+      LUMI_CONTACT_PHONE: ${LUMI_CONTACT_PHONE:-}
+      LUMI_CONTACT_EMAIL: ${LUMI_CONTACT_EMAIL:-}
+      LUMI_CONTACT_TELEGRAM_URL: ${LUMI_CONTACT_TELEGRAM_URL:-}
+      LUMI_CONTACT_WHATSAPP_URL: ${LUMI_CONTACT_WHATSAPP_URL:-}
+      LUMI_CONTACT_HOURS: ${LUMI_CONTACT_HOURS:-}
+      LUMI_TERMS_URL: ${LUMI_TERMS_URL:-}
+      LUMI_PRIVACY_URL: ${LUMI_PRIVACY_URL:-}
+      LUMI_RETURNS_URL: ${LUMI_RETURNS_URL:-}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

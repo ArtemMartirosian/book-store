@@ -7,6 +7,7 @@ import {
   defineProcurementRepositoryContract,
 } from './procurement.repository.contract';
 import { createIsolatedPostgresRepositoryHarness } from './prisma.repository.harness';
+import { defineOrderProcurementContract } from './order-procurement.unit-of-work.contract';
 
 const sourceDatabaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 
@@ -35,6 +36,7 @@ if (!sourceDatabaseUrl) {
     'PrismaProcurementRepository',
     harness.createProcurementContext,
   );
+  defineOrderProcurementContract('Prisma', harness.createOrderProcurementContext);
   definePersistentProcurementRepositoryContract(
     'PrismaProcurementRepository',
     harness.createProcurementContext,

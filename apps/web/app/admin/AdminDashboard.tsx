@@ -3,6 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { brandName } from "../lib/brand";
+import { copyOrderText, orderAddressText, orderDeliveryFields, orderDetailsCopy } from "./order-details.mjs";
 import {
   adminRequestTimeoutMs,
   isAuthorizationStatus,
@@ -14,6 +16,11 @@ import {
 } from "./admin-client.mjs";
 
 type Locale = "HY" | "RU" | "EN";
+
+function adminBrandName(locale: Locale) {
+  return brandName(locale === "HY" ? "hy" : locale === "RU" ? "ru" : "en");
+}
+
 type Section = "overview" | "orders" | "catalog" | "categories" | "procurement" | "crawler";
 type OrderStatus =
   | "REQUEST_RECEIVED"
@@ -331,7 +338,7 @@ const catalogEditorCopy = {
     language: "Язык книги",
     availability: "Наличие",
     protect: "Защитить ручные изменения от парсера",
-    protectHint: "Если включено, следующий парсинг не перезапишет эту книгу.",
+    protectHint: "Ручные описания, переводы и категории защищены. Цена поставщика и наличие продолжают обновляться.",
     title: "Название",
     author: "Автор",
     descriptionField: "Описание",
@@ -383,7 +390,7 @@ const catalogEditorCopy = {
     language: "Գրքի լեզու",
     availability: "Առկայություն",
     protect: "Պաշտպանել ձեռքով փոփոխությունները փարսերից",
-    protectHint: "Միացված լինելու դեպքում հաջորդ փարսինգը չի վերագրի գիրքը։",
+    protectHint: "Ձեռքով խմբագրված նկարագրությունները, թարգմանություններն ու բաժինները պաշտպանված են։ Մատակարարի գինն ու առկայությունը շարունակում են թարմացվել։",
     title: "Վերնագիր",
     author: "Հեղինակ",
     descriptionField: "Նկարագրություն",
@@ -435,7 +442,7 @@ const catalogEditorCopy = {
     language: "Book language",
     availability: "Availability",
     protect: "Protect manual changes from the crawler",
-    protectHint: "When enabled, future parsing will not overwrite this book.",
+    protectHint: "Manual descriptions, translations and categories are protected. Supplier price and stock continue to update.",
     title: "Title",
     author: "Author",
     descriptionField: "Description",
@@ -1124,7 +1131,7 @@ function ConnectScreen({ locale, onLocale, busy, error, onConnect }: { locale: L
           <div className="relative overflow-hidden bg-gradient-to-br from-[#6258ff] via-[#4a42bd] to-[#1b1c31] p-8 text-white sm:p-11">
             <div aria-hidden="true" className="absolute -right-20 -top-20 size-64 rounded-full border border-white/5 shadow-[0_0_0_40px_rgba(255,255,255,.02),0_0_0_80px_rgba(255,255,255,.012)]" />
             <div className="relative flex h-full min-h-[300px] flex-col">
-              <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[11px_11px_11px_4px] bg-[#f4be66] font-serif text-xl font-black text-[#173b31]">L</span><strong className="font-serif text-xl tracking-wide">LUMI Books</strong></div>
+              <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[11px_11px_11px_4px] bg-[#f4be66] font-serif text-xl font-black text-[#173b31]"><img src="/brand/grqaser-mark.png" alt="" aria-hidden="true" width={28} height={28} className="size-6 object-contain" /></span><strong className="font-serif text-xl tracking-wide">{adminBrandName(locale)}</strong></div>
               <div className="my-auto py-12"><p className="inline-flex rounded-full bg-[#d9ff69] px-3 py-2 text-[9px] font-extrabold uppercase tracking-[0.17em] text-[#17182a]">{t.connect.eyebrow}</p><h1 className="mt-5 text-4xl font-black tracking-[-.055em] sm:text-5xl">{t.connect.title}</h1><p className="mt-5 max-w-md text-xs leading-6 text-white/55">{t.connect.text}</p></div>
               <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-[10px] leading-5 text-white/55"><span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-200">✓</span>{t.connect.security}</div>
             </div>
@@ -1163,10 +1170,144 @@ function OrderActions({ order, locale, busy, onTransition, onDialog }: { order: 
   </div>;
 }
 
+
+function OrderDetailField({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="min-w-0"><dt className="text-[11px] font-semibold text-[#7d8984]">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm font-medium text-[#25322d]">{children || "—"}</dd></div>;
+}
+
+function OrderDetailsDialog({ order, locale, onClose }: { order: OrderRecord; locale: Locale; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [copyResult, setCopyResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const ui = orderDetailsCopy[locale];
+  const v = adminView[locale];
+  const deliveryFields = orderDeliveryFields(order.delivery, locale);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); };
+  }, []);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const dismissBackdrop = (event: PointerEvent) => {
+      if (event.target === dialog) onClose();
+    };
+    dialog.addEventListener("pointerdown", dismissBackdrop);
+    return () => dialog.removeEventListener("pointerdown", dismissBackdrop);
+  }, [onClose]);
+
+  async function copyValue(value: string) {
+    const ok = await copyOrderText(value, navigator.clipboard);
+    setCopyResult({ ok, text: ok ? ui.copied : ui.copyFailed });
+  }
+
+  const timestamp = (value: string | null) => {
+    if (!value) return ui.notSpecified;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(dateLocales[locale], {
+      dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Yerevan",
+    }).format(date);
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="order-details-title"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-4xl overflow-hidden rounded-2xl border border-[#e3e9e6] bg-white p-0 text-[#25322d] shadow-2xl backdrop:bg-[#17182a]/65 backdrop:backdrop-blur-sm"
+    >
+      <section className="flex max-h-[calc(100dvh-2rem)] flex-col">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e5eae7] px-5 py-4 sm:px-6">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#7d8984]">{ui.title}</p>
+            <h2 id="order-details-title" className="mt-1 text-xl font-bold sm:text-2xl">{order.orderNumber}</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Pill className={orderTone[order.status]}>{displayStatus(locale, order.status)}</Pill>
+              <Pill className="bg-[#f0efff] text-[#5348b9]">{displayStatus(locale, order.cod.status)}</Pill>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label={copy[locale].common.close} className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#f0f3f1] text-2xl">×</button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <section className="rounded-xl border border-[#e3e9e6] p-4">
+              <h3 className="text-sm font-bold">{v.customer}</h3>
+              <dl className="mt-4 grid gap-4">
+                <OrderDetailField label={v.customer}>{order.customer.fullName}</OrderDetailField>
+                <OrderDetailField label={ui.phone}>{order.customer.phone}</OrderDetailField>
+                <OrderDetailField label={ui.email}>{order.customer.email}</OrderDetailField>
+                <OrderDetailField label={ui.locale}>{order.locale.toUpperCase()}</OrderDetailField>
+                <OrderDetailField label={ui.confirmationRequired}>{order.customerConfirmationRequired ? ui.yes : ui.no}</OrderDetailField>
+              </dl>
+              <button type="button" onClick={() => void copyValue(order.customer.phone)} disabled={!order.customer.phone.trim()} className={secondaryButtonClass + " mt-4"}>{ui.copyPhone}</button>
+            </section>
+            <section className="rounded-xl border border-[#e3e9e6] p-4">
+              <h3 className="text-sm font-bold">{ui.delivery}</h3>
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                {deliveryFields.map(({ label, value }, index) => <div key={label} className={index === 2 || index === 6 ? "sm:col-span-2" : ""}><OrderDetailField label={label}>{value}</OrderDetailField></div>)}
+              </dl>
+              <button type="button" onClick={() => void copyValue(orderAddressText(deliveryFields))} className={secondaryButtonClass + " mt-4"}>{ui.copyAddress}</button>
+            </section>
+          </div>
+          {copyResult ? <p role="status" aria-live="polite" className={`mt-3 rounded-xl px-4 py-3 text-xs ${copyResult.ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>{copyResult.text}</p> : null}
+          <section className="mt-5 rounded-xl border border-[#e3e9e6]">
+            <h3 className="border-b border-[#e3e9e6] px-4 py-3 text-sm font-bold">{ui.items} · {order.items.reduce((sum, item) => sum + item.quantity, 0)}</h3>
+            <ul className="divide-y divide-[#e8ecea]">
+              {order.items.map((item, index) => <li key={item.productId + ":" + index} className="p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1"><h4 className="break-words text-sm font-bold">{item.title}</h4><p className="mt-1 break-words text-xs text-[#7d8984]">{item.author}</p><p className="mt-2 break-all text-[10px] text-[#7d8984]">SKU: {item.supplierSku}</p></div>
+                  <strong className="text-sm">{formatAmd(item.customerSubtotalAmd)}</strong>
+                </div>
+                <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <OrderDetailField label={ui.quantity}>{item.quantity}</OrderDetailField>
+                  <OrderDetailField label={ui.unitPrice}>{formatAmd(item.customerUnitPriceAmd)}</OrderDetailField>
+                  <OrderDetailField label={ui.sourcePrice}>{formatAmd(item.sourceUnitPriceAmd)}</OrderDetailField>
+                </dl>
+              </li>)}
+            </ul>
+            <dl className="grid gap-3 border-t border-[#e3e9e6] bg-[#f8f9fc] p-4 text-sm">
+              <div className="flex justify-between gap-3"><dt>{ui.subtotal}</dt><dd>{formatAmd(order.itemsSubtotalAmd)}</dd></div>
+              <div className="flex justify-between gap-3"><dt>{ui.deliveryFee}</dt><dd>{formatAmd(order.deliveryFeeAmd)}</dd></div>
+              <div className="flex justify-between gap-3 text-base font-bold"><dt>{v.total}</dt><dd>{formatAmd(order.totalAmd)}</dd></div>
+              <div className="flex justify-between gap-3 text-xs text-[#7d8984]"><dt>{ui.margin}</dt><dd>{formatAmd(order.projectedMarginAmd)}</dd></div>
+            </dl>
+          </section>
+          <section className="mt-5 rounded-xl border border-[#e3e9e6] p-4">
+            <h3 className="text-sm font-bold">{ui.payment}</h3>
+            <p className="mt-1 text-xs text-[#7d8984]">{ui.cash}</p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <OrderDetailField label={ui.cashStatus}>{displayStatus(locale, order.cod.status)}</OrderDetailField>
+              <OrderDetailField label={ui.due}>{formatAmd(order.cod.dueAmd)}</OrderDetailField>
+              <OrderDetailField label={ui.receipt}>{order.cod.fiscalReceiptNumber}</OrderDetailField>
+              <OrderDetailField label={ui.collected}>{timestamp(order.cod.collectedAt)}</OrderDetailField>
+              <OrderDetailField label={ui.reconciled}>{timestamp(order.cod.reconciledAt)}</OrderDetailField>
+              <OrderDetailField label={ui.reconciliation}>{order.cod.reconciliationReference}</OrderDetailField>
+              <div className="sm:col-span-2"><OrderDetailField label={ui.refusal}>{order.cod.refusalReason}</OrderDetailField></div>
+            </dl>
+          </section>
+          <dl className="mt-5 grid gap-4 px-1 sm:grid-cols-2">
+            <OrderDetailField label={ui.created}>{timestamp(order.createdAt)}</OrderDetailField>
+            <OrderDetailField label={ui.updated}>{timestamp(order.updatedAt)}</OrderDetailField>
+          </dl>
+          <p className="mt-4 break-all text-[10px] text-[#7d8984]">ID: {order.id}</p>
+        </div>
+        <footer className="flex shrink-0 justify-end border-t border-[#e5eae7] px-5 py-3 sm:px-6">
+          <button type="button" onClick={onClose} className={primaryButtonClass}>{copy[locale].common.close}</button>
+        </footer>
+      </section>
+    </dialog>
+  );
+}
+
 function OrdersTable({ orders, locale, busyId, onTransition, onDialog, empty }: { orders: OrderRecord[]; locale: Locale; busyId: string | null; onTransition: (order: OrderRecord, status: OrderStatus) => void; onDialog: (action: DialogAction) => void; empty: string }) {
   const v = adminView[locale];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedOrder = orders.find((order) => order.id === selectedId);
   if (!orders.length) return <EmptyState text={empty} />;
-  return <div className="w-full overflow-x-auto"><table className="w-full min-w-[930px] border-collapse whitespace-nowrap text-left"><thead className="bg-[#fafbfa] text-[9px] font-extrabold uppercase tracking-wider text-[#96a09b]"><tr><th className="border-b border-[#e8ecea] px-5 py-3">{v.order}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.customer}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.total}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.orderStatus}</th><th className="border-b border-[#e8ecea] px-4 py-3">COD</th><th className="border-b border-[#e8ecea] px-4 py-3"><span className="sr-only">{v.actions}</span></th></tr></thead><tbody className="text-[11px] text-[#4c5954]">{orders.map((order) => <tr key={order.id} className="align-middle transition hover:bg-[#fbfcfb]"><td className="border-b border-[#eef1ef] px-5 py-3"><strong className="block text-xs text-[#25322d]">{order.orderNumber}</strong><span className="mt-0.5 block text-[9px] text-[#9ba5a0]">{formatDate(order.createdAt, locale)} · {order.items.reduce((sum, item) => sum + item.quantity, 0)} {v.items}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><strong className="block text-[#2a3732]">{order.customer.fullName}</strong><span className="mt-0.5 block text-[9px] text-[#929e98]">{order.customer.phone} · {humanStatus(order.delivery.district)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><strong className="text-[#26332e]">{formatAmd(order.totalAmd)}</strong><span className="mt-0.5 block text-[9px] text-emerald-700">{v.margin} {formatAmd(order.projectedMarginAmd)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><Pill className={orderTone[order.status]}>{displayStatus(locale, order.status)}</Pill></td><td className="border-b border-[#eef1ef] px-4 py-3"><span className="block text-[9px] font-bold capitalize text-[#4f5e57]">{displayStatus(locale, order.cod.status)}</span><span className="mt-0.5 block text-[8px] text-[#96a09b]">{formatAmd(order.cod.dueAmd)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><OrderActions order={order} locale={locale} busy={busyId !== null} onTransition={onTransition} onDialog={onDialog} /></td></tr>)}</tbody></table></div>;
+  return <><div className="w-full overflow-x-auto"><table className="w-full min-w-[930px] border-collapse whitespace-nowrap text-left"><thead className="bg-[#fafbfa] text-[9px] font-extrabold uppercase tracking-wider text-[#96a09b]"><tr><th className="border-b border-[#e8ecea] px-5 py-3">{v.order}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.customer}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.total}</th><th className="border-b border-[#e8ecea] px-4 py-3">{v.orderStatus}</th><th className="border-b border-[#e8ecea] px-4 py-3">COD</th><th className="border-b border-[#e8ecea] px-4 py-3"><span className="sr-only">{v.actions}</span></th></tr></thead><tbody className="text-[11px] text-[#4c5954]">{orders.map((order) => <tr key={order.id} className="align-middle transition hover:bg-[#fbfcfb]"><td className="border-b border-[#eef1ef] px-5 py-3"><button type="button" onClick={() => setSelectedId(order.id)} aria-label={orderDetailsCopy[locale].open + ": " + order.orderNumber} className="block min-h-9 text-left text-xs font-bold text-[#5145b5] underline decoration-[#c7c2f2] underline-offset-4">{order.orderNumber}</button><span className="mt-0.5 block text-[9px] text-[#9ba5a0]">{formatDate(order.createdAt, locale)} · {order.items.reduce((sum, item) => sum + item.quantity, 0)} {v.items}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><strong className="block text-[#2a3732]">{order.customer.fullName}</strong><span className="mt-0.5 block text-[9px] text-[#929e98]">{order.customer.phone} · {humanStatus(order.delivery.district)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><strong className="text-[#26332e]">{formatAmd(order.totalAmd)}</strong><span className="mt-0.5 block text-[9px] text-emerald-700">{v.margin} {formatAmd(order.projectedMarginAmd)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><Pill className={orderTone[order.status]}>{displayStatus(locale, order.status)}</Pill></td><td className="border-b border-[#eef1ef] px-4 py-3"><span className="block text-[9px] font-bold capitalize text-[#4f5e57]">{displayStatus(locale, order.cod.status)}</span><span className="mt-0.5 block text-[8px] text-[#96a09b]">{formatAmd(order.cod.dueAmd)}</span></td><td className="border-b border-[#eef1ef] px-4 py-3"><OrderActions order={order} locale={locale} busy={busyId !== null} onTransition={onTransition} onDialog={onDialog} /></td></tr>)}</tbody></table></div>{selectedOrder ? <OrderDetailsDialog key={selectedOrder.id} order={selectedOrder} locale={locale} onClose={() => setSelectedId(null)} /> : null}</>;
 }
 
 function OverviewView({ snapshot, locale, busyId, onTransition, onDialog, go }: { snapshot: Snapshot; locale: Locale; busyId: string | null; onTransition: (order: OrderRecord, status: OrderStatus) => void; onDialog: (action: DialogAction) => void; go: (section: Section) => void }) {
@@ -1177,7 +1318,7 @@ function OverviewView({ snapshot, locale, busyId, onTransition, onDialog, go }: 
   const active = snapshot.orders.filter((order) => !["DELIVERED", "CUSTOMER_REFUSED", "CANCELLED"].includes(order.status)).length;
   const pending = snapshot.procurements.filter((task) => task.status === "PENDING_OPERATOR").length;
   return <>
-    <section className="relative flex min-h-[220px] flex-col justify-between gap-7 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#1a4538] via-[#14372e] to-[#102b24] p-6 text-white shadow-[0_18px_44px_rgba(21,57,47,0.11)] sm:p-8 lg:flex-row lg:items-center"><div aria-hidden="true" className="absolute -right-20 -top-28 size-80 rounded-full border border-white/5 shadow-[0_0_0_45px_rgba(255,255,255,.018),0_0_0_90px_rgba(255,255,255,.012)]" /><div className="relative z-10 max-w-3xl"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#f0bd68]">LUMI OPERATIONS · {formatDate(snapshot.dashboard.generatedAt, locale)}</p><h1 className="mt-2 font-serif text-3xl font-medium tracking-tight sm:text-5xl">{t.nav.overview}</h1><p className="mt-3 max-w-2xl text-xs leading-5 text-white/60">{snapshot.dashboard.persistence === "IN_MEMORY_DEVELOPMENT_ADAPTER" ? v.inMemory : snapshot.dashboard.persistence} · {snapshot.crawler.mode === "FIXTURE_ONLY" ? v.fixtureMode : v.gatedMode}</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => go("orders")} className="min-h-10 rounded-xl bg-[#f2bd68] px-4 text-xs font-extrabold text-[#263a32]">{t.nav.orders} →</button><button type="button" onClick={() => go("procurement")} className="min-h-10 rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-bold">{t.nav.procurement}</button></div></div><div className="relative z-10 flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 lg:w-auto"><span className={`grid size-11 place-items-center rounded-full font-black ${snapshot.crawler.killSwitch.engaged ? "bg-rose-300/15 text-rose-200" : "bg-emerald-300/10 text-emerald-200"}`}>{snapshot.crawler.killSwitch.engaged ? "!" : "✓"}</span><div><strong className="block text-xs">{snapshot.crawler.killSwitch.engaged ? v.killEngaged : v.connected}</strong><span className="mt-1 block text-[10px] text-white/45">{snapshot.crawler.networkFetcherImplemented ? v.networkAvailable : v.fixtureOnly}</span></div></div></section>
+    <section className="relative flex min-h-[220px] flex-col justify-between gap-7 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#1a4538] via-[#14372e] to-[#102b24] p-6 text-white shadow-[0_18px_44px_rgba(21,57,47,0.11)] sm:p-8 lg:flex-row lg:items-center"><div aria-hidden="true" className="absolute -right-20 -top-28 size-80 rounded-full border border-white/5 shadow-[0_0_0_45px_rgba(255,255,255,.018),0_0_0_90px_rgba(255,255,255,.012)]" /><div className="relative z-10 max-w-3xl"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#f0bd68]">{adminBrandName(locale)} · {formatDate(snapshot.dashboard.generatedAt, locale)}</p><h1 className="mt-2 font-serif text-3xl font-medium tracking-tight sm:text-5xl">{t.nav.overview}</h1><p className="mt-3 max-w-2xl text-xs leading-5 text-white/60">{snapshot.dashboard.persistence === "IN_MEMORY_DEVELOPMENT_ADAPTER" ? v.inMemory : snapshot.dashboard.persistence} · {snapshot.crawler.mode === "FIXTURE_ONLY" ? v.fixtureMode : v.gatedMode}</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => go("orders")} className="min-h-10 rounded-xl bg-[#f2bd68] px-4 text-xs font-extrabold text-[#263a32]">{t.nav.orders} →</button><button type="button" onClick={() => go("procurement")} className="min-h-10 rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-bold">{t.nav.procurement}</button></div></div><div className="relative z-10 flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 lg:w-auto"><span className={`grid size-11 place-items-center rounded-full font-black ${snapshot.crawler.killSwitch.engaged ? "bg-rose-300/15 text-rose-200" : "bg-emerald-300/10 text-emerald-200"}`}>{snapshot.crawler.killSwitch.engaged ? "!" : "✓"}</span><div><strong className="block text-xs">{snapshot.crawler.killSwitch.engaged ? v.killEngaged : v.connected}</strong><span className="mt-1 block text-[10px] text-white/45">{snapshot.crawler.networkFetcherImplemented ? v.networkAvailable : v.fixtureOnly}</span></div></div></section>
     <section className="mt-4 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4"><MetricCard label={t.kpi.sales} value={formatAmd(total)} detail={snapshot.orders.length + " " + v.records} tone="green" icon="֏" /><MetricCard label={t.kpi.margin} value={formatAmd(margin)} detail={v.serverComputed} tone="purple" icon="↗" /><MetricCard label={t.kpi.active} value={String(active)} detail={v.nonTerminal} tone="blue" icon="▤" /><MetricCard label={t.kpi.procurement} value={String(pending)} detail={v.operatorQueue} tone="amber" icon="◎" /></section>
     <section className={`${panelClass} mt-4`}><PanelHeader eyebrow={v.liveApi} title={t.nav.orders} action={<button type="button" onClick={() => go("orders")} className="text-[10px] font-bold text-[#4e6b61]">{t.nav.orders} →</button>} /><OrdersTable orders={snapshot.orders.slice(0, 5)} locale={locale} busyId={busyId} onTransition={onTransition} onDialog={onDialog} empty={t.common.empty} /></section>
   </>;
@@ -1793,8 +1934,8 @@ export function AdminDashboard() {
   if (!connection || !snapshot) return <ConnectScreen locale={locale} onLocale={setLocale} busy={connecting} error={error} onConnect={connect} />;
 
   return <div className="admin-modern fixed inset-0 z-[100] flex overflow-hidden bg-[#f4f5fb] font-sans text-[#17182a] antialiased">
-    <aside aria-label="Admin navigation" className="hidden h-full w-[78px] shrink-0 flex-col bg-gradient-to-b from-[#173c32] to-[#102d26] px-2.5 py-5 text-white md:flex xl:w-[248px] xl:px-4 xl:py-6"><div className="flex items-center justify-center gap-3 px-1 xl:justify-start xl:px-2"><span className="grid size-9 place-items-center rounded-[10px_10px_10px_3px] bg-[#f4be66] font-serif text-xl font-black text-[#173b31]">L</span><div className="hidden xl:block"><strong className="block font-serif text-xl tracking-wide">LUMI Books</strong><span className="text-[9px] uppercase tracking-wider text-white/40">{t.connect.title}</span></div></div><nav className="mt-7 flex flex-col gap-1">{navigation.map((item) => <button key={item.id} type="button" aria-label={t.nav[item.id]} title={t.nav[item.id]} onClick={() => setSection(item.id)} aria-current={section === item.id ? "page" : undefined} className={`relative flex items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition xl:justify-start xl:px-3 ${section === item.id ? "bg-white/10 text-white before:absolute before:-left-2.5 before:h-6 before:w-[3px] before:bg-[#f2bc63] xl:before:-left-4" : "text-white/60 hover:bg-white/[.07] hover:text-white"}`}><span aria-hidden="true" className="grid size-5 place-items-center text-base">{item.icon}</span><span className="hidden text-xs font-semibold xl:block">{t.nav[item.id]}</span>{item.id === "procurement" && snapshot.procurements.some((task) => task.status === "PENDING_OPERATOR") ? <i className="absolute right-2 size-2 rounded-full bg-amber-400 xl:ml-auto" aria-label={adminView[locale].pendingTasks} /> : null}</button>)}</nav><div className="mt-auto border-t border-white/10 pt-4"><div className="hidden rounded-xl border border-white/10 bg-black/10 p-3 xl:block"><strong className="block truncate text-[10px]">{connection.baseUrl}</strong><span className="mt-1 block text-[9px] text-white/40">{snapshot.dashboard.persistence}</span></div></div></aside>
-    <div className="relative flex min-w-0 flex-1 flex-col"><header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-[#e3e9e6] bg-white/95 px-3 backdrop-blur sm:px-6 lg:px-8"><div className="flex items-center gap-2 md:hidden"><span className="grid size-8 place-items-center rounded-[9px_9px_9px_3px] bg-[#f4be66] font-serif text-base font-black text-[#173b31]">L</span><strong className="font-serif text-lg">LUMI</strong></div><div className="hidden items-center gap-2 text-xs md:flex"><span className="text-[#99a29e]">Admin</span><i className="not-italic text-[#c2c9c6]">/</i><strong>{t.nav[section]}</strong></div><div className="flex items-center gap-2"><LocaleSwitch locale={locale} onChange={changeLocale} disabled={refreshing || busyId !== null} /><button disabled={refreshing || busyId !== null} type="button" aria-label={refreshing ? t.common.refreshing : t.common.refresh} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl border border-[#dfe7e1] bg-[#f8fbf9] text-sm text-[#4d5e57] sm:flex sm:w-auto sm:gap-2 sm:px-3 sm:text-[10px] sm:font-bold"><span className={refreshing ? "animate-spin" : ""}>↻</span><span className="hidden lg:inline">{refreshing ? t.common.refreshing : t.common.refresh}</span></button><button disabled={busyId !== null} type="button" onClick={disconnect} aria-label={t.common.disconnect} className="grid size-9 place-items-center rounded-xl border border-[#e2e7e4] bg-white text-[9px] font-bold text-[#66736d] disabled:opacity-50 sm:flex sm:w-auto sm:px-3"><span aria-hidden="true" className="sm:hidden">×</span><span className="hidden sm:inline">{t.common.disconnect}</span></button></div></header>
+    <aside aria-label="Admin navigation" className="hidden h-full w-[78px] shrink-0 flex-col bg-gradient-to-b from-[#173c32] to-[#102d26] px-2.5 py-5 text-white md:flex xl:w-[248px] xl:px-4 xl:py-6"><div className="flex items-center justify-center gap-3 px-1 xl:justify-start xl:px-2"><span className="grid size-9 place-items-center rounded-[10px_10px_10px_3px] bg-[#f4be66] font-serif text-xl font-black text-[#173b31]"><img src="/brand/grqaser-mark.png" alt="" aria-hidden="true" width={28} height={28} className="size-6 object-contain" /></span><div className="hidden xl:block"><strong className="block font-serif text-xl tracking-wide">{adminBrandName(locale)}</strong><span className="text-[9px] uppercase tracking-wider text-white/40">{t.connect.title}</span></div></div><nav className="mt-7 flex flex-col gap-1">{navigation.map((item) => <button key={item.id} type="button" aria-label={t.nav[item.id]} title={t.nav[item.id]} onClick={() => setSection(item.id)} aria-current={section === item.id ? "page" : undefined} className={`relative flex items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition xl:justify-start xl:px-3 ${section === item.id ? "bg-white/10 text-white before:absolute before:-left-2.5 before:h-6 before:w-[3px] before:bg-[#f2bc63] xl:before:-left-4" : "text-white/60 hover:bg-white/[.07] hover:text-white"}`}><span aria-hidden="true" className="grid size-5 place-items-center text-base">{item.icon}</span><span className="hidden text-xs font-semibold xl:block">{t.nav[item.id]}</span>{item.id === "procurement" && snapshot.procurements.some((task) => task.status === "PENDING_OPERATOR") ? <i className="absolute right-2 size-2 rounded-full bg-amber-400 xl:ml-auto" aria-label={adminView[locale].pendingTasks} /> : null}</button>)}</nav><div className="mt-auto border-t border-white/10 pt-4"><div className="hidden rounded-xl border border-white/10 bg-black/10 p-3 xl:block"><strong className="block truncate text-[10px]">{connection.baseUrl}</strong><span className="mt-1 block text-[9px] text-white/40">{snapshot.dashboard.persistence}</span></div></div></aside>
+    <div className="relative flex min-w-0 flex-1 flex-col"><header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-[#e3e9e6] bg-white/95 px-3 backdrop-blur sm:px-6 lg:px-8"><div className="flex items-center gap-2 md:hidden"><span className="grid size-8 place-items-center rounded-[9px_9px_9px_3px] bg-[#f4be66] font-serif text-base font-black text-[#173b31]"><img src="/brand/grqaser-mark.png" alt="" aria-hidden="true" width={28} height={28} className="size-6 object-contain" /></span><strong className="font-serif text-lg">{adminBrandName(locale)}</strong></div><div className="hidden items-center gap-2 text-xs md:flex"><span className="text-[#99a29e]">Admin</span><i className="not-italic text-[#c2c9c6]">/</i><strong>{t.nav[section]}</strong></div><div className="flex items-center gap-2"><LocaleSwitch locale={locale} onChange={changeLocale} disabled={refreshing || busyId !== null} /><button disabled={refreshing || busyId !== null} type="button" aria-label={refreshing ? t.common.refreshing : t.common.refresh} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl border border-[#dfe7e1] bg-[#f8fbf9] text-sm text-[#4d5e57] sm:flex sm:w-auto sm:gap-2 sm:px-3 sm:text-[10px] sm:font-bold"><span className={refreshing ? "animate-spin" : ""}>↻</span><span className="hidden lg:inline">{refreshing ? t.common.refreshing : t.common.refresh}</span></button><button disabled={busyId !== null} type="button" onClick={disconnect} aria-label={t.common.disconnect} className="grid size-9 place-items-center rounded-xl border border-[#e2e7e4] bg-white text-[9px] font-bold text-[#66736d] disabled:opacity-50 sm:flex sm:w-auto sm:px-3"><span aria-hidden="true" className="sm:hidden">×</span><span className="hidden sm:inline">{t.common.disconnect}</span></button></div></header>
       <nav aria-label="Admin sections" className="flex min-h-[52px] shrink-0 gap-1 overflow-x-auto border-b border-[#e3e9e6] bg-white px-2 py-1.5 md:hidden">{navigation.map((item) => <button type="button" key={item.id} aria-current={section === item.id ? "page" : undefined} onClick={() => setSection(item.id)} className={`flex min-w-max items-center gap-1.5 rounded-lg px-3 text-[9px] font-bold ${section === item.id ? "bg-[#183d33] text-white" : "text-[#7b8882]"}`}><span aria-hidden="true">{item.icon}</span>{t.nav[item.id]}</button>)}</nav>
       {error ? <div role="alert" className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[10px] text-rose-700 sm:mx-6 lg:mx-8"><span><strong>{t.common.error}:</strong> {error}</span><button type="button" onClick={() => void refresh()} className="shrink-0 font-bold underline">{t.common.retry}</button></div> : null}
       <main className="mx-auto w-full max-w-[1500px] flex-1 overflow-y-auto px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:px-8">

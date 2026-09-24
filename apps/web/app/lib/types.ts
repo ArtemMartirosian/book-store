@@ -49,6 +49,7 @@ export type Book = {
   attributes?: BookAttribute[];
   detailSections?: BookDetailSection[];
   availableLocales?: Array<"hy" | "ru" | "en">;
+  fallbackLocale?: "hy" | "ru" | "en";
   availability: "observed" | "reserved" | "unavailable";
   observedAt: string;
   badge?: string;

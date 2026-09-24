@@ -93,7 +93,7 @@ function stableAccent(value: string): BookAccent {
 
 function coverLabel(title: string): string {
   const compact = title.trim().replace(/\s+/gu, " ");
-  if (!compact) return "LUMI";
+  if (!compact) return "Grqaser";
   const words = compact.split(" ");
   return words.length > 3 ? `${words.slice(0, 2).join(" ")}\n${words.slice(2, 4).join(" ")}` : compact;
 }
@@ -150,6 +150,7 @@ export function mapCatalogBook(book: CatalogApiBook): Book {
     attributes: book.attributes ?? [],
     detailSections: book.detailSections ?? [],
     availableLocales: book.availableLocales ?? [],
+    fallbackLocale: book.fallbackLocale ?? book.locale,
     availability: book.availability === "OUT_OF_STOCK" ? "unavailable" : "observed",
     observedAt: book.observedAt,
     accent: stableAccent(book.slug),

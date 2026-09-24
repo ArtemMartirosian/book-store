@@ -9,6 +9,7 @@ import { InMemoryProcurementRepository } from '../procurement/repositories/in-me
 import type { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService } from './orders.service';
 import { InMemoryOrderRepository } from './repositories/in-memory-order.repository';
+import { InMemoryOrderProcurementUnitOfWork } from './repositories/in-memory-order-procurement.unit-of-work';
 
 const BOOK_ID = '29f69fbb-569c-45df-9293-a7f8a31c3331';
 
@@ -51,10 +52,11 @@ const createHarness = () => {
   const orderRepository = new InMemoryOrderRepository();
   const procurementRepository = new InMemoryProcurementRepository();
   const procurement = new ProcurementService(procurementRepository);
-  const orders = new OrdersService(orderRepository, catalog, pricing, procurement);
-  const workflow = new AdminProcurementWorkflowService(orders, procurement);
+  const unitOfWork = new InMemoryOrderProcurementUnitOfWork(orderRepository, procurementRepository);
+  const orders = new OrdersService(orderRepository, catalog, pricing, procurement, unitOfWork);
+  const workflow = new AdminProcurementWorkflowService(orders);
 
-  return { orders, orderRepository, procurement, workflow };
+  return { orders, orderRepository, procurementRepository, procurement, workflow, unitOfWork };
 };
 
 const advanceToOutForDelivery = async (
@@ -75,6 +77,84 @@ const advanceToOutForDelivery = async (
 };
 
 describe('OrdersService production-shaped in-memory workflow', () => {
+  it.each(['confirm', 'cancel'] as const)('does not partially save a %s command when task preparation fails', async (command) => {
+    const { orders, procurement, procurementRepository, workflow } = createHarness();
+    const created = await orders.create(createInput(), `checkout:atomic-${command}`);
+    await orders.transition(created.id, 'CUSTOMER_CONFIRMED');
+    await orders.transition(created.id, 'PROCUREMENT_PENDING');
+    const beforeOrder = await orders.getForAdmin(created.id);
+    const beforeTask = await procurement.getByOrderId(created.id);
+    jest.spyOn(procurementRepository, 'prepareSave').mockImplementationOnce(() => {
+      throw new Error('Injected preparation failure');
+    });
+    const attempt = command === 'confirm'
+      ? workflow.transition(beforeTask.id, { status: 'SUPPLIER_CONFIRMED', supplierReference: 'ATOMIC-TEST' })
+      : orders.transition(created.id, 'CANCELLED');
+    await expect(attempt).rejects.toThrow('Injected preparation failure');
+    await expect(orders.getForAdmin(created.id)).resolves.toEqual(beforeOrder);
+    await expect(procurement.get(beforeTask.id)).resolves.toEqual(beforeTask);
+  });
+
+  it('cancels an order and its confirmed procurement together, retaining supplier evidence', async () => {
+    const { orders, procurement, workflow } = createHarness();
+    const created = await orders.create(createInput(), 'checkout:atomic-cancel-confirmed');
+    await orders.transition(created.id, 'CUSTOMER_CONFIRMED');
+    await orders.transition(created.id, 'PROCUREMENT_PENDING');
+    const task = await procurement.getByOrderId(created.id);
+    const confirmed = await workflow.transition(task.id, { status: 'SUPPLIER_CONFIRMED', supplierReference: 'ATOMIC-CANCEL' });
+    const cancelled = await orders.transition(created.id, 'CANCELLED');
+    expect(cancelled.status).toBe('CANCELLED');
+    await expect(procurement.get(task.id)).resolves.toMatchObject({
+      status: 'CANCELLED', supplierReference: 'ATOMIC-CANCEL', confirmedAt: confirmed.task.confirmedAt,
+    });
+    await expect(orders.transition(created.id, 'CANCELLED')).resolves.toEqual(cancelled);
+  });
+
+  it('keeps the pair consistent when confirmation races with order cancellation', async () => {
+    const { orders, procurement, workflow } = createHarness();
+    const created = await orders.create(createInput(), 'checkout:atomic-race');
+    await orders.transition(created.id, 'CUSTOMER_CONFIRMED');
+    await orders.transition(created.id, 'PROCUREMENT_PENDING');
+    const task = await procurement.getByOrderId(created.id);
+    const results = await Promise.allSettled([
+      workflow.transition(task.id, { status: 'SUPPLIER_CONFIRMED', supplierReference: 'ATOMIC-RACE' }),
+      orders.transition(created.id, 'CANCELLED'),
+    ]);
+    expect(results.some((result) => result.status === 'fulfilled')).toBe(true);
+    for (const result of results) {
+      if (result.status === 'rejected') expect(result.reason).toBeInstanceOf(ConflictException);
+    }
+    const finalOrder = await orders.getForAdmin(created.id);
+    const finalTask = await procurement.get(task.id);
+    expect(finalOrder.status).toBe(finalTask.status);
+    expect(['CANCELLED', 'SUPPLIER_CONFIRMED']).toContain(finalOrder.status);
+  });
+
+  it.each(['order', 'task'] as const)('rejects a stale %s version without overwriting either competing change', async (entity) => {
+    const { orders, orderRepository, procurement, procurementRepository, workflow, unitOfWork } = createHarness();
+    const created = await orders.create(createInput(), `checkout:stale-pair-${entity}`);
+    await orders.transition(created.id, 'CUSTOMER_CONFIRMED');
+    await orders.transition(created.id, 'PROCUREMENT_PENDING');
+    const task = await procurement.getByOrderId(created.id);
+    const savePair = unitOfWork.savePair.bind(unitOfWork);
+    jest.spyOn(unitOfWork, 'savePair').mockImplementationOnce(async (change) => {
+      if (entity === 'order') {
+        const current = await orders.getForAdmin(created.id);
+        await orderRepository.save({ ...current, delivery: { ...current.delivery, notes: 'Winning operator note' }, updatedAt: new Date(Date.parse(current.updatedAt) + 1).toISOString() }, current.updatedAt);
+      } else {
+        await procurementRepository.save({ ...task, operatorNote: 'Winning operator note', updatedAt: new Date(Date.parse(task.updatedAt) + 1).toISOString() }, task.updatedAt);
+      }
+      return savePair(change);
+    });
+    await expect(workflow.transition(task.id, { status: 'SUPPLIER_CONFIRMED', supplierReference: 'STALE-PAIR' }))
+      .rejects.toMatchObject({ status: 409 });
+    const finalOrder = await orders.getForAdmin(created.id);
+    const finalTask = await procurement.get(task.id);
+    expect(finalOrder.status).toBe('PROCUREMENT_PENDING');
+    expect(finalTask.status).toBe('PENDING_OPERATOR');
+    expect(entity === 'order' ? finalOrder.delivery.notes : finalTask.operatorNote).toBe('Winning operator note');
+  });
+
   it('replays the same order and procurement task for the same key and payload', async () => {
     const { orders, orderRepository, procurement } = createHarness();
     const input = createInput();

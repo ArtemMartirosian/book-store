@@ -62,90 +62,88 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
   })();
 
   return (
-    <div className="min-h-[70vh] bg-[#f5f6fb]">
-      <nav className={cx(container, "flex min-h-16 items-center gap-2 overflow-hidden text-[9px] font-semibold text-[#858897]")} aria-label="Breadcrumbs">
-        <Link className="transition hover:text-[#a94728]" href={localized(locale)}>{t.home}</Link><span>/</span>
-        <Link className="transition hover:text-[#a94728]" href={localized(locale, "/catalog")}>{t.catalog}</Link><span>/</span>
-        <span className="max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap text-[#4f5851]">{book.title}</span>
+    <div className="min-h-[70vh] bg-[#f7f5f0] text-[#202c28] max-sm:pb-24">
+      <nav className={cx(container, "flex min-h-16 items-center gap-2 overflow-hidden text-xs text-[#626e64]")} aria-label={t.catalog}>
+        <Link className="transition hover:text-[#243e35]" href={localized(locale)}>{t.home}</Link><span aria-hidden="true">/</span>
+        <Link className="transition hover:text-[#243e35]" href={localized(locale, "/catalog")}>{t.catalog}</Link><span aria-hidden="true">/</span>
+        <span className="max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap text-[#526257]">{book.title}</span>
       </nav>
 
-      <section className={cx(container, "grid grid-cols-[410px_minmax(0,1fr)_320px] items-start gap-9 pb-20 pt-3 max-xl:grid-cols-[360px_minmax(0,1fr)] max-lg:grid-cols-1 max-lg:gap-7 max-sm:pt-0")}>
-        <div className="relative grid min-h-[560px] place-items-center overflow-hidden rounded-[30px] bg-gradient-to-br from-[#ebe9ff] via-[#eef1fa] to-[#dce8ff] p-8 shadow-[inset_0_0_0_1px_rgba(120,120,155,.08)] max-lg:min-h-[460px] max-sm:min-h-[380px] max-sm:rounded-[24px] max-sm:p-5">
-          <span className="absolute left-5 top-5 z-20 rounded-full border border-white/70 bg-white/82 px-3.5 py-2 text-[7px] font-black uppercase tracking-[.1em] text-[#575a6a] shadow-sm backdrop-blur">{book.badge ? localizeBookBadge(locale, book.badge) : t.choice}</span>
-          <div className="drop-shadow-[0_28px_24px_rgba(31,40,34,.2)] transition duration-300 hover:-translate-y-1 hover:scale-[1.02]"><BookCover book={displayedBook} size="detail" /></div>
+      <section className={cx(container, "grid grid-cols-[minmax(0,.95fr)_minmax(0,1fr)] items-start gap-[clamp(2rem,5vw,5.5rem)] pb-16 pt-3 max-lg:grid-cols-1 max-lg:gap-8 max-sm:pb-10 max-sm:pt-0")}>
+        <div className="sticky top-28 grid min-h-[640px] xl:top-[164px] place-items-center overflow-hidden rounded-[18px] bg-[#eeeee7] p-12 max-lg:static max-lg:min-h-[510px] max-lg:p-7 max-sm:min-h-[440px] max-sm:rounded-2xl max-sm:p-8">
+          {book.badge ? <span className="absolute left-5 top-5 z-20 rounded-full bg-[#fbfaf7] px-3 py-2 text-xs text-[#526257]">{localizeBookBadge(locale, book.badge)}</span> : null}
+          <div className="pb-4 transition duration-500 hover:-translate-y-1 hover:rotate-[-1deg]"><BookCover book={displayedBook} size="detail" /></div>
           {images.length > 1 ? <div className="absolute inset-x-4 bottom-4 z-20 flex justify-center gap-2 overflow-x-auto" aria-label={detailLabels.images}>
-            {images.map((image, index) => <button className={cx("relative size-12 shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-sm", index === activeImage ? "border-[#6258ff]" : "border-white/80")} type="button" aria-label={`${detailLabels.images} ${index + 1}`} aria-pressed={index === activeImage} onClick={() => setActiveImage(index)} key={image}>
+            {images.map((image, index) => <button className={cx("relative size-12 shrink-0 overflow-hidden rounded-lg border bg-[#fbfaf7]", index === activeImage ? "border-[#243e35]" : "border-[#d7dbd1]")} type="button" aria-label={detailLabels.images + " " + (index + 1)} aria-pressed={index === activeImage} onClick={() => setActiveImage(index)} key={image}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img alt="" className="size-full object-contain" loading="lazy" referrerPolicy="no-referrer" src={image} />
             </button>)}
           </div> : null}
-          <button className={cx("absolute right-5 top-5 grid size-11 place-items-center rounded-full border border-white/70 bg-white/82 text-[#606373] shadow-sm backdrop-blur transition hover:scale-105 hover:text-[#5147e2]", favorite && "border-[#6258ff] bg-[#6258ff] text-white hover:text-white")} type="button" onClick={() => toggleFavorite(book)} aria-label={favorite ? t.removeFavorite : t.favorite} aria-pressed={favorite}><HeartIcon filled={favorite} /></button>
+          <button className={cx("absolute right-4 top-4 grid size-11 place-items-center rounded-full transition", favorite ? "bg-[#243e35] text-white hover:bg-[#304e41] hover:text-white" : "bg-[#fbfaf7] text-[#526257] hover:bg-white hover:text-[#243e35]")} type="button" onClick={() => toggleFavorite(book)} aria-label={favorite ? t.removeFavorite : t.favorite} aria-pressed={favorite}><HeartIcon filled={favorite} /></button>
         </div>
 
-        <div className="min-w-0 py-2">
-          <div className="flex flex-wrap gap-2">{chips.map((item) => <span className="rounded-full border border-[#dedfea] bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-[.07em] text-[#747786]" key={item}>{item}</span>)}</div>
-          <h1 className="mb-4 mt-7 text-[clamp(2.7rem,4.6vw,4.8rem)] font-black leading-[.9] tracking-[-.07em]">{book.title}</h1>
-          <p className="text-[15px] font-semibold text-[#707382]">{book.author}</p>
-          {book.rating !== undefined ? <div className="mt-4 flex items-center gap-3"><strong className="text-[12px]">{book.rating}</strong><span className="text-[11px] tracking-wider text-[#b6502f]">★ ★ ★ ★ ★</span>{book.reviews !== undefined ? <a className="text-[10px] text-[#777d77] underline underline-offset-4" href="#details">{book.reviews} {t.reviews}</a> : null}</div> : null}
-          <p className="mt-7 max-w-[720px] text-[13px] leading-7 text-[#646777] max-sm:line-clamp-4">{description}</p>
-          {binding || book.isbn ? <div className="mt-7 grid grid-cols-2 border-y border-[#dedbd2] text-[11px] max-sm:grid-cols-1">
-            {binding ? <div className="py-4 pr-4 max-sm:border-b max-sm:border-[#dedbd2]"><span className="block text-[9px] uppercase tracking-[.06em] text-[#92978f]">{t.binding}</span><strong className="mt-1 block font-semibold">{binding}</strong></div> : null}
-            {book.isbn ? <div className={cx("py-4", binding && "border-l border-[#dedbd2] pl-4 max-sm:border-l-0 max-sm:pl-0")}><span className="block text-[9px] uppercase tracking-[.06em] text-[#92978f]">ISBN</span><strong className="mt-1 block font-semibold">{book.isbn}</strong></div> : null}
+        <div className="min-w-0 pt-3 max-sm:pt-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[#626e64]">{chips.map((item, index) => <span className="flex items-center gap-3" key={item}>{index > 0 ? <i className="size-[3px] rounded-full bg-[#a7b1a3]" aria-hidden="true" /> : null}{item}</span>)}</div>
+          <h1 className="font-display mb-4 mt-5 text-[clamp(2.5rem,4.1vw,4rem)] font-normal leading-[1.08] tracking-[-.04em] max-sm:text-[2.3rem]">{book.title}</h1>
+          <p className="text-lg text-[#626e64]">{book.author}</p>
+          {book.rating !== undefined ? <div className="mt-4 flex items-center gap-2"><span className="text-base text-[#b58a42]" aria-hidden="true">★</span><strong className="text-sm font-medium">{book.rating}</strong>{book.reviews !== undefined ? <a className="ml-2 text-sm text-[#626e64] underline underline-offset-4" href="#details">{book.reviews} {t.reviews}</a> : null}</div> : null}
+          <p className="mt-6 line-clamp-4 text-[15px] leading-7 text-[#526257]">{description}</p>
+          {binding || book.isbn ? <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[#626e64]">
+            {binding ? <p><span>{t.binding}: </span><strong className="font-normal text-[#526257]">{binding}</strong></p> : null}
+            {book.isbn ? <p><span>ISBN: </span><strong className="font-normal text-[#526257]">{book.isbn}</strong></p> : null}
           </div> : null}
-        </div>
 
-        <aside className="sticky top-28 rounded-[24px] bg-[#151722] p-6 text-white shadow-[0_24px_60px_rgba(28,29,48,.18)] max-xl:static max-xl:col-span-2 max-xl:grid max-xl:grid-cols-[1fr_1.1fr] max-xl:gap-6 max-lg:col-span-1 max-lg:grid-cols-1">
-          <div>
-            <span className="text-[8px] font-black uppercase tracking-[.12em] text-[#d9ff69]">{t.about}</span>
-            <div className="mt-3 flex items-baseline gap-2"><strong className="text-[30px] font-black tracking-[-.05em]">{formatAmd(book.price)}</strong></div>
-            <span className="mt-1 block text-[8px] text-white/35">{t.servicePrice}</span>
-            <div className={cx("mt-5 flex items-start gap-3 rounded-2xl border border-white/8 bg-white/[.06] p-3.5", unavailable && "bg-[#d3495c]/20")}>
-              <i className={cx("mt-1 size-2 shrink-0 rounded-full bg-[#2f7654]", unavailable && "bg-[#b5493f]")} />
-              <div className="grid gap-1"><strong className="text-[10px] font-semibold">{unavailable ? t.unavailable : t.checkStock}</strong><small className="text-[8px] leading-4 text-white/42" suppressHydrationWarning>{unavailable ? t.unavailableHint : t.lastCheck + ": " + observedAt}</small></div>
+          <aside className="mt-7 border-t border-[#dedfd5] pt-6">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <strong className="text-[32px] font-medium tracking-[-.04em]">{formatAmd(book.price)}</strong>
+              <span className="text-xs text-[#626e64]">{t.servicePrice}</span>
             </div>
-          </div>
-          <div className="mt-5 max-xl:mt-0 max-lg:mt-5">
-            <label className="mb-2 block text-[8px] font-black uppercase tracking-[.08em] text-white/42">{t.add}</label>
-            <div className="grid min-h-11 grid-cols-[42px_1fr_42px] items-center rounded-xl border border-white/12 bg-white/8">
-              <button className="min-h-11 text-lg text-[#777d77] transition hover:text-[#c85f3a]" type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="-">−</button>
-              <span className="text-center text-[12px] font-semibold">{quantity}</span>
-              <button className="min-h-11 text-lg text-[#777d77] transition hover:text-[#c85f3a] disabled:opacity-30" type="button" disabled={quantity >= 10} onClick={() => setQuantity((value) => Math.min(10, value + 1))} aria-label="+">+</button>
+            <div className="mt-4 flex items-start gap-2.5">
+              <i className={cx("mt-1.5 size-1.5 shrink-0 rounded-full bg-[#526e59]", unavailable && "bg-[#995846]")} />
+              <div className="grid gap-1"><strong className={cx("text-sm font-normal text-[#526e59]", unavailable && "text-[#995846]")}>{unavailable ? t.unavailable : t.checkStock}</strong><small className="text-xs leading-5 text-[#626e64]" suppressHydrationWarning>{unavailable ? t.unavailableHint : t.lastCheck + ": " + observedAt}</small></div>
             </div>
-            <button className="mt-3 flex min-h-13 w-full shrink-0 items-center justify-between rounded-2xl bg-[#d9ff69] px-5 text-[9px] font-black uppercase tracking-[.07em] text-[#151722] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/35" type="button" disabled={unavailable} onClick={() => addToCart(book, quantity)}>{unavailable ? t.unavailableButton : t.add}<span className="text-lg">↗</span></button>
-            <div className="mt-5 grid gap-3 border-t border-[#dedbd2] pt-5">{[[t.delivery, t.deliveryHint], [t.pay, t.payHint]].map(([title, hint]) => <div className="flex gap-3" key={title}><span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#f3ded3] text-[10px] font-bold text-[#a94728]">✓</span><p className="grid gap-1"><strong className="text-[10px] font-semibold">{title}</strong><small className="text-[8px] leading-4 text-[#777d77]">{hint}</small></p></div>)}</div>
-          </div>
-        </aside>
+            <div className="mt-6 grid grid-cols-[124px_minmax(0,1fr)] gap-3 max-sm:grid-cols-[116px_minmax(0,1fr)]">
+              <div className="grid min-h-13 grid-cols-[44px_1fr_44px] items-center rounded-xl border border-[#d7dbd1]">
+                <button className="min-h-13 text-lg text-[#526257] transition hover:text-[#243e35] disabled:opacity-30" type="button" disabled={quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="-">−</button>
+                <span className="text-center text-sm">{quantity}</span>
+                <button className="min-h-13 text-lg text-[#526257] transition hover:text-[#243e35] disabled:opacity-30" type="button" disabled={quantity >= 10} onClick={() => setQuantity((value) => Math.min(10, value + 1))} aria-label="+">+</button>
+              </div>
+              <button className="flex min-h-13 items-center justify-center gap-3 rounded-xl bg-[#243e35] px-4 text-sm font-medium text-white transition hover:bg-[#304e41] disabled:cursor-not-allowed disabled:bg-[#d9ddd3] disabled:text-[#626e64]" type="button" disabled={unavailable} onClick={() => addToCart(book, quantity)}><svg className="size-5 shrink-0 max-sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>{unavailable ? t.unavailableButton : t.add}</button>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[#dedfd5] pt-6 max-lg:grid-cols-1 max-md:grid-cols-2 max-sm:grid-cols-1">{[[t.delivery, t.deliveryHint], [t.pay, t.payHint]].map(([title, hint]) => <div className="flex gap-3" key={title}><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#e8ede5] text-[#526e59]" aria-hidden="true">✓</span><p className="grid gap-1"><strong className="text-sm font-medium">{title}</strong><small className="text-xs leading-5 text-[#626e64]">{hint}</small></p></div>)}</div>
+          </aside>
+        </div>
       </section>
 
-      <section className="border-y border-[#e2e4ed] bg-white py-20 max-sm:py-12" id="details">
-        <div className={cx(container, "grid grid-cols-[1fr_.9fr] gap-20 max-lg:grid-cols-1 max-lg:gap-9")}>
-          <div><span className={eyebrow}>{t.edition}</span><h2 className={cx(sectionTitle, "mt-3")}>{t.details}</h2><p className="mt-5 max-w-[560px] text-[14px] leading-7 text-[#5f675f]">{description}</p></div>
-          <dl className="m-0 border-t border-[#bfc2bb]">{details.map(([label, value]) => <div className="grid grid-cols-[1fr_auto] gap-6 border-b border-[#d8d4ca] py-4" key={label}><dt className="text-[11px] text-[#777d77]">{label}</dt><dd className="m-0 max-w-[230px] text-right text-[11px] font-semibold">{value}</dd></div>)}</dl>
+      <section className="border-y border-[#dedfd5] bg-[#fbfaf7] py-16 max-sm:py-12" id="details">
+        <div className={cx(container, "grid grid-cols-[1fr_.9fr] gap-16 max-lg:grid-cols-1 max-lg:gap-9")}>
+          <div><span className={eyebrow}>{t.edition}</span><h2 className={cx(sectionTitle, "mt-3")}>{t.details}</h2><p className="mt-5 max-w-[560px] text-[15px] leading-7 text-[#526257]">{description}</p></div>
+          <dl className="m-0 border-t border-[#c4ccbd]">{details.map(([label, value]) => <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 border-b border-[#dedfd5] py-4" key={label}><dt className="text-sm text-[#626e64]">{label}</dt><dd className="m-0 min-w-0 max-w-[230px] break-words text-right text-sm font-semibold">{value}</dd></div>)}</dl>
         </div>
       </section>
 
       {detailSections.length > 0 ? <section className={cx(container, "py-16 max-sm:py-11")}>
         <span className={eyebrow}>{detailLabels.sourceSections}</span>
         <div className="mt-7 grid gap-5">
-          {detailSections.map((section, index) => <article className="rounded-[14px] border border-[#dedbd2] bg-white p-6" key={`${section.code ?? section.title}-${index}`}>
-            <h2 className="font-display text-2xl font-semibold">{section.title}</h2>
-            {section.attributes.length > 0 ? <dl className="mt-4 grid grid-cols-2 gap-x-8 max-md:grid-cols-1">{section.attributes.map((attribute, attributeIndex) => <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-5 border-b border-[#ebe7df] py-3" key={`${attribute.code ?? attribute.label}-${attributeIndex}`}><dt className="text-[11px] text-[#777d77]">{attribute.label}</dt><dd className="m-0 max-w-[320px] text-right text-[11px] font-semibold">{attribute.value}</dd></div>)}</dl> : <p className="mt-4 whitespace-pre-line text-[13px] leading-7 text-[#5f675f]">{section.content}</p>}
+          {detailSections.map((section, index) => <article className="rounded-2xl border border-[#dedfd5] bg-[#fbfaf7] p-6" key={`${section.code ?? section.title}-${index}`}>
+            <h2 className="font-display text-2xl font-normal">{section.title}</h2>
+            {section.attributes.length > 0 ? <dl className="mt-4 grid grid-cols-2 gap-x-8 max-md:grid-cols-1">{section.attributes.map((attribute, attributeIndex) => <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 border-b border-[#e7e9df] py-3" key={`${attribute.code ?? attribute.label}-${attributeIndex}`}><dt className="text-sm text-[#626e64]">{attribute.label}</dt><dd className="m-0 min-w-0 max-w-[320px] break-words text-right text-sm font-semibold">{attribute.value}</dd></div>)}</dl> : <p className="mt-4 whitespace-pre-line text-base leading-7 text-[#526257]">{section.content}</p>}
           </article>)}
         </div>
       </section> : null}
 
-      <section className="bg-[#e9e7ff] py-12">
-        <div className={cx(container, "grid grid-cols-3 gap-6 max-md:grid-cols-1")}>{t.flow.map(([title, text], index) => <div className="flex gap-4" key={title}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#1d2a23] text-[9px] font-bold text-white">0{index + 1}</span><div><h3 className="text-[14px] font-semibold">{title}</h3><p className="mt-1 text-[10px] leading-5 text-[#667068]">{text}</p></div></div>)}</div>
+      <section className="bg-[#e8ede5] py-12">
+        <div className={cx(container, "grid grid-cols-3 gap-6 max-md:grid-cols-1")}>{t.flow.map(([title, text], index) => <div className="flex gap-4" key={title}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#243e35] text-xs font-bold text-white">0{index + 1}</span><div><h3 className="text-[14px] font-semibold">{title}</h3><p className="mt-1 text-sm leading-5 text-[#626e64]">{text}</p></div></div>)}</div>
       </section>
 
       <section className={cx(container, "py-16 max-sm:py-11")}>
-        <div className="mb-8 flex items-end justify-between gap-5"><div><span className={eyebrow}>{t.related}</span><h2 className={cx(sectionTitle, "mt-2 text-[clamp(2.2rem,4vw,3.5rem)]")}>{t.continue}</h2></div><Link className="shrink-0 text-[10px] font-bold text-[#a94728] underline underline-offset-4" href={localized(locale, "/catalog")}>{t.all} →</Link></div>
-        <div className="book-rail grid grid-cols-4 gap-5 max-lg:grid-cols-2 max-sm:grid-flow-col max-sm:grid-cols-none max-sm:auto-cols-[72%] max-sm:overflow-x-auto max-sm:pb-4">{related.map((item) => <BookCard book={item} variant="compact" key={item.id} />)}</div>
+        <div className="mb-8 flex items-end justify-between gap-5"><div><span className={eyebrow}>{t.related}</span><h2 className={cx(sectionTitle, "mt-2 text-[clamp(2.2rem,4vw,3.5rem)]")}>{t.continue}</h2></div><Link className="shrink-0 text-sm font-bold text-[#243e35] underline underline-offset-4" href={localized(locale, "/catalog")}>{t.all} →</Link></div>
+        <div className="book-rail grid grid-cols-4 gap-x-6 gap-y-9 max-lg:grid-cols-2 max-sm:gap-x-3">{related.map((item) => <BookCard book={item} variant="compact" key={item.id} />)}</div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center gap-3 border-t border-[#dedbd2] bg-[#fffdf9]/96 px-4 py-3 shadow-[0_-12px_30px_rgba(31,40,34,.12)] backdrop-blur max-sm:flex">
+      <div className="fixed inset-x-0 bottom-0 z-40 hidden items-center gap-3 border-t border-[#dedfd5] bg-[#f7f5f0]/95 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-5px_20px_rgba(31,40,34,.04)] backdrop-blur max-sm:flex">
         <strong className="shrink-0 text-[15px] font-bold">{formatAmd(book.price)}</strong>
-        <button className="flex min-h-12 flex-1 items-center justify-between rounded-[9px] bg-[#c85f3a] px-5 text-[10px] font-bold uppercase text-white disabled:bg-[#c9c7c0]" type="button" disabled={unavailable} onClick={() => addToCart(book, quantity)}>{unavailable ? t.unavailableButton : t.add}<span>→</span></button>
+        <button className="flex min-h-12 flex-1 items-center justify-between rounded-xl bg-[#243e35] px-5 text-sm font-medium text-white disabled:bg-[#d9ddd3]" type="button" disabled={unavailable} onClick={() => addToCart(book, quantity)}>{unavailable ? t.unavailableButton : t.add}<span>→</span></button>
       </div>
     </div>
   );
