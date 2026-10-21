@@ -57,7 +57,6 @@ function Alert({ children, success = false }: { children: ReactNode; success?: b
 
 function AuthPanel({ config, locale, onSuccess, link = false }: { config: AccountConfig | null; locale: Locale; onSuccess: () => Promise<void>; link?: boolean }) {
   const t = accountCopy[locale];
-  const params = useSearchParams();
   const [phone, setPhone] = useState("+374 ");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState<{ challengeId: string; phone: string; expiresAt: string } | null>(null);
@@ -121,7 +120,7 @@ function AuthPanel({ config, locale, onSuccess, link = false }: { config: Accoun
       {config && !config.smsEnabled && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.smsUnavailable}</p>}
       <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal}</p>
     </>}
-    {(error || params.get("auth")) && <div className="mt-4" id="account-auth-error"><Alert>{error || t.providerError}</Alert></div>}
+    {error && <div className="mt-4" id="account-auth-error"><Alert>{error}</Alert></div>}
   </div>;
 }
 
@@ -129,6 +128,14 @@ type Tab = "home" | "orders" | "addresses" | "profile" | "security";
 export function AccountPage() {
   const { locale, customer, customerLoaded, refreshCustomer, favorites } = useStorefront();
   const t = accountCopy[locale];
+  const params = useSearchParams();
+  const authResult = params.get("auth");
+  const clearAuthResult = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("auth");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  };
+  const authNotice = (authResult === "failed" || authResult === "unavailable") && <div data-testid="account-callback-error"><Alert><span className="flex items-start justify-between gap-3"><span>{t.providerError}</span><button className="-my-2 -mr-2 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg transition hover:bg-rose-100" type="button" onClick={clearAuthResult} aria-label={t.dismiss}><span aria-hidden="true">×</span></button></span></Alert></div>;
   const [config, setConfig] = useState<AccountConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
@@ -181,7 +188,7 @@ export function AccountPage() {
     void action(async () => { await accountRequest("addresses" + (id ? "/" + id : ""), { method: id ? "PATCH" : "POST", body: JSON.stringify(body) }); setAddresses(await accountRequest<AccountAddress[]>("addresses")); setAddressForm(null); });
   };
   const moreOrders = () => { void action(async () => { const next = await accountRequest<AccountOrders>("orders?offset=" + (orders?.items.length ?? 0)); setOrders(previous => ({ ...next, items: [...(previous?.items ?? []), ...next.items] })); }, ""); };
-  const onAuthenticated = async () => { await refreshCustomer(); setLinkPhone(false); setMessage(""); setError(""); };
+  const onAuthenticated = async () => { await refreshCustomer(); clearAuthResult(); setLinkPhone(false); setMessage(""); setError(""); };
   const money = (amount: number) => new Intl.NumberFormat(locale === "hy" ? "hy-AM" : locale === "ru" ? "ru-RU" : "en-GB").format(amount) + " ֏";
   const date = (value: string) => new Intl.DateTimeFormat(locale === "hy" ? "hy-AM" : locale === "ru" ? "ru-RU" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
   const tabs: Array<{ id: Tab; icon: IconName }> = [{ id: "home", icon: "home" }, { id: "orders", icon: "orders" }, { id: "addresses", icon: "pin" }, { id: "profile", icon: "user" }, { id: "security", icon: "shield" }];
@@ -207,6 +214,7 @@ export function AccountPage() {
       </section>
       <section className="flex flex-col justify-center p-9 max-sm:p-6 lg:p-12">
         {!customerLoaded && customerLoaded !== undefined ? <p className="py-16 text-center text-sm text-[var(--muted)]" role="status">{t.loading}</p> : <AuthPanel config={config} locale={locale} onSuccess={onAuthenticated}/>}
+        {authNotice && <div className="mx-auto mt-4 w-full max-w-[420px]">{authNotice}</div>}
         {configError && <div className="mt-4"><Alert>{t.providerError}</Alert></div>}
         <Link className="mx-auto mt-7 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[var(--accent)]" href={localized(locale, "/catalog")}>{t.guest}<Icon name="arrow" className="size-4"/></Link>
       </section>
@@ -225,6 +233,7 @@ export function AccountPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] p-3 lg:grid"><Link className="flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm text-[var(--muted)] hover:bg-[var(--paper)]" href={localized(locale, "/favorites")}><Icon name="heart" className="size-[18px]"/>{t.favorites}<span className="ml-auto rounded-lg bg-[var(--paper)] px-2 text-xs">{favorites.length}</span></Link><button className="flex min-h-11 items-center gap-3 rounded-xl px-4 text-left text-sm whitespace-nowrap text-[var(--muted)] hover:text-rose-700" type="button" disabled={busy} onClick={() => logout()}><Icon name="logout" className="size-[18px]"/>{t.logout}</button></div>
         </aside>
         <div className="min-w-0 space-y-6">
+          {authNotice}
           {error && <div className="space-y-2"><Alert>{error}</Alert><button type="button" className="min-h-11 text-sm font-medium text-[var(--accent)]" disabled={loading} onClick={() => { void loadData(); }}>{t.retry}</button></div>}{message && <Alert success>{message}</Alert>}
           {loading && <p className="text-sm text-[var(--muted)]" role="status">{t.loading}</p>}
           {tab === "home" && <>

@@ -11,9 +11,9 @@ const root = path.resolve(import.meta.dirname, "..");
 const nativeRequire = createRequire(import.meta.url);
 
 // Render the real components; replace only the app context and Next navigation.
-function components(locale, search = "", reactOverride) {
+function components(locale, search = "", reactOverride, contextOverrides = {}) {
   const cache = new Map();
-  const context = { locale, cartCount: 2, favorites: [{ id: "saved" }], isFavorite: () => false, toggleFavorite() {}, addToCart() {} };
+  const context = { locale, cartCount: 2, favorites: [{ id: "saved" }], isFavorite: () => false, toggleFavorite() {}, addToCart() {}, ...contextOverrides };
   function load(filename) {
     if (cache.has(filename)) return cache.get(filename).exports;
     const mod = new Module(filename);
@@ -23,7 +23,7 @@ function components(locale, search = "", reactOverride) {
     mod.require = (specifier) => {
       if (specifier === "react" && reactOverride) return reactOverride;
       if (specifier === "./StorefrontShell") return { useStorefront: () => context };
-      if (specifier === "next/navigation") return { useRouter: () => ({ refresh() {} }), useSearchParams: () => new URLSearchParams(search), usePathname: () => `/${locale}/catalog` };
+      if (specifier === "next/navigation") return { useRouter: () => ({ refresh() {} }), useSearchParams: () => new URLSearchParams(typeof search === "function" ? search() : search), usePathname: () => `/${locale}/catalog` };
       if (specifier === "next/link") return { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) };
       if (specifier.startsWith(".")) {
         const relative = path.resolve(path.dirname(filename), specifier);
@@ -134,6 +134,61 @@ test("account offers Google and phone sign-in without enabling unconfigured prov
     assert.match(html, /Google/u);
     assert.match(html, /<button[^>]+disabled=""/u);
     assert.doesNotMatch(html, /type="(?:email|password)"|data-testid="customer-dashboard"/u);
+  }
+});
+
+test("Google callback errors are visible to guests and signed-in customers in every language", () => {
+  const messages = { en: "Sign-in is temporarily unavailable. Please try again later.", ru: "Вход временно недоступен. Попробуйте позже.", hy: "Մուտքը ժամանակավորապես անհասանելի է։ Կրկին փորձեք ավելի ուշ։" };
+  const customer = { id: "customer", fullName: "Test Reader", phone: "+37499123456", googleEmail: null, googleConnected: false, locale: "en" };
+  for (const locale of ["hy", "ru", "en"]) {
+    for (const currentCustomer of [null, customer]) {
+      for (const result of ["failed", "unavailable", "unrecognized"]) {
+        const AccountPage = components(locale, "?auth=" + result, undefined, { customer: currentCustomer, customerLoaded: true })("AccountPage");
+        const html = renderToStaticMarkup(React.createElement(AccountPage));
+        assert.match(html, currentCustomer ? /data-testid="customer-dashboard"/u : /data-testid="customer-auth-panel"/u);
+        assert.equal(html.includes('data-testid="account-callback-error"'), result !== "unrecognized");
+        if (result !== "unrecognized") {
+          assert.ok(html.includes(messages[locale]));
+          assert.equal([...html.matchAll(/role="alert"/gu)].length, 1, "the callback error is shown once");
+        }
+      }
+    }
+  }
+});
+
+test("dismissing a callback error and successful SMS authentication clear only its URL result", async () => {
+  const reactOverride = { ...React, useState: (initial) => [typeof initial === "function" ? initial() : initial, () => {}], useRef: (initial) => ({ current: initial }), useEffect() {}, useCallback: (callback) => callback };
+  let url = new URL("https://grqaser.digitalize.am/en/account?auth=failed&return=orders#security");
+  const historyState = { existing: true };
+  let refreshes = 0;
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {
+    location: { get href() { return url.href; } },
+    history: { state: historyState, replaceState(state, title, href) { assert.equal(state, historyState); assert.equal(title, ""); url = new URL(href, url); } },
+  } });
+  const elements = (node) => {
+    if (Array.isArray(node)) return node.flatMap(elements);
+    if (!React.isValidElement(node)) return [];
+    return [node, ...elements(node.props.children)];
+  };
+  try {
+    const AccountPage = components("en", () => url.search, reactOverride, { customerLoaded: true, refreshCustomer: async () => { refreshes++; } })("AccountPage");
+    const dismiss = elements(AccountPage()).find((element) => element.type === "button" && element.props["aria-label"] === "Dismiss message");
+    assert.ok(dismiss);
+    dismiss.props.onClick();
+    assert.equal(url.pathname + url.search + url.hash, "/en/account?return=orders#security");
+    assert.ok(!elements(AccountPage()).some((element) => element.props["data-testid"] === "account-callback-error"));
+
+    url.searchParams.set("auth", "failed");
+    const panel = elements(AccountPage()).find((element) => typeof element.props.onSuccess === "function");
+    assert.ok(panel);
+    await panel.props.onSuccess();
+    assert.equal(refreshes, 1);
+    assert.equal(url.pathname + url.search + url.hash, "/en/account?return=orders#security");
+    assert.ok(!elements(AccountPage()).some((element) => element.props["data-testid"] === "account-callback-error"));
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else delete globalThis.window;
   }
 });
 
