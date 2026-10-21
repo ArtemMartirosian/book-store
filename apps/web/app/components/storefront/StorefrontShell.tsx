@@ -503,7 +503,10 @@ function Footer() {
         <div className={cx(container, "flex min-h-[70px] items-center justify-between gap-4 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start max-sm:gap-1 max-sm:py-5")}>
           <span>© {new Date().getFullYear()} {brandName(locale)}</span>
           <span className="hidden text-[11px] tracking-[.04em] sm:block">Հայերեն · Русский · English</span>
-          <Link className="inline-flex min-h-11 items-center transition hover:text-[var(--accent)]" href={localized(locale, "/information")}>{t.information}</Link>
+          <nav className="flex flex-wrap gap-x-5 gap-y-1" aria-label={t.information}>
+            <Link className="inline-flex min-h-11 items-center transition hover:text-[var(--accent)]" href={localized(locale, "/privacy")}>{t.privacy}</Link>
+            <Link className="inline-flex min-h-11 items-center transition hover:text-[var(--accent)]" href={localized(locale, "/terms")}>{t.terms}</Link>
+          </nav>
         </div>
       </div>
     </footer>

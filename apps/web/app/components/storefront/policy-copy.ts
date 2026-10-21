@@ -1,0 +1,94 @@
+import type { Locale } from "./i18n";
+
+export type StorePolicyKind = "privacy" | "terms";
+type PolicyDocument = { title: string; description: string; intro: string; sections: ReadonlyArray<{ title: string; text: string }> };
+type PolicyLocale = { updated: string; contact: string; contactText: string; information: string; catalog: string; privacy: PolicyDocument; terms: PolicyDocument };
+
+// This public support address was supplied by the store owner; it is not an OAuth credential.
+export const STORE_SUPPORT_EMAIL = "grqaser@gmail.com";
+export const policyCopy: Record<Locale, PolicyLocale> = {
+  en: {
+    updated: "Updated 21 October 2026", contact: "Questions about your data or order?", contactText: "Contact the Grqaser team:", information: "Ordering and delivery", catalog: "Browse books",
+    privacy: {
+      title: "Privacy notice", description: "How Grqaser uses order details, Google sign-in data, account information and browser storage.",
+      intro: "This notice explains the information used by the Grqaser bookstore for orders, delivery and personal accounts. For questions or requests about your information, contact the store using the email below.",
+      sections: [
+        { title: "Order information", text: "When you order, we receive the name, phone number, delivery address, selected books and quantities, and any optional email or comment you provide. We use these details to process and confirm the order, contact you and arrange delivery. An order placed while signed in is linked to that account." },
+        { title: "Your account and Google sign-in", text: "For Google sign-in, we request only openid, email and profile. We store Google's account identifier, verified email address and, when a new account is created, your display name. Your preferred language and account dates are also stored. This does not give Grqaser access to Gmail messages, your Google password or contacts. Google access and ID tokens are exchanged and checked during sign-in, not saved in the account database." },
+        { title: "Phone verification and saved addresses", text: "If SMS sign-in is enabled, your phone number and verification request are sent to Twilio Verify. The code you enter is sent to that provider for checking; the bookstore does not save the raw code in its database. We retain verification request records, including the number, attempt count and expiry. Your profile and saved delivery addresses contain the information you choose to enter." },
+        { title: "Cookies and browser storage", text: "A necessary, HttpOnly session cookie keeps you signed in for up to 30 days. A short-lived cookie protects the Google sign-in process. The server stores hashes of session tokens and technical verification records. Your cart, favorites and an unfinished checkout request are stored in this browser. An unfinished request can include your order contact details and remains until its result is confirmed; it has no fixed expiry." },
+        { title: "Service providers and technical information", text: "Google receives the sign-in request when you choose Google. Twilio receives verification information only when SMS is enabled and used. The store and its hosting and operational service providers process the information needed to run the site. Details needed for delivery may be provided to the person fulfilling it. The site processes request information, including an IP address, for operation and sign-in abuse protection." },
+        { title: "Storage and retention", text: "Account profiles, saved addresses and order records are held on the server; they do not automatically disappear after a 30-day session ends. Signing out revokes the session, not the account or order history. Expired verification and session records may be cleaned up during later authentication activity, rather than immediately at expiry. There is no automatic age-based deletion of account profiles or orders." },
+        { title: "Your choices and requests", text: "You can edit your profile, delete saved addresses, and sign out on one or all devices in your account. To request access, correction or deletion of account information, email the address below. The store may ask you to verify account ownership before acting. These requests are reviewed manually; deleting account information is not the same as automatically deleting every related order record." },
+      ],
+    },
+    terms: {
+      title: "Ordering terms", description: "How book orders, price confirmation, cash payment and delivery in Yerevan work at Grqaser.",
+      intro: "These terms describe the current ordering process at the Grqaser bookstore. Read the order summary before sending an order, and contact us if you need clarification.",
+      sections: [
+        { title: "Placing an order", text: "Choose books, add them to your cart and provide your name, phone number and delivery address in Yerevan. An account is optional. Sending an order request starts processing; the store contacts you to confirm the books and delivery details." },
+        { title: "Availability and edition", text: "Catalog information helps you choose a book but is not a guarantee of immediately available stock. Availability and the exact edition are checked when the order is processed. If an item cannot be confirmed, the store will discuss the order with you rather than substitute a different book without agreement." },
+        { title: "Prices and order total", text: "Prices are shown in Armenian drams (AMD). The cart shows book prices and the delivery fee separately. Delivery within Yerevan is 1,000 AMD per order. Check the displayed total before submitting. Any price change during confirmation requires your agreement." },
+        { title: "Delivery and payment", text: "Delivery is currently available only in Yerevan. The address and delivery time are agreed by phone when the order is confirmed. Payment is in cash when you receive the order; the site does not currently collect bank card payments." },
+        { title: "Personal account", text: "Where enabled, an account can be accessed using a verified phone number and SMS code or Google sign-in. It helps you manage your profile, saved addresses and orders created while signed in. Past guest orders are not automatically imported by matching a phone number or email. Cart and favorites remain stored in the browser." },
+        { title: "Changes, cancellation and questions", text: "If you need to change or cancel an order, or have a question about a received book, exchange or return, contact the store with the order number and describe the issue. We will review the request and discuss the next steps. This page does not announce an automatic refund, a guaranteed delivery deadline or a separate return period." },
+      ],
+    },
+  },
+  ru: {
+    updated: "Обновлено 21 октября 2026", contact: "Вопрос о данных или заказе?", contactText: "Напишите команде «Гркасер»:", information: "О заказе и доставке", catalog: "Выбрать книги",
+    privacy: {
+      title: "Конфиденциальность", description: "Как «Гркасер» использует данные заказа, информацию Google-входа, личного кабинета и хранилище браузера.",
+      intro: "Здесь описано, какие сведения использует книжный магазин «Гркасер» для заказов, доставки и личного кабинета. Вопросы и запросы о ваших данных можно направить на указанный ниже email магазина.",
+      sections: [
+        { title: "Данные заказа", text: "При заказе мы получаем имя, телефон, адрес доставки, выбранные книги и количество, а также email или комментарий, если вы их указали. Эти сведения нужны для обработки и подтверждения заказа, связи с вами и доставки. Заказ, отправленный после входа, связывается с вашим аккаунтом." },
+        { title: "Личный кабинет и вход через Google", text: "Для входа через Google запрашиваются только openid, email и profile. Мы сохраняем идентификатор аккаунта Google, подтверждённый email и, при создании нового аккаунта, отображаемое имя. Также сохраняются выбранный язык и даты аккаунта. Это не даёт магазину доступ к письмам Gmail, паролю Google или контактам. Токены доступа Google и ID-токены обрабатываются и проверяются при входе, но не сохраняются в базе личного кабинета." },
+        { title: "Подтверждение телефона и адреса", text: "Если включён вход по SMS, номер и запрос подтверждения передаются Twilio Verify. Введённый код отправляется этому сервису для проверки; сам код не сохраняется в базе магазина. Записи запросов подтверждения содержат номер, число попыток и срок действия. В профиле и сохранённых адресах хранятся сведения, которые вы вводите сами." },
+        { title: "Cookie и хранилище браузера", text: "Необходимая HttpOnly-cookie сохраняет вход на срок до 30 дней. Краткосрочная cookie защищает процесс входа через Google. На сервере хранятся хеши токенов сеансов и технические записи проверки. Корзина, избранное и незавершённый запрос заказа сохраняются в этом браузере. Незавершённый запрос может содержать контактные данные заказа и хранится до подтверждения результата, без фиксированного срока истечения." },
+        { title: "Сервисы и технические сведения", text: "Когда вы выбираете вход через Google, запрос получает Google. Twilio получает данные подтверждения только при включённом и используемом SMS-входе. Магазин и поставщики услуг хостинга и эксплуатации обрабатывают сведения, необходимые для работы сайта. Исполнителю доставки могут передаваться нужные для неё данные. Для работы и защиты входа от злоупотреблений сайт обрабатывает технические сведения запроса, включая IP-адрес." },
+        { title: "Хранение данных", text: "Профили, сохранённые адреса и заказы хранятся на сервере и не исчезают автоматически после завершения 30-дневного сеанса. Выход прекращает сеанс, но не удаляет аккаунт или историю заказов. Истёкшие записи проверки и сеансов могут очищаться при последующих действиях входа, а не сразу при истечении срока. Автоматическое удаление профилей и заказов по возрасту записи не настроено." },
+        { title: "Ваши действия и запросы", text: "В кабинете можно изменить профиль, удалить сохранённые адреса и выйти на одном или всех устройствах. Для запроса доступа, исправления или удаления данных аккаунта напишите на email ниже. Перед выполнением запроса магазин может попросить подтвердить владение аккаунтом. Запросы рассматриваются вручную: удаление данных аккаунта не означает автоматического удаления всех связанных записей заказов." },
+      ],
+    },
+    terms: {
+      title: "Условия заказа", description: "Оформление и подтверждение заказа книг, оплата наличными и доставка по Еревану в магазине «Гркасер».",
+      intro: "Эти условия описывают текущий порядок заказа в книжном магазине «Гркасер». Перед отправкой проверьте состав и итоговую сумму заказа, а если что-то непонятно — свяжитесь с нами.",
+      sections: [
+        { title: "Оформление заказа", text: "Выберите книги, добавьте их в корзину и укажите имя, телефон и адрес доставки в Ереване. Регистрация необязательна. Отправка заявки запускает обработку: магазин связывается с вами, чтобы подтвердить книги и доставку." },
+        { title: "Наличие и издание", text: "Сведения каталога помогают выбрать книгу, но не гарантируют её немедленное наличие. Наличие и точное издание проверяются при обработке заказа. Если книгу не получится подтвердить, магазин обсудит заказ с вами, а не заменит её без согласования." },
+        { title: "Цены и итоговая сумма", text: "Цены указаны в армянских драмах (AMD). В корзине стоимость книг и доставка показаны отдельно. Доставка по Еревану стоит 1 000 драм за заказ. Проверьте итог перед отправкой. Изменение цены при подтверждении требует вашего согласия." },
+        { title: "Доставка и оплата", text: "Сейчас доставка доступна только в Ереване. Адрес и время согласуются по телефону при подтверждении заказа. Оплата — наличными при получении; сайт пока не принимает оплату банковской картой." },
+        { title: "Личный кабинет", text: "При подключённых способах входа можно использовать подтверждённый телефон с SMS-кодом или Google. В кабинете доступны профиль, сохранённые адреса и заказы, оформленные после входа. Старые гостевые заказы не добавляются автоматически по совпадению телефона или email. Корзина и избранное сохраняются в браузере." },
+        { title: "Изменения, отмена и вопросы", text: "Чтобы изменить или отменить заказ, задать вопрос о полученной книге, обмене или возврате, напишите магазину номер заказа и опишите ситуацию. Мы рассмотрим обращение и обсудим дальнейшие действия. Эта страница не устанавливает автоматический возврат денег, гарантированный срок доставки или отдельный срок возврата." },
+      ],
+    },
+  },
+  hy: {
+    updated: "Թարմացվել է՝ 21 հոկտեմբերի 2026", contact: "Հա՞րց ունեք տվյալների կամ պատվերի մասին", contactText: "Գրեք Գրքասերի թիմին՝", information: "Պատվեր և առաքում", catalog: "Ընտրել գրքեր",
+    privacy: {
+      title: "Գաղտնիություն", description: "Ինչպես է Գրքասերն օգտագործում պատվերի, Google մուտքի, անձնական հաշվի տվյալներն ու դիտարկիչի պահոցը։",
+      intro: "Այստեղ նկարագրված է, թե Գրքասեր գրախանութն ինչ տեղեկություններ է օգտագործում պատվերների, առաքման և անձնական հաշվի համար։ Ձեր տվյալների վերաբերյալ հարցերն ու դիմումները կարող եք ուղարկել ստորև նշված էլեկտրոնային հասցեին։",
+      sections: [
+        { title: "Պատվերի տվյալները", text: "Պատվիրելիս ստանում ենք անունը, հեռախոսահամարը, առաքման հասցեն, ընտրված գրքերն ու քանակը, ինչպես նաև էլեկտրոնային հասցեն կամ մեկնաբանությունը, եթե դրանք նշել եք։ Դրանք օգտագործվում են պատվերը մշակելու և հաստատելու, ձեզ հետ կապվելու ու առաքելու համար։ Մուտք գործելուց հետո ուղարկված պատվերը կապվում է ձեր հաշվի հետ։" },
+        { title: "Անձնական հաշիվը և Google մուտքը", text: "Google մուտքի համար պահանջվում են միայն openid, email և profile թույլտվությունները։ Պահպանում ենք Google հաշվի նույնացուցիչը, հաստատված էլեկտրոնային հասցեն և նոր հաշիվ ստեղծելիս՝ ցուցադրվող անունը։ Պահպանվում են նաև նախընտրած լեզուն և հաշվի ամսաթվերը։ Սա խանութին հասանելիություն չի տալիս Gmail նամակներին, Google գաղտնաբառին կամ կոնտակտներին։ Google-ի հասանելիության և ID թոքենները մշակվում ու ստուգվում են մուտքի ժամանակ, բայց չեն պահպանվում անձնական հաշվի տվյալների բազայում։" },
+        { title: "Հեռախոսի հաստատումն ու հասցեները", text: "Եթե SMS մուտքը միացված է, հեռախոսահամարն ու հաստատման հարցումն ուղարկվում են Twilio Verify ծառայությանը։ Ձեր մուտքագրած կոդն ուղարկվում է այդ ծառայությանը ստուգման համար․ խանութը բազայում չի պահպանում կոդի բաց արժեքը։ Հաստատման հարցումների գրառումները պարունակում են համարը, փորձերի քանակն ու վավերականության ժամկետը։ Պրոֆիլում և պահպանված հասցեներում պահվում են ձեր մուտքագրած տեղեկությունները։" },
+        { title: "Cookie-ները և դիտարկիչի պահոցը", text: "Անհրաժեշտ HttpOnly-cookie-ն պահպանում է մուտքը մինչև 30 օր։ Կարճաժամկետ cookie-ն պաշտպանում է Google մուտքի ընթացքը։ Սերվերում պահվում են մուտքի թոքենների հեշերն ու ստուգման տեխնիկական գրառումները։ Զամբյուղը, սիրելի գրքերն ու պատվերի անավարտ հարցումը պահվում են այս դիտարկիչում։ Անավարտ հարցումը կարող է պարունակել պատվերի կապի տվյալները և պահվում է մինչև արդյունքի հաստատումը՝ առանց ֆիքսված ժամկետի։" },
+        { title: "Ծառայություններ և տեխնիկական տեղեկություններ", text: "Google մուտքն ընտրելիս հարցումը ստանում է Google-ը։ Twilio-ն հաստատման տվյալներ է ստանում միայն միացված և օգտագործվող SMS մուտքի դեպքում։ Խանութն ու հոսթինգի և կայքի շահագործման ծառայություններ մատուցողները մշակում են աշխատանքի համար անհրաժեշտ տեղեկությունները։ Առաքումն իրականացնողին կարող են փոխանցվել դրա համար անհրաժեշտ տվյալները։ Աշխատանքի և մուտքի չարաշահումներից պաշտպանության համար կայքը մշակում է հարցման տեխնիկական տվյալներ, ներառյալ IP հասցեն։" },
+        { title: "Տվյալների պահպանումը", text: "Պրոֆիլները, պահպանված հասցեներն ու պատվերները պահվում են սերվերում և ինքնաբերաբար չեն անհետանում 30-օրյա մուտքի ավարտից հետո։ Դուրս գալը դադարեցնում է մուտքը, ոչ թե ջնջում հաշիվը կամ պատվերների պատմությունը։ Ժամկետանց ստուգման և մուտքի գրառումները կարող են մաքրվել հետագա մուտքի գործողությունների ընթացքում, ոչ թե ժամկետի ավարտի պահին։ Պրոֆիլների և պատվերների տարիքով պայմանավորված ինքնաբերական ջնջում սահմանված չէ։" },
+        { title: "Ձեր գործողություններն ու դիմումները", text: "Հաշվում կարող եք փոխել պրոֆիլը, ջնջել պահպանված հասցեները և դուրս գալ մեկ կամ բոլոր սարքերից։ Հաշվի տվյալներին հասանելիության, ուղղման կամ ջնջման հարցումով գրեք ստորև նշված հասցեին։ Մինչև հարցումը կատարելը խանութը կարող է խնդրել հաստատել հաշվի պատկանելությունը։ Դիմումները դիտարկվում են ձեռքով․ հաշվի տվյալների ջնջումը չի նշանակում բոլոր կապված պատվերների գրառումների ինքնաբերական ջնջում։" },
+      ],
+    },
+    terms: {
+      title: "Պատվերի պայմաններ", description: "Գրքերի պատվիրում և հաստատում, կանխիկ վճարում ու առաքում Երևանում՝ Գրքասեր գրախանութում։",
+      intro: "Այս պայմանները նկարագրում են Գրքասեր գրախանութում պատվիրելու ընթացիկ կարգը։ Ուղարկելուց առաջ ստուգեք պատվերի կազմն ու վերջնական գումարը, իսկ հարցերի դեպքում կապվեք մեզ հետ։",
+      sections: [
+        { title: "Պատվիրելու կարգը", text: "Ընտրեք գրքերը, ավելացրեք զամբյուղ և նշեք անունը, հեռախոսահամարն ու Երևանի առաքման հասցեն։ Գրանցումը պարտադիր չէ։ Հարցումն ուղարկելիս սկսվում է մշակումը․ խանութը կապվում է ձեզ հետ՝ գրքերն ու առաքումը հաստատելու համար։" },
+        { title: "Առկայություն և հրատարակություն", text: "Կատալոգի տեղեկություններն օգնում են ընտրել գիրքը, բայց չեն երաշխավորում դրա անմիջական առկայությունը։ Առկայությունն ու ճշգրիտ հրատարակությունը ստուգվում են պատվերը մշակելիս։ Եթե գիրքը չհաստատվի, խանութը ձեզ հետ կքննարկի պատվերը և առանց համաձայնության չի փոխարինի այն։" },
+        { title: "Գները և վերջնական գումարը", text: "Գները նշված են հայկական դրամով (AMD)։ Զամբյուղում գրքերի արժեքն ու առաքումը նշվում են առանձին։ Երևանում առաքումն արժե 1 000 դրամ մեկ պատվերի համար։ Ուղարկելուց առաջ ստուգեք վերջնական գումարը։ Հաստատման ընթացքում գնի փոփոխությունը պահանջում է ձեր համաձայնությունը։" },
+        { title: "Առաքում և վճարում", text: "Առաքումն այս պահին հասանելի է միայն Երևանում։ Հասցեն և ժամը համաձայնեցվում են հեռախոսով՝ պատվերը հաստատելիս։ Վճարումը կատարվում է կանխիկ՝ ստանալիս․ կայքն այս պահին բանկային քարտով վճարում չի ընդունում։" },
+        { title: "Անձնական հաշիվը", text: "Միացված մուտքի եղանակների դեպքում կարող եք օգտվել հաստատված հեռախոսահամարից և SMS կոդից կամ Google մուտքից։ Հաշվում հասանելի են պրոֆիլը, պահպանված հասցեներն ու մուտքից հետո կատարված պատվերները։ Նախկին հյուրային պատվերները չեն ավելացվում ինքնաբերաբար՝ հեռախոսի կամ էլեկտրոնային հասցեի համընկնմամբ։ Զամբյուղն ու սիրելի գրքերը պահվում են դիտարկիչում։" },
+        { title: "Փոփոխություններ, չեղարկում և հարցեր", text: "Պատվերը փոխելու կամ չեղարկելու, ստացված գրքի, փոխանակման կամ վերադարձի հարցով գրեք խանութին՝ նշելով պատվերի համարը և իրավիճակը։ Մենք կդիտարկենք դիմումը և կքննարկենք հետագա քայլերը։ Այս էջը չի սահմանում գումարի ինքնաբերական վերադարձ, առաքման երաշխավորված վերջնաժամկետ կամ վերադարձի առանձին ժամկետ։" },
+      ],
+    },
+  },
+};

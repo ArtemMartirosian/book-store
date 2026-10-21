@@ -128,6 +128,8 @@ test("account offers Google and phone sign-in without enabling unconfigured prov
     const AccountPage = components(locale)("AccountPage");
     const html = renderToStaticMarkup(React.createElement(AccountPage));
     assert.ok(html.includes(`href="/${locale}/catalog"`));
+    assert.ok(html.includes(`href="/${locale}/privacy"`));
+    assert.ok(html.includes(`href="/${locale}/terms"`));
     assert.match(html, /data-testid="customer-auth-panel"/u);
     assert.match(html, /type="tel"/u);
     assert.match(html, /name="phone"/u);

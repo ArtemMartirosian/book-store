@@ -96,6 +96,20 @@ function badgeIsHiddenFromAssistiveTechnology(link) {
   return false;
 }
 
+test("the homepage footer links directly to current-language privacy and ordering terms", () => {
+  for (const locale of locales) {
+    const h = harness(locale);
+    const html = renderToStaticMarkup(React.createElement(h.shell.StorefrontShell, { locale }));
+    const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/u)?.[1];
+    assert.ok(footer);
+    const copy = h.module("app/components/storefront/i18n.ts").dictionary[locale].footer;
+    for (const kind of ["privacy", "terms"]) {
+      assert.ok(footer.includes(`href="/${locale}/${kind}"`));
+      assert.ok(footer.includes(copy[kind]));
+    }
+  }
+});
+
 test("mobile header search uses a short localized placeholder and an accessible icon-only GET submit", () => {
   const placeholders = { hy: "Փնտրել գիրք…", ru: "Найти книгу…", en: "Search books…" };
   for (const locale of locales) {

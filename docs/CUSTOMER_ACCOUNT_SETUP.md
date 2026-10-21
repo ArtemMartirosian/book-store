@@ -18,7 +18,8 @@ Both providers are disabled by default. The public page clearly says when a meth
    `https://grqaser.am/api/v1/customer/auth/google/callback`
 
 3. Install `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the server and set `CUSTOMER_GOOGLE_ENABLED=true`. `NEXT_PUBLIC_SITE_URL` must be the actual HTTPS site origin; Compose passes it to the API as `CUSTOMER_SITE_URL`.
-4. If the Google app is in Testing, add the owner's Google account as a test user. Publish the OAuth app to the intended audience before offering public sign-in, subject to Google's current requirements.
+4. Validate the full callback and account session using the owner's Google account before public rollout. For requests limited to `openid email profile`, Google's [basic-identity Testing exception](https://support.google.com/cloud/answer/15549945?hl=en) does not require a test-user allowlist and does not impose the ordinary seven-day authorization expiry. Do not infer that Testing makes this login owner-only.
+5. Treat public production readiness separately from a successful login. Provide truthful public support details, a privacy policy covering account/Google identity data, terms links from the homepage, and verified domain ownership before publishing production branding. Do not claim domain verification from SSH access or accept new policy attestations for the owner without approval. See [Google OAuth policies](https://developers.google.com/identity/protocols/oauth2/policies).
 
 The authorization code flow uses state tied to an HttpOnly browser cookie, a one-use database flow, PKCE and nonce. ID-token signatures/audience/issuer/expiry are checked by the official `google-auth-library`. Only `openid email profile` scopes are requested. This does not grant access to Gmail messages. Immutable Google `sub`, not an email match, identifies a customer. Methods can be explicitly linked from an already authenticated account; identities owned by another account are rejected.
 

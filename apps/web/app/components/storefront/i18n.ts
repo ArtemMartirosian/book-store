@@ -24,7 +24,7 @@ export const dictionary = {
       buyers: "Покупателям", catalog: "Каталог", delivery: "Доставка", orders: "Мои заказы",
       lumi: "О магазине", how: "Как мы работаем", daily: "Ежедневно", reply: "Ответим в рабочее время",
       contacts: "Контакты", information: "О заказе и доставке", contactHint: "Способы связи и информация для покупателей.",
-      city: "Ереван, Армения", privacy: "Конфиденциальность · Оферта",
+      city: "Ереван, Армения", privacy: "Конфиденциальность", terms: "Условия заказа",
     },
     home: {
       eyebrow: "Книжный магазин нового ритма", title: "Книги, которые", titleAccent: "остаются",
@@ -90,7 +90,7 @@ export const dictionary = {
       buyers: "Գնորդներին", catalog: "Գրացուցակ", delivery: "Առաքում", orders: "Իմ պատվերները",
       lumi: "Գրքասերի մասին", how: "Ինչպես ենք աշխատում", daily: "Ամեն օր", reply: "Կպատասխանենք աշխատանքային ժամերին",
       contacts: "Կապ", information: "Պատվեր և առաքում", contactHint: "Կապի միջոցներ և տեղեկություն գնորդների համար։",
-      city: "Երևան, Հայաստան", privacy: "Գաղտնիություն · Առաջարկ",
+      city: "Երևան, Հայաստան", privacy: "Գաղտնիություն", terms: "Պատվերի պայմաններ",
     },
     home: {
       eyebrow: "Նոր ռիթմի գրախանութ", title: "Գրքեր, որոնք", titleAccent: "մնում են",
@@ -154,7 +154,7 @@ export const dictionary = {
       buyers: "For readers", catalog: "Catalog", delivery: "Delivery", orders: "My orders",
       lumi: "About Grqaser", how: "How it works", daily: "Every day", reply: "We reply during working hours",
       contacts: "Contact us", information: "Ordering and delivery", contactHint: "Contact options and information for readers.",
-      city: "Yerevan, Armenia", privacy: "Privacy · Terms",
+      city: "Yerevan, Armenia", privacy: "Privacy", terms: "Ordering terms",
     },
     home: {
       eyebrow: "A bookstore for a new rhythm", title: "Books that", titleAccent: "stay with you",

@@ -43,6 +43,7 @@ function modules({ locale = "hy", search = "", api = {}, cacheFactory } = {}) {
       if (specifier === "server-only") return {};
       if (specifier === "next/navigation") return {
         notFound() { throw new Error("NEXT_HTTP_ERROR_FALLBACK;404"); },
+        redirect(to) { throw new Error("NEXT_REDIRECT;" + to); },
         useSearchParams: () => new URLSearchParams(search), usePathname: () => `/${locale}/catalog`,
       };
       if (specifier === "next/link") return { __esModule: true, default: ({ children, prefetch, ...props }) => { void prefetch; return React.createElement("a", props, children); } };
@@ -62,6 +63,63 @@ function modules({ locale = "hy", search = "", api = {}, cacheFactory } = {}) {
   }
   return (filename) => load(path.join(root, filename));
 }
+
+test("privacy and ordering terms are real translated pages with support, matching SEO and truthful account disclosures", async () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    const load = modules({ locale });
+    const { policyCopy } = load("app/components/storefront/policy-copy.ts");
+    for (const kind of ["privacy", "terms"]) {
+      const route = load(`app/[locale]/${kind}/page.tsx`);
+      const args = { params: Promise.resolve({ locale }) };
+      const html = renderToStaticMarkup(await route.default(args));
+      assert.ok(html.includes(`data-testid="store-policy-${kind}"`));
+      assert.ok(html.includes(policyCopy[locale][kind].title));
+      assert.equal((html.match(/<h1\b/gu) || []).length, 1);
+      assert.match(html, /href="mailto:grqaser@gmail\.com"/u);
+      assert.ok(html.includes(`href="/${locale}/${kind === "privacy" ? "terms" : "privacy"}"`));
+      const metadata = await route.generateMetadata(args);
+      assert.match(String(metadata.alternates.canonical), new RegExp("/" + locale + "/" + kind + "$", "u"));
+      assert.deepEqual(Object.keys(metadata.alternates.languages).sort(), ["en", "hy", "ru", "x-default"]);
+      assert.equal(metadata.description, policyCopy[locale][kind].description);
+      assert.equal(metadata.robots.index, true);
+      if (kind === "privacy") {
+        for (const fact of ["openid", "email", "profile", "Google", "Gmail", "Twilio", "HttpOnly", "30"]) assert.ok(html.includes(fact), locale + "/" + fact);
+      } else {
+        assert.ok(html.includes("AMD"));
+        assert.ok(html.includes("1 000") || html.includes("1,000"));
+      }
+      await assert.rejects(() => route.default({ params: Promise.resolve({ locale: "fr" }) }), /404/u);
+    }
+  }
+});
+
+test("shop document links localize only known same-site policies while preserving external documents", () => {
+  const previous = { privacy: process.env.LUMI_PRIVACY_URL, terms: process.env.LUMI_TERMS_URL };
+  try {
+    const load = modules();
+    const { SITE_URL } = load("app/lib/brand.ts");
+    const { ShopInformation } = load("app/components/storefront/ShopInformation.tsx");
+    process.env.LUMI_PRIVACY_URL = SITE_URL + "/privacy#section-7";
+    process.env.LUMI_TERMS_URL = "https://legal.example.com/store-terms";
+    for (const locale of ["hy", "ru", "en"]) {
+      const html = renderToStaticMarkup(React.createElement(ShopInformation, { locale, section: "contacts" }));
+      assert.ok(html.includes(`href="/${locale}/privacy#section-7"`));
+      assert.match(html, /href="https:\/\/legal\.example\.com\/store-terms"/u);
+    }
+  } finally {
+    for (const [key, value] of [["LUMI_PRIVACY_URL", previous.privacy], ["LUMI_TERMS_URL", previous.terms]]) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test("unprefixed policy URLs redirect to the Armenian default", () => {
+  const load = modules();
+  for (const kind of ["privacy", "terms"]) {
+    const route = load(`app/${kind}/page.tsx`);
+    assert.throws(() => route.default(), new RegExp("NEXT_REDIRECT;/hy/" + kind, "u"));
+  }
+});
 
 test("JSON-LD serialization cannot close the script element, even with hostile catalog text", () => {
   const { serializeJsonLd } = modules()("app/lib/structured-data.ts");
@@ -145,7 +203,7 @@ test("public route metadata remains noindex when production indexing is not enab
   process.env.SITE_INDEXING_ENABLED = "false";
   try {
     const load = modules();
-    for (const name of ["", "catalog/", "contacts/", "information/", "books/[slug]/"]) {
+    for (const name of ["", "catalog/", "contacts/", "information/", "privacy/", "terms/", "books/[slug]/"]) {
       const route = load(`app/[locale]/${name}page.tsx`);
       const metadata = await route.generateMetadata({ params: Promise.resolve({ locale: "hy", slug: book.slug }), searchParams: Promise.resolve({}) });
       assert.equal(metadata.robots.index, false, name);

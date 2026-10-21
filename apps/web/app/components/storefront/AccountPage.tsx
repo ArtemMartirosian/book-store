@@ -118,7 +118,7 @@ function AuthPanel({ config, locale, onSuccess, link = false }: { config: Accoun
         <button className={cx(primaryButton, "min-h-13 w-full")} type="submit" disabled={busy || !config?.smsEnabled}>{busy ? t.sending : t.send}<Icon name="arrow"/></button>
       </form>
       {config && !config.smsEnabled && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.smsUnavailable}</p>}
-      <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal}</p>
+      <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal} <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/privacy")}>{dictionary[locale].footer.privacy}</Link> · <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/terms")}>{dictionary[locale].footer.terms}</Link></p>
     </>}
     {error && <div className="mt-4" id="account-auth-error"><Alert>{error}</Alert></div>}
   </div>;

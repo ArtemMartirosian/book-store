@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { brandName, BRAND_DESCRIPTIONS } from "../../lib/brand";
+import { brandName, BRAND_DESCRIPTIONS, SITE_URL } from "../../lib/brand";
 import { getShopInfo } from "../../lib/shop-info.mjs";
 import { localized, type Locale } from "./i18n";
 import { container, cx } from "./ui";
@@ -53,6 +53,13 @@ export function shopInformationTitle(locale: Locale, section: "contacts" | "info
   return copy[locale][section];
 }
 
+function documentHref(locale: Locale, kind: string, href: string) {
+  const url = new URL(href);
+  const match = url.pathname.match(/^\/(?:(?:hy|ru|en)\/)?(privacy|terms)\/?$/u);
+  return url.origin === SITE_URL && match?.[1] === kind
+    ? localized(locale, "/" + kind) + url.search + url.hash : href;
+}
+
 export function ShopInformation({ locale, section }: { locale: Locale; section: "contacts" | "information" }) {
   const t = copy[locale];
   const help = helpCopy[locale];
@@ -86,7 +93,7 @@ export function ShopInformation({ locale, section }: { locale: Locale; section: 
           {help.questions.map((question, index) => <details key={question} className="border-t border-[var(--line)] py-4"><summary className="min-h-11 cursor-pointer py-2 text-base font-semibold">{question}</summary><p className="max-w-3xl py-3 text-base leading-8 text-[var(--muted)]">{[t.orderText, t.confirmationText, t.deliveryText][index]}</p></details>)}
         </section>
       </>}
-      {info.documents.length > 0 && <section className="mt-10"><h2 className="font-display text-2xl font-normal tracking-[-.02em]">{t.documents}</h2><div className="mt-3 flex flex-wrap gap-4">{info.documents.map(({ kind, url }) => <a className="inline-flex min-h-11 items-center text-base text-[#6258ff] underline" href={url!} key={kind}>{t[kind as "terms" | "privacy" | "returns"]} ↗</a>)}</div></section>}
+      {info.documents.length > 0 && <section className="mt-10"><h2 className="font-display text-2xl font-normal tracking-[-.02em]">{t.documents}</h2><div className="mt-3 flex flex-wrap gap-4">{info.documents.map(({ kind, url }) => <a className="inline-flex min-h-11 items-center text-base text-[#6258ff] underline" href={documentHref(locale, kind, url!)} key={kind}>{t[kind as "terms" | "privacy" | "returns"]} ↗</a>)}</div></section>}
       <nav className="mt-10 flex flex-wrap gap-4 border-t border-[#e3e5ef] pt-7">
         <Link className="inline-flex min-h-12 items-center rounded-xl bg-[#6258ff] px-6 text-sm font-medium text-white transition hover:bg-[#5147e2]" href={localized(locale, "/catalog")}>{t.catalog}</Link>
         <Link className="inline-flex min-h-12 items-center rounded-xl border border-[#e3e5ef] bg-[#ffffff] px-6 text-sm font-medium transition hover:bg-[#f0eeff]" href={localized(locale, "/cart")}>{t.cart}</Link>
