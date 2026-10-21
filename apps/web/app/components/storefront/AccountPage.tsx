@@ -130,12 +130,15 @@ export function AccountPage() {
   const t = accountCopy[locale];
   const params = useSearchParams();
   const authResult = params.get("auth");
+  const authQuery = params.toString();
+  const [dismissedAuthQuery, setDismissedAuthQuery] = useState<string | null>(null);
   const clearAuthResult = () => {
+    setDismissedAuthQuery(authQuery);
     const url = new URL(window.location.href);
     url.searchParams.delete("auth");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   };
-  const authNotice = (authResult === "failed" || authResult === "unavailable") && <div data-testid="account-callback-error"><Alert><span className="flex items-start justify-between gap-3"><span>{t.providerError}</span><button className="-my-2 -mr-2 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg transition hover:bg-rose-100" type="button" onClick={clearAuthResult} aria-label={t.dismiss}><span aria-hidden="true">×</span></button></span></Alert></div>;
+  const authNotice = dismissedAuthQuery !== authQuery && (authResult === "failed" || authResult === "unavailable") && <div data-testid="account-callback-error"><Alert><span className="flex items-start justify-between gap-3"><span>{t.providerError}</span><button className="-my-2 -mr-2 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg transition hover:bg-rose-100" type="button" onClick={clearAuthResult} aria-label={t.dismiss}><span aria-hidden="true">×</span></button></span></Alert></div>;
   const [config, setConfig] = useState<AccountConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");

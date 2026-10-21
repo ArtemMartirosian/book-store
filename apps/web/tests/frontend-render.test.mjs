@@ -156,8 +156,7 @@ test("Google callback errors are visible to guests and signed-in customers in ev
   }
 });
 
-test("dismissing a callback error and successful SMS authentication clear only its URL result", async () => {
-  const reactOverride = { ...React, useState: (initial) => [typeof initial === "function" ? initial() : initial, () => {}], useRef: (initial) => ({ current: initial }), useEffect() {}, useCallback: (callback) => callback };
+test("dismissing a callback error and successful SMS authentication clear it even when navigation params stay cached", async () => {
   let url = new URL("https://grqaser.digitalize.am/en/account?auth=failed&return=orders#security");
   const historyState = { existing: true };
   let refreshes = 0;
@@ -172,20 +171,38 @@ test("dismissing a callback error and successful SMS authentication clear only i
     return [node, ...elements(node.props.children)];
   };
   try {
-    const AccountPage = components("en", () => url.search, reactOverride, { customerLoaded: true, refreshCustomer: async () => { refreshes++; } })("AccountPage");
-    const dismiss = elements(AccountPage()).find((element) => element.type === "button" && element.props["aria-label"] === "Dismiss message");
-    assert.ok(dismiss);
-    dismiss.props.onClick();
-    assert.equal(url.pathname + url.search + url.hash, "/en/account?return=orders#security");
-    assert.ok(!elements(AccountPage()).some((element) => element.props["data-testid"] === "account-callback-error"));
-
-    url.searchParams.set("auth", "failed");
-    const panel = elements(AccountPage()).find((element) => typeof element.props.onSuccess === "function");
-    assert.ok(panel);
-    await panel.props.onSuccess();
+    for (const action of ["dismiss", "authenticate"]) {
+      url = new URL("https://grqaser.digitalize.am/en/account?auth=failed&return=orders#security");
+      const cachedSearch = url.search;
+      const state = [];
+      let hook = 0;
+      let updates = 0;
+      const reactOverride = {
+        ...React, useRef: (initial) => ({ current: initial }), useEffect() {}, useCallback: (callback) => callback,
+        useState(initial) {
+          const index = hook++;
+          if (!(index in state)) state[index] = typeof initial === "function" ? initial() : initial;
+          return [state[index], (next) => { state[index] = typeof next === "function" ? next(state[index]) : next; updates++; }];
+        },
+      };
+      const AccountPage = components("en", cachedSearch, reactOverride, { customerLoaded: true, refreshCustomer: async () => { refreshes++; } })("AccountPage");
+      const render = () => { hook = 0; return elements(AccountPage()); };
+      const before = render();
+      assert.ok(before.some((element) => element.props["data-testid"] === "account-callback-error"));
+      if (action === "dismiss") {
+        const dismiss = before.find((element) => element.type === "button" && element.props["aria-label"] === "Dismiss message");
+        assert.ok(dismiss);
+        dismiss.props.onClick();
+      } else {
+        const panel = before.find((element) => typeof element.props.onSuccess === "function");
+        assert.ok(panel);
+        await panel.props.onSuccess();
+      }
+      assert.ok(updates > 0, "the action schedules a React state update independently of URL navigation");
+      assert.equal(url.pathname + url.search + url.hash, "/en/account?return=orders#security");
+      assert.ok(!render().some((element) => element.props["data-testid"] === "account-callback-error"), "cached Next navigation params must not keep a dismissed error visible");
+    }
     assert.equal(refreshes, 1);
-    assert.equal(url.pathname + url.search + url.hash, "/en/account?return=orders#security");
-    assert.ok(!elements(AccountPage()).some((element) => element.props["data-testid"] === "account-callback-error"));
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
     else delete globalThis.window;
