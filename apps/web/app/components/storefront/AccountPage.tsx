@@ -58,14 +58,14 @@ function Alert({ children, success = false }: { children: ReactNode; success?: b
   return <p className={cx("rounded-xl border p-4 text-sm leading-6", success ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800")} role={success ? "status" : "alert"}>{children}</p>;
 }
 
-function PasswordField({ label, name, locale, value, onChange, newPassword = false, disabled = false, errorId }: { label: string; name: string; locale: Locale; value: string; onChange: (value: string) => void; newPassword?: boolean; disabled?: boolean; errorId?: string }) {
+function PasswordField({ label, name, locale, value, onChange, newPassword = false, disabled = false, errorId, hintId }: { label: string; name: string; locale: Locale; value: string; onChange: (value: string) => void; newPassword?: boolean; disabled?: boolean; errorId?: string; hintId?: string }) {
   const t = accountCopy[locale];
   const [visible, setVisible] = useState(false);
   const id = "account-" + name;
   return <div className={fieldClass}>
     <label htmlFor={id}>{label}</label>
     <span className="relative block">
-      <input id={id} name={name} type={visible ? "text" : "password"} className={cx(inputClass, "pr-13")} autoComplete={newPassword ? "new-password" : "current-password"} value={value} onChange={event => onChange(event.target.value)} required disabled={disabled} aria-describedby={errorId} aria-invalid={Boolean(errorId)}/>
+      <input id={id} name={name} type={visible ? "text" : "password"} className={cx(inputClass, "pr-13")} autoComplete={newPassword ? "new-password" : "current-password"} value={value} onChange={event => onChange(event.target.value)} required disabled={disabled} aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined} aria-invalid={Boolean(errorId)}/>
       <button type="button" className="absolute right-1 top-1 grid size-10 place-items-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]" onClick={() => setVisible(current => !current)} aria-label={visible ? t.hidePassword : t.showPassword} aria-controls={id} aria-pressed={visible} disabled={disabled}><Icon name={visible ? "eyeOff" : "eye"} className="size-[18px]"/></button>
     </span>
   </div>;
@@ -97,25 +97,24 @@ export function AuthPanel({ config, locale, onSuccess }: { config: AccountConfig
     } catch (cause) { setError(errorText(cause, t)); }
     finally { locked.current = false; setBusy(false); }
   };
-  return <div className="mx-auto w-full max-w-[420px]" data-testid="customer-auth-panel">
-    <span className="mb-5 grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name="user" className="size-7"/></span>
-    <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold leading-tight tracking-tight">{registering ? t.registerTitle : t.welcome}</h2>
-    <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{registering ? t.registerText : t.welcomeText}</p>
-    <nav className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-[var(--paper)] p-1" aria-label={t.authOptions}>
-      {(["login", "register"] as const).map(option => <button key={option} type="button" className={cx("min-h-11 rounded-xl px-3 text-sm font-semibold transition", mode === option ? "bg-white text-[var(--accent)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--ink)]")} aria-pressed={mode === option} disabled={busy} onClick={() => changeMode(option)}>{option === "login" ? t.login : t.register}</button>)}
+  return <div className="w-full" data-testid="customer-auth-panel">
+    <h1 id="account-auth-title" className="text-2xl font-semibold leading-tight tracking-tight">{registering ? t.authRegisterTitle : t.authLoginTitle}</h1>
+    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{registering ? t.authRegisterDescription : t.authLoginDescription}</p>
+    <nav className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-[var(--paper)] p-1" aria-label={t.authOptions}>
+      {(["login", "register"] as const).map(option => <button key={option} type="button" className={cx("min-h-11 rounded-lg px-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]", mode === option ? "bg-white text-[var(--accent)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--ink)]")} aria-pressed={mode === option} aria-controls="account-auth-form" disabled={busy} onClick={() => changeMode(option)}>{option === "login" ? t.login : t.register}</button>)}
     </nav>
-    {config?.googleEnabled && <><button className={cx(secondary, "mt-6 min-h-13 w-full gap-3")} type="button" disabled={busy} onClick={() => window.location.assign(googleSignInUrl(locale))}><GoogleMark/>{t.google}</button><div className="my-5 flex items-center gap-4 text-xs text-[var(--muted)]"><span className="h-px flex-1 bg-[var(--line)]"/>{t.or}<span className="h-px flex-1 bg-[var(--line)]"/></div></>}
-    <form className="mt-6 grid gap-4" onSubmit={submit} data-testid={"account-" + mode + "-form"}>
+    {config?.googleEnabled && <><button className={cx(secondary, "mt-5 w-full gap-3")} type="button" disabled={busy} onClick={() => window.location.assign(googleSignInUrl(locale))}><GoogleMark/>{t.google}</button><div className="mt-5 flex items-center gap-4 text-xs text-[var(--muted)]"><span className="h-px flex-1 bg-[var(--line)]"/>{t.or}<span className="h-px flex-1 bg-[var(--line)]"/></div></>}
+    <form id="account-auth-form" className="mt-5 grid gap-4" onSubmit={submit} aria-labelledby="account-auth-title" aria-busy={busy} data-testid={"account-" + mode + "-form"}>
       {registering && <label className={fieldClass}>{t.fullName}<input className={inputClass} name="fullName" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)} placeholder={t.namePlaceholder} minLength={2} maxLength={100} required disabled={busy}/></label>}
       <label className={fieldClass}>{t.email}<input className={inputClass} name="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={event => { setEmail(event.target.value); setError(""); }} placeholder="name@example.com" maxLength={254} required disabled={busy}/></label>
-      <PasswordField key={mode} label={t.password} name="password" locale={locale} value={password} onChange={value => { setPassword(value); setError(""); }} newPassword={registering} disabled={busy} errorId={error ? "account-auth-error" : undefined}/>
-      {registering && <><p className="-mt-2 text-xs leading-6 text-[var(--muted)]">{t.passwordHint}</p><PasswordField label={t.confirmPassword} name="confirmPassword" locale={locale} value={confirmation} onChange={value => { setConfirmation(value); setError(""); }} newPassword disabled={busy} errorId={error ? "account-auth-error" : undefined}/></>}
-      <button className={cx(primaryButton, "min-h-13 w-full")} type="submit" disabled={busy || !config?.passwordEnabled}>{busy ? t.signingIn : registering ? t.createAccount : t.login}<Icon name="arrow"/></button>
+      <PasswordField key={mode} label={t.password} name="password" locale={locale} value={password} onChange={value => { setPassword(value); setError(""); }} newPassword={registering} disabled={busy} errorId={error ? "account-auth-error" : undefined} hintId={registering ? "account-auth-password-hint" : undefined}/>
+      {registering && <><p id="account-auth-password-hint" className="-mt-2 text-xs leading-5 text-[var(--muted)]">{t.authPasswordHint}</p><PasswordField label={t.confirmPassword} name="confirmPassword" locale={locale} value={confirmation} onChange={value => { setConfirmation(value); setError(""); }} newPassword disabled={busy} errorId={error ? "account-auth-error" : undefined}/></>}
+      {error && <div id="account-auth-error"><Alert>{error}</Alert></div>}
+      <button className={cx(primaryButton, "w-full")} type="submit" disabled={busy || !config?.passwordEnabled}>{busy ? t.signingIn : registering ? t.createAccount : t.login}</button>
     </form>
     {config && !config.passwordEnabled && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.providerError}</p>}
-    {error && <div className="mt-4" id="account-auth-error"><Alert>{error}</Alert></div>}
-    <p className="mt-4 text-xs leading-6 text-[var(--muted)]">{t.passwordHelp} <a href="mailto:grqaser@gmail.com" className="text-[var(--accent)] underline underline-offset-2">{t.contactSupport}</a></p>
-    <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal} <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/privacy")}>{dictionary[locale].footer.privacy}</Link> · <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/terms")}>{dictionary[locale].footer.terms}</Link></p>
+    <p className="mt-5 text-center text-xs leading-6 text-[var(--muted)]">{t.authHelp} <a href="mailto:grqaser@gmail.com" className="text-[var(--accent)] underline underline-offset-2">{t.contactSupport}</a></p>
+    {registering && <div className="mt-5 flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-[var(--line)] pt-4 text-xs leading-5 text-[var(--muted)]"><Link className="underline-offset-2 hover:text-[var(--accent)] hover:underline" href={localized(locale, "/privacy")}>{dictionary[locale].footer.privacy}</Link><span aria-hidden="true">·</span><Link className="underline-offset-2 hover:text-[var(--accent)] hover:underline" href={localized(locale, "/terms")}>{dictionary[locale].footer.terms}</Link></div>}
   </div>;
 }
 
@@ -236,21 +235,14 @@ export function AccountPage() {
   </details>)}</div>;
   const empty = (icon: IconName, title: string, text: string, button?: ReactNode) => <div className="grid justify-items-center px-6 py-12 text-center"><span className="mb-5 grid size-16 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name={icon} className="size-7"/></span><h3 className="text-lg font-semibold">{title}</h3><p className="mt-3 max-w-md text-sm leading-7 text-[var(--muted)]">{text}</p>{button && <div className="mt-6">{button}</div>}</div>;
 
-  if (!customer) return <div className="bg-[var(--paper)] py-10 max-sm:py-6">
-    <div className={cx(container, "grid overflow-hidden rounded-[28px] border border-[var(--line)] bg-white lg:grid-cols-2")}>
-      <section className="relative hidden overflow-hidden bg-[#f0edff] p-12 lg:block">
-        <span className="text-[10px] font-semibold tracking-[.15em] text-[var(--accent)]">{t.eyebrow}</span>
-        <h1 className="mt-5 whitespace-pre-line text-[clamp(1.9rem,4vw,3.4rem)] font-bold leading-[1.12] tracking-[-.045em]">{t.title}</h1>
-        <p className="mt-5 max-w-md text-sm leading-7 text-[#746c98]">{t.intro}</p>
-        <BooksDrawing/>
-        <div className="grid gap-4 sm:grid-cols-2">{[{ icon: "orders" as const, title: t.benefitOrders, text: t.benefitOrdersText }, { icon: "pin" as const, title: t.benefitAddress, text: t.benefitAddressText }].map(item => <div className="flex gap-3" key={item.title}><span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/75 text-[var(--accent)]"><Icon name={item.icon} className="size-[18px]"/></span><div><h2 className="text-sm font-semibold">{item.title}</h2><p className="mt-1 text-xs leading-6 text-[#746c98]">{item.text}</p></div></div>)}</div>
-      </section>
-      <section className="flex flex-col justify-center p-9 max-sm:p-6 lg:p-12">
-        {!customerLoaded && customerLoaded !== undefined ? <p className="py-16 text-center text-sm text-[var(--muted)]" role="status">{t.loading}</p> : <AuthPanel config={config} locale={locale} onSuccess={onAuthenticated}/>}
-        {authNotice && <div className="mx-auto mt-4 w-full max-w-[420px]">{authNotice}</div>}
+  if (!customer) return <div className="bg-[var(--paper)] py-6 sm:py-10" data-testid="customer-auth-screen">
+    <div className="mx-auto w-full max-w-[488px] px-4 sm:px-6">
+      <section className="rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[0_4px_24px_rgba(28,24,61,.025)] sm:p-8">
+        {authNotice && <div className="mb-5">{authNotice}</div>}
+        {!customerLoaded && customerLoaded !== undefined ? <div className="grid min-h-[380px] place-content-center text-center" role="status"><h1 className="sr-only">{t.authLoginTitle}</h1><p className="text-sm text-[var(--muted)]">{t.loading}</p></div> : <AuthPanel config={config} locale={locale} onSuccess={onAuthenticated}/>}
         {configError && <div className="mt-4"><Alert>{t.providerError}</Alert></div>}
-        <Link className="mx-auto mt-7 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[var(--accent)]" href={localized(locale, "/catalog")}>{t.guest}<Icon name="arrow" className="size-4"/></Link>
       </section>
+      <Link className="mx-auto mt-3 flex min-h-11 w-fit items-center gap-2 rounded-lg px-2 text-sm text-[var(--muted)] transition hover:text-[var(--accent)]" href={localized(locale, "/catalog")}><Icon name="arrow" className="size-4 rotate-180"/>{t.authBackToStore}</Link>
     </div>
   </div>;
 

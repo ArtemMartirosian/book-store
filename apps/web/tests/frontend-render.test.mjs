@@ -124,20 +124,95 @@ test("publisher and accessory selections use real metadata without inventing dis
   assert.doesNotMatch(discounts, /<del|<s>|9000/u);
 });
 
-test("account offers email and password sign-in without phone authentication or dormant Google buttons", () => {
+test("guest account is a single clear sign-in screen without marketing panels or phone authentication", () => {
   for (const locale of ["ru", "hy", "en"]) {
-    const AccountPage = components(locale)("AccountPage");
+    const AccountPage = components(locale, "", undefined, { customer: null, customerLoaded: true })("AccountPage");
     const html = renderToStaticMarkup(React.createElement(AccountPage));
     assert.ok(html.includes('href="/' + locale + '/catalog"'));
-    assert.ok(html.includes('href="/' + locale + '/privacy"'));
-    assert.ok(html.includes('href="/' + locale + '/terms"'));
+    assert.ok(html.includes('href="mailto:grqaser@gmail.com"'));
     assert.match(html, /data-testid="customer-auth-panel"/u);
+    assert.equal([...html.matchAll(/<h1(?:\s|>)/gu)].length, 1, "the active authentication screen has one clear page heading");
     assert.match(html, /type="email"[^>]+autoComplete="username"/u);
     assert.match(html, /type="password"[^>]+autoComplete="current-password"/u);
     assert.match(html, /<button[^>]+disabled=""/u);
     assert.doesNotMatch(html, /type="tel"|name="phone"|one-time-code|Google|data-testid="customer-dashboard"/u);
+    assert.doesNotMatch(html, /viewBox="0 0 320 240"|Your books\.|Ваши книги\.|Ձեր գրքերը։/u);
+    assert.doesNotMatch(html, /Your orders, together|Все заказы рядом|Բոլոր պատվերները միասին/u);
     assert.doesNotMatch(html, /Sign-in is temporarily unavailable|Вход временно недоступен|Մուտքը ժամանակավորապես անհասանելի/u);
   }
+});
+
+function renderAuthPanel(locale, mode = "login", config = { passwordEnabled: true, googleEnabled: false }) {
+  const reactOverride = {
+    ...React,
+    useState(initial) { return React.useState(initial === "login" ? mode : initial); },
+  };
+  const AuthPanel = components(locale, "", reactOverride)("AccountPage", "AuthPanel");
+  return renderToStaticMarkup(React.createElement(AuthPanel, { locale, config, onSuccess: async () => {} }));
+}
+
+test("minimal login and registration keep separate fields, accessible mode controls and localized policy links", () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    for (const mode of ["login", "register"]) {
+      const html = renderAuthPanel(locale, mode);
+      const registering = mode === "register";
+      assert.match(html, new RegExp('data-testid="account-' + mode + '-form"', "u"));
+      assert.equal([...html.matchAll(/<h1(?:\s|>)/gu)].length, 1);
+      assert.equal([...html.matchAll(/<button[^>]+aria-pressed="true"/gu)].length, 1, "only the active mode is pressed");
+      const inputs = html.match(/<input\b[^>]*>/gu) ?? [];
+      const input = name => inputs.find(element => element.includes('name="' + name + '"'));
+      const email = input("email");
+      assert.ok(email);
+      assert.match(email, /type="email"/u);
+      assert.match(email, /autoComplete="username"/u);
+      assert.match(email, /autoCapitalize="none"/u);
+      assert.match(input("password"), /type="password"/u);
+      const submit = html.match(/<button[^>]+type="submit"[^>]*>/u)?.[0];
+      assert.ok(submit);
+      assert.doesNotMatch(submit, /\sdisabled(?:=|\s|>)/u);
+      assert.doesNotMatch(html, /Google|one-time-code|type="tel"|name="phone"|viewBox="0 0 320 240"/u);
+      if (registering) {
+        assert.match(input("fullName"), /autoComplete="name"/u);
+        assert.match(input("confirmPassword"), /type="password"/u);
+        assert.equal([...html.matchAll(/autoComplete="new-password"/gu)].length, 2);
+        assert.ok(html.includes('href="/' + locale + '/privacy"'));
+        assert.ok(html.includes('href="/' + locale + '/terms"'));
+      } else {
+        assert.match(html, /autoComplete="current-password"/u);
+        assert.doesNotMatch(html, /name="fullName"|name="confirmPassword"|autoComplete="new-password"/u);
+      }
+    }
+  }
+});
+
+test("minimal authentication still disables unavailable sign-in and only offers Google when enabled", () => {
+  const unavailable = "Sign-in is temporarily unavailable. Please try again later.";
+  for (const config of [null, { passwordEnabled: false, googleEnabled: false }]) {
+    const html = renderAuthPanel("en", "login", config);
+    assert.match(html, /<button[^>]+type="submit"[^>]+disabled=""/u);
+    assert.equal(html.includes(unavailable), config !== null);
+    assert.doesNotMatch(html, /Continue with Google/u);
+  }
+  assert.match(renderAuthPanel("en", "login", { passwordEnabled: true, googleEnabled: true }), /Continue with Google/u);
+});
+
+test("guest loading state does not flash an interactive sign-in form or a marketing illustration", () => {
+  const AccountPage = components("en", "", undefined, { customer: null, customerLoaded: false })("AccountPage");
+  const html = renderToStaticMarkup(React.createElement(AccountPage));
+  assert.match(html, /role="status"/u);
+  assert.ok(html.includes("Opening your account…"));
+  assert.doesNotMatch(html, /account-login-form|account-register-form|viewBox="0 0 320 240"/u);
+});
+
+test("simplifying guest authentication preserves the signed-in dashboard and its book illustration", () => {
+  const customer = { id: "reader", fullName: "Test Reader", email: "reader@example.test", passwordEnabled: true, emailVerified: false, phone: null, googleEmail: null, googleConnected: false, locale: "en" };
+  const AccountPage = components("en", "", undefined, { customer, customerLoaded: true })("AccountPage");
+  const html = renderToStaticMarkup(React.createElement(AccountPage));
+  assert.match(html, /data-testid="customer-dashboard"/u);
+  assert.match(html, /viewBox="0 0 320 240"/u);
+  assert.ok(html.includes("Make room for"));
+  assert.ok(html.includes("reader@example.test"));
+  assert.doesNotMatch(html, /data-testid="customer-auth-panel"|account-login-form|account-register-form/u);
 });
 
 function formHarness(locale, exportName, request, extra = {}) {
