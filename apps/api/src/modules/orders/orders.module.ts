@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { CatalogModule } from '../catalog/catalog.module';
+import { CustomerAuthModule } from '../customer-auth/customer-auth.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { ProcurementModule } from '../procurement/procurement.module';
 import { InMemoryProcurementRepository } from '../procurement/repositories/in-memory-procurement.repository';
@@ -16,7 +17,7 @@ import { ORDER_PROCUREMENT_UNIT_OF_WORK } from './repositories/order-procurement
 import { PrismaOrderProcurementUnitOfWork } from './repositories/prisma-order-procurement.unit-of-work';
 
 @Module({
-  imports: [CatalogModule, PricingModule, ProcurementModule],
+  imports: [CatalogModule, PricingModule, ProcurementModule, CustomerAuthModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,

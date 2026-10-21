@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { mapCatalogBook } from "../../lib/catalog-api";
+import { accountRequest, type AccountAddress } from "../../lib/customer-account";
 import type { Book } from "../../lib/types";
 import { checkoutFieldErrors, fetchCartSnapshot, normalizeCheckoutPhone, readPendingCheckout, savePendingCheckout, clearPendingCheckout, classifyCheckoutResponse, type PendingCheckout } from "../../lib/checkout-client.mjs";
 import { formatAmd } from "../../lib/catalog-data";
@@ -63,7 +64,25 @@ function itemSignature(items: Array<{ productId: string; quantity: number }>) {
 }
 
 export function CartPage() {
-  const { cart: savedCart, cartCount, setQuantity, removeFromCart, clearCart, completeCheckout, locale } = useStorefront();
+  const { cart: savedCart, cartCount, setQuantity, removeFromCart, clearCart, completeCheckout, locale, customer } = useStorefront();
+  const checkoutForm = useRef<HTMLFormElement>(null);
+  const savedAddressCopy = { ru: "Заполнить из кабинета", hy: "Լրացնել իմ էջից", en: "Use my account details" }[locale];
+  const savedAddressError = { ru: "Не удалось загрузить данные кабинета.", hy: "Չհաջողվեց բեռնել իմ էջի տվյալները։", en: "We could not load your account details." }[locale];
+  const [savedAddressState, setSavedAddressState] = useState<"idle" | "loading" | "error">("idle");
+  const applyAccountDetails = async () => {
+    if (!customer || savedAddressState === "loading") return;
+    setSavedAddressState("loading");
+    try {
+      const addresses = await accountRequest<AccountAddress[]>("addresses");
+      const address = addresses.find(item => item.isDefault) ?? addresses[0];
+      const values = { name: address?.fullName ?? customer.fullName, phone: address?.phone ?? customer.phone ?? "", address: address?.addressLine ?? "", district: address?.district ?? "" };
+      for (const [name, value] of Object.entries(values)) {
+        const field = checkoutForm.current?.elements.namedItem(name);
+        if ((field instanceof HTMLInputElement || field instanceof HTMLSelectElement) && value) field.value = value;
+      }
+      setFieldErrors({}); setSavedAddressState("idle");
+    } catch { setSavedAddressState("error"); }
+  };
   const copy = checkoutCopy[locale];
   const pendingText = pendingCopy[locale];
   const t = dictionary[locale].cart;
@@ -136,7 +155,8 @@ export function CartPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": request.key },
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": request.key, "X-Grqaser-Client": "storefront" },
         body: request.body,
         signal: controller.signal,
       });
@@ -303,7 +323,8 @@ export function CartPage() {
         <nav className="flex min-h-14 items-center gap-2 text-[14px] text-[#727789]"><Link href={localized(locale)}>{t.home}</Link><span>/</span><span>{t.cart}</span></nav>
         <header className="pb-9 pt-7"><span className={eyebrow}>{t.selection}</span><h1 className="font-display my-4 text-[clamp(2.8rem,5.5vw,4.5rem)] font-normal leading-[1.08] tracking-[-.035em]">{t.cart} <sup className="ml-1 inline-flex size-8 items-center justify-center rounded-full bg-[#f0eeff] align-middle font-sans text-sm font-medium tracking-normal text-[#6258ff]">{cartCount}</sup></h1><p className="text-[14px] text-[#727789]">{t.intro}</p></header>
 
-        <form id="checkout-form" noValidate className="grid grid-cols-[minmax(0,1fr)_350px] items-start gap-7 max-lg:grid-cols-1" onSubmit={submitOrder} onChange={(event) => {
+        {customer && <div className="mb-5 flex flex-wrap items-center gap-3"><button type="button" className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-medium text-[var(--accent)] disabled:opacity-50" disabled={savedAddressState === "loading" || submitState === "submitting"} onClick={() => { void applyAccountDetails(); }}>{savedAddressCopy}</button>{savedAddressState === "error" && <p className="text-sm text-rose-700" role="alert">{savedAddressError}</p>}</div>}
+        <form ref={checkoutForm} id="checkout-form" noValidate className="grid grid-cols-[minmax(0,1fr)_350px] items-start gap-7 max-lg:grid-cols-1" onSubmit={submitOrder} onChange={(event) => {
           const field = event.target.getAttribute("name") as CheckoutField | null;
           if (field) setFieldErrors((current) => ({ ...current, [field]: false }));
         }}>

@@ -123,13 +123,17 @@ test("publisher and accessory selections use real metadata without inventing dis
   assert.doesNotMatch(discounts, /<del|<s>|9000/u);
 });
 
-test("account is useful in every locale without collecting a phone number or presenting an inert form", () => {
+test("account offers Google and phone sign-in without enabling unconfigured providers on the initial render", () => {
   for (const locale of ["ru", "hy", "en"]) {
     const AccountPage = components(locale)("AccountPage");
     const html = renderToStaticMarkup(React.createElement(AccountPage));
-    for (const route of ["favorites", "cart", "catalog"]) assert.ok(html.includes(`href="/${locale}/${route}"`));
-    assert.doesNotMatch(html, /<(?:form|input|button)\b/u);
-    assert.match(html, />2<\/span>/u);
+    assert.ok(html.includes(`href="/${locale}/catalog"`));
+    assert.match(html, /data-testid="customer-auth-panel"/u);
+    assert.match(html, /type="tel"/u);
+    assert.match(html, /name="phone"/u);
+    assert.match(html, /Google/u);
+    assert.match(html, /<button[^>]+disabled=""/u);
+    assert.doesNotMatch(html, /type="(?:email|password)"|data-testid="customer-dashboard"/u);
   }
 });
 

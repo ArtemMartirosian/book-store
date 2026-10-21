@@ -56,6 +56,7 @@ export const hydrateOrder = (row: PersistedOrder): OrderRecord => {
     payload.orderNumber !== row.orderNumber ||
     payload.idempotencyKey !== row.idempotencyKey ||
     payload.requestHash !== row.requestHash ||
+    (payload.customerId ?? null) !== (row.customerId ?? null) ||
     payload.status !== row.status ||
     payload.cod?.status !== row.cashStatus ||
     payload.cod?.fiscalReceiptNumber !== row.fiscalReceiptNumber ||
@@ -70,6 +71,7 @@ export const hydrateOrder = (row: PersistedOrder): OrderRecord => {
 
 export const orderData = (order: OrderRecord) => ({
   id: order.id,
+  customerId: order.customerId ?? null,
   orderNumber: order.orderNumber,
   idempotencyKey: order.idempotencyKey,
   requestHash: order.requestHash,

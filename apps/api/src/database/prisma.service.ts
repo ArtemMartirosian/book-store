@@ -35,6 +35,9 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
         procurements: string | null;
         catalog: string | null;
         crawler: string | null;
+        customers: string | null;
+        sessions: string | null;
+        addresses: string | null;
       }>
     >(
       `SELECT
@@ -42,7 +45,10 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
         to_regclass('orders')::text AS orders,
         to_regclass('procurement_tasks')::text AS procurements,
         to_regclass('catalog_books')::text AS catalog,
-        to_regclass('crawler_checkpoints')::text AS crawler`,
+        to_regclass('crawler_checkpoints')::text AS crawler,
+        to_regclass('customers')::text AS customers,
+        to_regclass('customer_sessions')::text AS sessions,
+        to_regclass('customer_addresses')::text AS addresses`,
     );
     const state = rows[0];
     if (
@@ -50,7 +56,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       !state.orders ||
       !state.procurements ||
       !state.catalog ||
-      !state.crawler
+      !state.crawler || !state.customers || !state.sessions || !state.addresses
     ) {
       throw new Error('PostgreSQL persistence schema is not migrated');
     }

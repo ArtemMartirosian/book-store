@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
   useContext,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import {
 import { isCatalogCategoriesResponse, publicApiBase } from "../../lib/catalog-api";
 import { brandName, BRAND_LABELS } from "../../lib/brand";
 import type { Book, CatalogCategory } from "../../lib/types";
+import { accountRequest, type CustomerAccount } from "../../lib/customer-account";
 import { subtractOrderedItems } from "../../lib/checkout-client.mjs";
 import { dictionary, localized, type Locale } from "./i18n";
 import { container, cx } from "./ui";
@@ -22,6 +24,9 @@ export type CartLine = { book: Book; quantity: number };
 
 type StorefrontContextValue = {
   locale: Locale;
+  customer: CustomerAccount | null;
+  customerLoaded: boolean;
+  refreshCustomer: () => Promise<void>;
   cart: CartLine[];
   favorites: Book[];
   cartCount: number;
@@ -76,6 +81,23 @@ function Icon({ name, className = "size-5" }: { name: IconName; className?: stri
 }
 
 function StorefrontProvider({ children, locale }: { children: ReactNode; locale: Locale }) {
+  const [customer, setCustomer] = useState<CustomerAccount | null>(null);
+  const [customerLoaded, setCustomerLoaded] = useState(false);
+  const customerRequest = useRef(0);
+  const refreshCustomer = useCallback(async () => {
+    const version = ++customerRequest.current;
+    try {
+      const result = await accountRequest<{ customer: CustomerAccount | null }>('auth/session');
+      if (version === customerRequest.current) setCustomer(result.customer);
+    } catch { /* A temporary network error must not erase the current account. */ }
+    finally { setCustomerLoaded(true); }
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refreshCustomer(); }, 0);
+    const onFocus = () => { void refreshCustomer(); };
+    window.addEventListener('focus', onFocus);
+    return () => { window.clearTimeout(timer); window.removeEventListener('focus', onFocus); };
+  }, [refreshCustomer]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [favorites, setFavorites] = useState<Book[]>([]);
   const [notice, setNotice] = useState("");
@@ -144,6 +166,7 @@ function StorefrontProvider({ children, locale }: { children: ReactNode; locale:
 
   const value: StorefrontContextValue = {
     locale,
+    customer, customerLoaded, refreshCustomer,
     cart,
     favorites,
     cartCount,

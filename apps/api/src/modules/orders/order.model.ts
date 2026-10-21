@@ -52,6 +52,7 @@ export interface OrderItemSnapshot {
 
 export interface OrderRecord {
   id: string;
+  customerId?: string;
   orderNumber: string;
   idempotencyKey: string;
   requestHash: string;
@@ -99,7 +100,7 @@ export type PublicOrderItem = Omit<
 
 export type PublicOrder = Omit<
   OrderRecord,
-  'projectedMarginAmd' | 'items' | 'idempotencyKey' | 'requestHash'
+  'projectedMarginAmd' | 'items' | 'idempotencyKey' | 'requestHash' | 'customerId'
 > & {
   items: PublicOrderItem[];
   notice: string;

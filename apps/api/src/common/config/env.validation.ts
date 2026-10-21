@@ -104,6 +104,21 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
   }
 
   const crawlerLiveEnabled = boolean(env, 'CRAWLER_LIVE_ENABLED', false);
+  const customerSmsEnabled = boolean(env, 'CUSTOMER_SMS_ENABLED', false);
+  const customerGoogleEnabled = boolean(env, 'CUSTOMER_GOOGLE_ENABLED', false);
+  const customerSiteUrl = String(env.CUSTOMER_SITE_URL || 'http://localhost:3000').replace(/\/$/u, '');
+  try {
+    const url = new URL(customerSiteUrl);
+    if (!['http:', 'https:'].includes(url.protocol) || url.origin !== customerSiteUrl ||
+        url.username || url.password || ((customerSmsEnabled || customerGoogleEnabled) && nodeEnv === 'production' && url.protocol !== 'https:')) throw new Error();
+  } catch { throw new Error('CUSTOMER_SITE_URL must be an exact origin; enabled production login requires HTTPS'); }
+  if (customerSmsEnabled && (!/^AC[a-f0-9]{32}$/iu.test(String(env.TWILIO_ACCOUNT_SID ?? '')) ||
+      !/^VA[a-f0-9]{32}$/iu.test(String(env.TWILIO_VERIFY_SERVICE_SID ?? '')) || !env.TWILIO_AUTH_TOKEN)) {
+    throw new Error('SMS login requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID');
+  }
+  if (customerGoogleEnabled && (!String(env.GOOGLE_CLIENT_ID ?? '').endsWith('.apps.googleusercontent.com') || !env.GOOGLE_CLIENT_SECRET)) {
+    throw new Error('Google login requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
+  }
   const crawlerWrittenPermission = boolean(env, 'CRAWLER_WRITTEN_PERMISSION', false);
   const crawlerDailyRequestBudget = integer(env, 'CRAWLER_DAILY_REQUEST_BUDGET', 0);
   if (
@@ -125,6 +140,9 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
   return {
     ...env,
     NODE_ENV: nodeEnv,
+    CUSTOMER_SMS_ENABLED: customerSmsEnabled,
+    CUSTOMER_GOOGLE_ENABLED: customerGoogleEnabled,
+    CUSTOMER_SITE_URL: customerSiteUrl,
     API_HOST: String(env.API_HOST ?? '0.0.0.0'),
     API_PORT: integer(env, 'API_PORT', 4000, 1),
     TRUST_PROXY_HOPS: integer(env, 'TRUST_PROXY_HOPS', 0, 0, 10),

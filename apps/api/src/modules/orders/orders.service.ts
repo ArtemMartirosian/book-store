@@ -58,7 +58,7 @@ export class OrdersService {
     private readonly unitOfWork: OrderProcurementUnitOfWork,
   ) {}
 
-  async create(input: CreateOrderDto, rawIdempotencyKey: string | undefined): Promise<PublicOrder> {
+  async create(input: CreateOrderDto, rawIdempotencyKey: string | undefined, customerId?: string): Promise<PublicOrder> {
     const idempotencyKey = this.normalizeIdempotencyKey(rawIdempotencyKey);
     const requestHash = calculateOrderRequestHash(input);
     const existing = await this.repository.findByIdempotencyKey(idempotencyKey);
@@ -112,6 +112,7 @@ export class OrdersService {
     const now = new Date().toISOString();
     const order: OrderRecord = {
       id: randomUUID(),
+      ...(customerId ? { customerId } : {}),
       orderNumber: this.createOrderNumber(),
       idempotencyKey,
       requestHash,
@@ -456,6 +457,7 @@ export class OrdersService {
 
   private toPublicOrder(order: OrderRecord): PublicOrder {
     const {
+      customerId: _customerId,
       projectedMarginAmd: _projectedMarginAmd,
       idempotencyKey: _idempotencyKey,
       requestHash: _requestHash,
