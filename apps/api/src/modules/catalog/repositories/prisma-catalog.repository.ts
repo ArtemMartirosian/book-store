@@ -416,23 +416,51 @@ export class PrismaCatalogRepository implements CatalogRepository {
 
   async upsertCategories(categories: CatalogCategorySnapshot[]): Promise<void> {
     if (categories.length === 0) return;
-    await this.prisma.$transaction(async (transaction) => {
-      for (const category of categories) {
-        const observedAt = timestamp(category.observedAt);
-        const existing = await transaction.catalogCategory.findUnique({
-          where: { supplierCategoryId: category.supplierCategoryId },
-          select: {
-            manualEdited: true,
-            translations: {
-              where: { locale: category.locale },
-              select: { manualEdited: true },
-            },
-          },
+    const grouped = new Map<string, {
+      id: string;
+      snapshot: CatalogCategorySnapshot;
+      observedAt: Date;
+      translations: Map<StoreLocale, { snapshot: CatalogCategorySnapshot; observedAt: Date }>;
+    }>();
+    for (const category of categories) {
+      const observedAt = timestamp(category.observedAt);
+      const existing = grouped.get(category.supplierCategoryId);
+      if (existing) {
+        // Match the previous sequential import: the final snapshot owns the
+        // shared hierarchy, and the final snapshot for a locale owns its text.
+        existing.snapshot = category;
+        existing.observedAt = observedAt;
+        existing.translations.set(category.locale, { snapshot: category, observedAt });
+      } else {
+        grouped.set(category.supplierCategoryId, {
+          id: category.id,
+          snapshot: category,
+          observedAt,
+          translations: new Map([[category.locale, { snapshot: category, observedAt }]]),
         });
+      }
+    }
+    await this.prisma.$transaction(async (transaction) => {
+      const existingCategories = await transaction.catalogCategory.findMany({
+        where: { supplierCategoryId: { in: [...grouped.keys()] } },
+        select: {
+          supplierCategoryId: true,
+          manualEdited: true,
+          translations: { select: { locale: true, manualEdited: true } },
+        },
+      });
+      const existingBySupplierId = new Map(
+        existingCategories.map((category) => [category.supplierCategoryId, category]),
+      );
+      // Map insertion order retains the parent-first order from discovery.
+      for (const group of grouped.values()) {
+        const category = group.snapshot;
+        const observedAt = group.observedAt;
+        const existing = existingBySupplierId.get(category.supplierCategoryId);
         const persisted = await transaction.catalogCategory.upsert({
           where: { supplierCategoryId: category.supplierCategoryId },
           create: {
-            id: category.id,
+            id: group.id,
             supplierCategoryId: category.supplierCategoryId,
             parentId: category.parentId,
             position: category.position,
@@ -449,30 +477,38 @@ export class PrismaCatalogRepository implements CatalogRepository {
           },
           select: { id: true },
         });
-        await transaction.catalogCategoryTranslation.upsert({
-          where: {
-            categoryId_locale: { categoryId: persisted.id, locale: category.locale },
-          },
-          create: {
-            id: randomUUID(),
-            categoryId: persisted.id,
-            locale: category.locale,
-            name: category.name,
-            sourceUrl: category.sourceUrl,
-            observedAt,
-          },
-          update: {
-            ...(existing?.translations[0]?.manualEdited
-              ? {}
-              : {
-                  name: category.name,
-                  sourceUrl: category.sourceUrl,
-                }),
-            observedAt,
-          },
-        });
+        for (const translation of group.translations.values()) {
+          const localized = translation.snapshot;
+          const protectedTranslation = existing?.translations.find(
+            ({ locale }) => locale === localized.locale,
+          )?.manualEdited;
+          await transaction.catalogCategoryTranslation.upsert({
+            where: {
+              categoryId_locale: { categoryId: persisted.id, locale: localized.locale },
+            },
+            create: {
+              id: randomUUID(),
+              categoryId: persisted.id,
+              locale: localized.locale,
+              name: localized.name,
+              sourceUrl: localized.sourceUrl,
+              observedAt: translation.observedAt,
+            },
+            update: {
+              ...(protectedTranslation
+                ? {}
+                : {
+                    name: localized.name,
+                    sourceUrl: localized.sourceUrl,
+                  }),
+              observedAt: translation.observedAt,
+            },
+          });
+        }
       }
-    });
+    // A full three-language tree legitimately exceeds Prisma's 5s default.
+    // Keep the import atomic and bounded without changing other transactions.
+    }, { maxWait: 5_000, timeout: 60_000 });
   }
 
   async linkBooksToCategory(
