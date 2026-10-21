@@ -44,6 +44,26 @@ function components(locale, search = "", reactOverride, contextOverrides = {}, a
 
 const book = { id: "real-book", slug: "real-edition", title: "A real catalog edition", author: "Test author", category: "Books", language: "English", price: 5700, availability: "observed", observedAt: "2026-09-15T10:00:00Z", accent: "violet", coverLabel: "Real edition", description: "Description", categories: [] };
 
+test("book cover keeps its positioned containing block on mobile and remains sticky only on desktop", () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    const BookDetailsPage = components(locale)("BookDetailsPage");
+    const html = renderToStaticMarkup(React.createElement(BookDetailsPage, {
+      book: { ...book, isNew: true, imageUrls: ["https://example.test/cover.jpg", "https://example.test/back.jpg"] },
+      related: [],
+    }));
+    const panel = html.match(/<div\b[^>]*data-testid="book-cover-panel"[^>]*>/u)?.[0];
+    assert.ok(panel, "the cover has a stable container for its absolute-positioned controls");
+    const classes = panel.match(/class="([^"]+)"/u)?.[1].split(/\s+/u) ?? [];
+    assert.ok(classes.includes("relative"), "mobile overlays are anchored to the cover");
+    assert.ok(classes.includes("lg:sticky"), "desktop retains sticky cover behavior");
+    assert.ok(classes.includes("lg:top-28"));
+    assert.ok(!classes.includes("sticky") && !classes.includes("max-lg:static"));
+    assert.ok(!classes.includes("top-28"), "mobile relative positioning must not shift the cover down");
+    assert.ok(html.includes("https://example.test/cover.jpg") && html.includes("https://example.test/back.jpg"));
+    assert.match(html, /<button[^>]+aria-label="[^"]+"[^>]+aria-pressed="false"/u);
+  }
+});
+
 test("Grqaser logo keeps localized names as real text next to a decorative generated mark", () => {
   const names = { hy: "Գրքասեր", ru: "Гркасер", en: "Grqaser" };
   const labels = { hy: "Գրախանութ", ru: "Книжный магазин", en: "Bookstore" };

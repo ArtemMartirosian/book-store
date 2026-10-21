@@ -76,7 +76,7 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
       </nav>
 
       <section className={cx(container, "grid grid-cols-[minmax(0,.95fr)_minmax(0,1fr)] items-start gap-[clamp(2rem,5vw,5.5rem)] pb-16 pt-3 max-lg:grid-cols-1 max-lg:gap-8 max-sm:pb-10 max-sm:pt-0")}>
-        <div className="sticky top-28 grid min-h-[590px] xl:top-[164px] place-items-center overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-12 max-lg:static max-lg:min-h-[510px] max-lg:p-7 max-sm:min-h-[440px] max-sm:rounded-2xl max-sm:p-8">
+        <div data-testid="book-cover-panel" className="relative grid min-h-[590px] place-items-center overflow-hidden rounded-3xl border border-[var(--line)] bg-white p-12 lg:sticky lg:top-28 xl:top-[164px] max-lg:min-h-[510px] max-lg:p-7 max-sm:min-h-[440px] max-sm:rounded-2xl max-sm:p-8">
           <div className="pointer-events-none absolute inset-x-10 inset-y-12 rounded-[45%] bg-[var(--accent)]/4" aria-hidden="true" />
           {book.isNew === true ? <span className="absolute left-5 top-5 z-20 rounded-lg bg-[var(--paper)] px-3 py-2 text-xs font-semibold text-[var(--accent)]">{dictionary[locale].header.new}</span> : null}
           <div className="relative pb-4 transition duration-500 hover:-translate-y-1"><BookCover book={displayedBook} size="detail" /></div>
