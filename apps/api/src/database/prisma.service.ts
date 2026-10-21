@@ -60,6 +60,8 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
     ) {
       throw new Error('PostgreSQL persistence schema is not migrated');
     }
+    // Password login is built in, so readiness must check its additive migration too.
+    await this.$queryRawUnsafe('SELECT email, password_hash FROM customers LIMIT 0');
   }
 
   async onModuleDestroy(): Promise<void> {

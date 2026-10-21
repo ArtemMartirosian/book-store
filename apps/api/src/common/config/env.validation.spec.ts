@@ -4,6 +4,7 @@ describe('validateEnvironment ADMIN_API_KEY', () => {
   const productionCredentials = {
     ADMIN_USERNAME: 'admin',
     ADMIN_PASSWORD: 'strong-test-password-2026',
+    CUSTOMER_SITE_URL: 'https://grqaser.digitalize.am',
   };
   it('requires an explicit key in production', () => {
     expect(() => validateEnvironment({ NODE_ENV: 'production' })).toThrow(
@@ -47,6 +48,13 @@ describe('validateEnvironment ADMIN_API_KEY', () => {
       TRUST_PROXY_HOPS: 0,
       PERSISTENCE_ADAPTER: 'IN_MEMORY',
     });
+  });
+
+  it('requires HTTPS for built-in password authentication even with external providers disabled', () => {
+    const env = { NODE_ENV: 'production', ADMIN_API_KEY: 'lumi-production-test-key-0123456789abcdef', ...productionCredentials,
+      DATABASE_URL: 'postgresql://lumi:test@postgres:5432/lumi_books', CUSTOMER_SMS_ENABLED: false, CUSTOMER_GOOGLE_ENABLED: false };
+    expect(() => validateEnvironment({ ...env, CUSTOMER_SITE_URL: 'http://localhost:3000' })).toThrow('enabled production login requires HTTPS');
+    expect(() => validateEnvironment({ ...env, CUSTOMER_SITE_URL: 'https://grqaser.digitalize.am' })).not.toThrow();
   });
 
   it('requires strong explicit login credentials in production', () => {

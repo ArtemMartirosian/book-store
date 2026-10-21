@@ -25,7 +25,8 @@ const iconPaths = {
   logout: <><path d="M10 4H4v16h6M10 12h11m-4-4 4 4-4 4"/></>,
   book: <><path d="M3 4c4-1 7 0 9 2 2-2 5-3 9-2v15c-4-1-7 0-9 2-2-2-5-3-9-2V4Zm9 2v15"/></>,
   check: <path d="m5 12 4 4L19 6"/>,
-  phone: <><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></>,
+  eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
+  eyeOff: <><path d="m3 3 18 18M10.6 5.1 12 5c6 0 10 7 10 7a19 19 0 0 1-3 3.8M6.3 6.4A22 22 0 0 0 2 12s4 7 10 7c1.7 0 3.2-.5 4.5-1.2M10 10a3 3 0 0 0 4 4"/></>,
   plus: <path d="M12 5v14M5 12h14"/>,
 };
 type IconName = keyof typeof iconPaths;
@@ -46,81 +47,111 @@ function BooksDrawing({ compact = false }: { compact?: boolean }) {
 }
 function errorText(error: unknown, t: AccountCopy) {
   if (!(error instanceof AccountError)) return t.error;
+  if (error.code === "INVALID_CREDENTIALS") return t.credentialsError;
   if (error.status === 401) return t.sessionError;
-  return ({ INVALID_PHONE: t.phoneError, CODE_INVALID: t.codeError, CODE_EXPIRED: t.expired, TOO_MANY_ATTEMPTS: t.rateError,
-    SMS_UNAVAILABLE: t.providerError, GOOGLE_UNAVAILABLE: t.providerError, ACCOUNT_UNAVAILABLE: t.providerError,
+  return ({ INVALID_PHONE: t.phoneError, TOO_MANY_ATTEMPTS: t.rateError, HASH_BUSY: t.rateError,
+    EMAIL_ALREADY_REGISTERED: t.emailExists, WEAK_PASSWORD: t.passwordWeak, INVALID_EMAIL: t.emailError,
+    GOOGLE_UNAVAILABLE: t.providerError, ACCOUNT_UNAVAILABLE: t.providerError,
     IDENTITY_ALREADY_LINKED: t.identityError, ADDRESS_LIMIT: t.addressLimit } as Record<string, string>)[error.code] ?? t.error;
 }
 function Alert({ children, success = false }: { children: ReactNode; success?: boolean }) {
   return <p className={cx("rounded-xl border p-4 text-sm leading-6", success ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800")} role={success ? "status" : "alert"}>{children}</p>;
 }
 
-function AuthPanel({ config, locale, onSuccess, link = false }: { config: AccountConfig | null; locale: Locale; onSuccess: () => Promise<void>; link?: boolean }) {
+function PasswordField({ label, name, locale, value, onChange, newPassword = false, disabled = false, errorId }: { label: string; name: string; locale: Locale; value: string; onChange: (value: string) => void; newPassword?: boolean; disabled?: boolean; errorId?: string }) {
   const t = accountCopy[locale];
-  const [phone, setPhone] = useState("+374 ");
-  const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState<{ challengeId: string; phone: string; expiresAt: string } | null>(null);
-  const [seconds, setSeconds] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const id = "account-" + name;
+  return <div className={fieldClass}>
+    <label htmlFor={id}>{label}</label>
+    <span className="relative block">
+      <input id={id} name={name} type={visible ? "text" : "password"} className={cx(inputClass, "pr-13")} autoComplete={newPassword ? "new-password" : "current-password"} value={value} onChange={event => onChange(event.target.value)} required disabled={disabled} aria-describedby={errorId} aria-invalid={Boolean(errorId)}/>
+      <button type="button" className="absolute right-1 top-1 grid size-10 place-items-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]" onClick={() => setVisible(current => !current)} aria-label={visible ? t.hidePassword : t.showPassword} aria-controls={id} aria-pressed={visible} disabled={disabled}><Icon name={visible ? "eyeOff" : "eye"} className="size-[18px]"/></button>
+    </span>
+  </div>;
+}
+
+export function AuthPanel({ config, locale, onSuccess }: { config: AccountConfig | null; locale: Locale; onSuccess: () => Promise<void> }) {
+  const t = accountCopy[locale];
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const locked = useRef(false);
-  const codeInput = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!seconds) return;
-    const timer = window.setTimeout(() => setSeconds(value => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [seconds]);
-  useEffect(() => { if (challenge) codeInput.current?.focus(); }, [challenge]);
-  const requestCode = async (event?: FormEvent) => {
-    event?.preventDefault();
-    if (locked.current || !config?.smsEnabled) return;
-    const compact = phone.replace(/[\s()-]/gu, "");
-    if (!/^(?:\+?374)?\d{8}$/u.test(compact)) { setError(t.phoneError); return; }
-    locked.current = true; setBusy(true); setError("");
-    try {
-      const result = await accountRequest<{ challengeId: string; phone: string; expiresAt: string; resendAfterSeconds: number }>("auth/code", { method: "POST", body: JSON.stringify({ phone, locale, link }) });
-      setChallenge(result); setCode(""); setSeconds(result.resendAfterSeconds);
-    } catch (cause) { setError(errorText(cause, t)); }
-    finally { locked.current = false; setBusy(false); }
-  };
-  const verify = async (event: FormEvent) => {
+  const registering = mode === "register";
+  const changeMode = (next: "login" | "register") => { setMode(next); setPassword(""); setConfirmation(""); setError(""); };
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (locked.current || !challenge) return;
-    if (!/^\d{6}$/u.test(code)) { setError(t.codeError); return; }
+    if (locked.current || !config?.passwordEnabled) return;
+    const length = Array.from(password).length;
+    if (length > 128 || (registering && length < 15)) { setError(t.passwordWeak); return; }
+    if (registering && password !== confirmation) { setError(t.passwordMismatch); return; }
     locked.current = true; setBusy(true); setError("");
     try {
-      await accountRequest("auth/verify", { method: "POST", body: JSON.stringify({ challengeId: challenge.challengeId, code }) });
+      await accountRequest("auth/" + mode, { method: "POST", body: JSON.stringify(registering ? { fullName: fullName.trim(), email: email.trim(), password, locale } : { email: email.trim(), password }) });
+      setPassword(""); setConfirmation("");
       await onSuccess();
     } catch (cause) { setError(errorText(cause, t)); }
     finally { locked.current = false; setBusy(false); }
   };
   return <div className="mx-auto w-full max-w-[420px]" data-testid="customer-auth-panel">
-    {challenge ? <>
-      <button type="button" className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--accent)]" disabled={busy} onClick={() => { setChallenge(null); setError(""); setCode(""); }}><span aria-hidden="true">←</span>{t.back}</button>
-      <span className="mb-5 grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name="phone" className="size-7"/></span>
-      <h2 className="text-2xl font-bold tracking-tight">{t.codeTitle}</h2>
-      <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{t.codeText}<br/><strong className="text-[var(--ink)]" dir="ltr">{challenge.phone}</strong></p>
-      <form className="mt-7 grid gap-4" onSubmit={verify}>
-        <label className={fieldClass}>{t.code}<input ref={codeInput} className={cx(inputClass, "min-h-16 text-center text-2xl tracking-[.4em]")} value={code} onChange={event => { setCode(event.target.value.replace(/\D/gu, "").slice(0, 6)); setError(""); }} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required aria-invalid={Boolean(error)} aria-describedby={error ? "account-auth-error" : undefined} disabled={busy}/></label>
-        <button className={cx(primaryButton, "w-full")} disabled={busy || code.length !== 6} type="submit">{busy ? t.verifying : t.verify}<Icon name="arrow"/></button>
-      </form>
-      <button className="mt-3 min-h-11 w-full text-center text-sm font-medium text-[var(--accent)] disabled:text-[var(--muted)]" type="button" disabled={busy || seconds > 0} onClick={() => { void requestCode(); }}>{seconds ? t.resendIn + " " + seconds + " " + t.seconds : t.resend}</button>
-    </> : <>
-      <span className="mb-5 grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name={link ? "phone" : "user"} className="size-7"/></span>
-      <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold leading-tight tracking-tight">{link ? t.connectPhone : t.welcome}</h2>
-      <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{link ? t.connectPhoneText : t.welcomeText}</p>
-      {!link && <><button className={cx(secondary, "mt-7 min-h-13 w-full gap-3")} type="button" disabled={!config?.googleEnabled || busy} onClick={() => window.location.assign(googleSignInUrl(locale))}><GoogleMark/>{t.google}</button>
-        {config && !config.googleEnabled && <p className="mt-2 text-center text-xs leading-5 text-[var(--muted)]">{t.googleUnavailable}</p>}
-        <div className="my-6 flex items-center gap-4 text-xs text-[var(--muted)]"><span className="h-px flex-1 bg-[var(--line)]"/>{t.or}<span className="h-px flex-1 bg-[var(--line)]"/></div></>}
-      <form className={cx("grid gap-4", link && "mt-7")} onSubmit={requestCode}>
-        <label className={fieldClass}>{t.phone}<input className={inputClass} type="tel" inputMode="tel" autoComplete="tel" name="phone" value={phone} onChange={event => { setPhone(event.target.value); setError(""); }} placeholder="+374 99 123456" aria-describedby="account-phone-hint" maxLength={30} required disabled={busy}/></label>
-        <span id="account-phone-hint" className="-mt-2 text-xs text-[var(--muted)]">{t.phoneHint}</span>
-        <button className={cx(primaryButton, "min-h-13 w-full")} type="submit" disabled={busy || !config?.smsEnabled}>{busy ? t.sending : t.send}<Icon name="arrow"/></button>
-      </form>
-      {config && !config.smsEnabled && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.smsUnavailable}</p>}
-      <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal} <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/privacy")}>{dictionary[locale].footer.privacy}</Link> · <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/terms")}>{dictionary[locale].footer.terms}</Link></p>
-    </>}
+    <span className="mb-5 grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name="user" className="size-7"/></span>
+    <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold leading-tight tracking-tight">{registering ? t.registerTitle : t.welcome}</h2>
+    <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{registering ? t.registerText : t.welcomeText}</p>
+    <nav className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-[var(--paper)] p-1" aria-label={t.authOptions}>
+      {(["login", "register"] as const).map(option => <button key={option} type="button" className={cx("min-h-11 rounded-xl px-3 text-sm font-semibold transition", mode === option ? "bg-white text-[var(--accent)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--ink)]")} aria-pressed={mode === option} disabled={busy} onClick={() => changeMode(option)}>{option === "login" ? t.login : t.register}</button>)}
+    </nav>
+    {config?.googleEnabled && <><button className={cx(secondary, "mt-6 min-h-13 w-full gap-3")} type="button" disabled={busy} onClick={() => window.location.assign(googleSignInUrl(locale))}><GoogleMark/>{t.google}</button><div className="my-5 flex items-center gap-4 text-xs text-[var(--muted)]"><span className="h-px flex-1 bg-[var(--line)]"/>{t.or}<span className="h-px flex-1 bg-[var(--line)]"/></div></>}
+    <form className="mt-6 grid gap-4" onSubmit={submit} data-testid={"account-" + mode + "-form"}>
+      {registering && <label className={fieldClass}>{t.fullName}<input className={inputClass} name="fullName" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)} placeholder={t.namePlaceholder} minLength={2} maxLength={100} required disabled={busy}/></label>}
+      <label className={fieldClass}>{t.email}<input className={inputClass} name="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={event => { setEmail(event.target.value); setError(""); }} placeholder="name@example.com" maxLength={254} required disabled={busy}/></label>
+      <PasswordField key={mode} label={t.password} name="password" locale={locale} value={password} onChange={value => { setPassword(value); setError(""); }} newPassword={registering} disabled={busy} errorId={error ? "account-auth-error" : undefined}/>
+      {registering && <><p className="-mt-2 text-xs leading-6 text-[var(--muted)]">{t.passwordHint}</p><PasswordField label={t.confirmPassword} name="confirmPassword" locale={locale} value={confirmation} onChange={value => { setConfirmation(value); setError(""); }} newPassword disabled={busy} errorId={error ? "account-auth-error" : undefined}/></>}
+      <button className={cx(primaryButton, "min-h-13 w-full")} type="submit" disabled={busy || !config?.passwordEnabled}>{busy ? t.signingIn : registering ? t.createAccount : t.login}<Icon name="arrow"/></button>
+    </form>
+    {config && !config.passwordEnabled && <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.providerError}</p>}
     {error && <div className="mt-4" id="account-auth-error"><Alert>{error}</Alert></div>}
+    <p className="mt-4 text-xs leading-6 text-[var(--muted)]">{t.passwordHelp} <a href="mailto:grqaser@gmail.com" className="text-[var(--accent)] underline underline-offset-2">{t.contactSupport}</a></p>
+    <p className="mt-5 text-xs leading-6 text-[var(--muted)]">{t.legal} <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/privacy")}>{dictionary[locale].footer.privacy}</Link> · <Link className="text-[var(--accent)] underline underline-offset-2" href={localized(locale, "/terms")}>{dictionary[locale].footer.terms}</Link></p>
+  </div>;
+}
+
+export function PasswordChangePanel({ locale, onSuccess }: { locale: Locale; onSuccess: () => Promise<void> }) {
+  const t = accountCopy[locale];
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (locked.current) return;
+    if (Array.from(nextPassword).length < 15 || Array.from(nextPassword).length > 128) { setError(t.passwordWeak); return; }
+    if (nextPassword !== confirmation) { setError(t.passwordMismatch); return; }
+    locked.current = true; setBusy(true); setError(""); setSuccess(false);
+    try {
+      await accountRequest("auth/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword: nextPassword }) });
+      setCurrentPassword(""); setNextPassword(""); setConfirmation("");
+      await onSuccess(); setSuccess(true);
+    } catch (cause) { setError(errorText(cause, t)); }
+    finally { locked.current = false; setBusy(false); }
+  };
+  return <div className="mt-7 border-t border-[var(--line)] pt-6">
+    <h3 className="text-base font-semibold">{t.changePassword}</h3><p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.changePasswordText}</p>
+    <form className="mt-5 grid max-w-xl gap-4" onSubmit={submit} data-testid="account-password-form">
+      <PasswordField label={t.currentPassword} name="currentPassword" locale={locale} value={currentPassword} onChange={value => { setCurrentPassword(value); setError(""); setSuccess(false); }} disabled={busy} errorId={error ? "account-password-error" : undefined}/>
+      <PasswordField label={t.newPassword} name="newPassword" locale={locale} value={nextPassword} onChange={value => { setNextPassword(value); setError(""); setSuccess(false); }} newPassword disabled={busy} errorId={error ? "account-password-error" : undefined}/>
+      <p className="-mt-2 text-xs leading-6 text-[var(--muted)]">{t.passwordHint}</p>
+      <PasswordField label={t.confirmPassword} name="confirmNewPassword" locale={locale} value={confirmation} onChange={value => { setConfirmation(value); setError(""); setSuccess(false); }} newPassword disabled={busy} errorId={error ? "account-password-error" : undefined}/>
+      <button type="submit" className={cx(primaryButton, "justify-self-start")} disabled={busy}>{busy ? t.saving : t.changePassword}</button>
+    </form>
+    {error && <div className="mt-4" id="account-password-error"><Alert>{error}</Alert></div>}
+    {success && <div className="mt-4"><Alert success>{t.passwordChanged}</Alert></div>}
   </div>;
 }
 
@@ -153,7 +184,6 @@ export function AccountPage() {
   const [busy, setBusy] = useState(false);
   const [addressForm, setAddressForm] = useState<AccountAddress | "new" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [linkPhone, setLinkPhone] = useState(false);
   const actionLock = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -172,7 +202,7 @@ export function AccountPage() {
     finally { setLoading(false); }
   }, [customerId, locale]);
   useEffect(() => { const timer = window.setTimeout(() => { void loadData(); }, 0); return () => window.clearTimeout(timer); }, [loadData]);
-  const changeTab = (next: Tab) => { setTab(next); setError(""); setMessage(""); setAddressForm(null); setDeleteId(null); setLinkPhone(false); };
+  const changeTab = (next: Tab) => { setTab(next); setError(""); setMessage(""); setAddressForm(null); setDeleteId(null); };
   const action = async (callback: () => Promise<void>, success = t.savedMessage) => {
     if (actionLock.current) return;
     actionLock.current = true; setBusy(true); setError(""); setMessage("");
@@ -191,7 +221,7 @@ export function AccountPage() {
     void action(async () => { await accountRequest("addresses" + (id ? "/" + id : ""), { method: id ? "PATCH" : "POST", body: JSON.stringify(body) }); setAddresses(await accountRequest<AccountAddress[]>("addresses")); setAddressForm(null); });
   };
   const moreOrders = () => { void action(async () => { const next = await accountRequest<AccountOrders>("orders?offset=" + (orders?.items.length ?? 0)); setOrders(previous => ({ ...next, items: [...(previous?.items ?? []), ...next.items] })); }, ""); };
-  const onAuthenticated = async () => { await refreshCustomer(); clearAuthResult(); setLinkPhone(false); setMessage(""); setError(""); };
+  const onAuthenticated = async () => { await refreshCustomer(); clearAuthResult(); setMessage(""); setError(""); };
   const money = (amount: number) => new Intl.NumberFormat(locale === "hy" ? "hy-AM" : locale === "ru" ? "ru-RU" : "en-GB").format(amount) + " ֏";
   const date = (value: string) => new Intl.DateTimeFormat(locale === "hy" ? "hy-AM" : locale === "ru" ? "ru-RU" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
   const tabs: Array<{ id: Tab; icon: IconName }> = [{ id: "home", icon: "home" }, { id: "orders", icon: "orders" }, { id: "addresses", icon: "pin" }, { id: "profile", icon: "user" }, { id: "security", icon: "shield" }];
@@ -231,7 +261,7 @@ export function AccountPage() {
       <div className="mb-7 flex items-end justify-between gap-4"><div><span className="text-[10px] font-semibold tracking-[.14em] text-[var(--muted)]">{t.eyebrow}</span><h1 className="mt-3 text-[clamp(1.7rem,3vw,2.4rem)] font-bold tracking-tight">{t.greeting}, {name.split(" ")[0]}<span className="text-[var(--accent)]">.</span></h1><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.dashboardIntro}</p></div><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--accent-soft)] text-lg font-semibold text-[var(--accent)] lg:hidden" aria-hidden="true">{name[0]}</span></div>
       <div className="grid items-start gap-6 lg:grid-cols-[245px_minmax(0,1fr)]">
         <aside className={cx(card, "overflow-hidden lg:sticky lg:top-48")}>
-          <div className="hidden items-center gap-3 border-b border-[var(--line)] bg-[#f8f7ff] p-5 lg:flex"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--accent)] text-xl font-medium text-white" aria-hidden="true">{name[0]}</span><div className="min-w-0"><strong className="block truncate text-sm">{name}</strong><span className="mt-1 block truncate text-xs text-[var(--muted)]">{customer.phone ?? customer.googleEmail}</span></div></div>
+          <div className="hidden items-center gap-3 border-b border-[var(--line)] bg-[#f8f7ff] p-5 lg:flex"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--accent)] text-xl font-medium text-white" aria-hidden="true">{name[0]}</span><div className="min-w-0"><strong className="block truncate text-sm">{name}</strong><span className="mt-1 block truncate text-xs text-[var(--muted)]">{customer.email ?? customer.googleEmail ?? t.reader}</span></div></div>
           <nav className="flex gap-1 overflow-x-auto p-2 lg:grid lg:p-3" aria-label={t.eyebrow}>{tabs.map(item => <button key={item.id} type="button" className={cx("flex min-h-12 shrink-0 items-center gap-3 whitespace-nowrap rounded-xl px-4 text-left text-sm font-medium transition", tab === item.id ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--ink)]")} onClick={() => changeTab(item.id)} aria-current={tab === item.id ? "page" : undefined}><Icon name={item.icon} className="size-[18px]"/>{t[item.id]}</button>)}</nav>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] p-3 lg:grid"><Link className="flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm text-[var(--muted)] hover:bg-[var(--paper)]" href={localized(locale, "/favorites")}><Icon name="heart" className="size-[18px]"/>{t.favorites}<span className="ml-auto rounded-lg bg-[var(--paper)] px-2 text-xs">{favorites.length}</span></Link><button className="flex min-h-11 items-center gap-3 rounded-xl px-4 text-left text-sm whitespace-nowrap text-[var(--muted)] hover:text-rose-700" type="button" disabled={busy} onClick={() => logout()}><Icon name="logout" className="size-[18px]"/>{t.logout}</button></div>
         </aside>
@@ -246,14 +276,20 @@ export function AccountPage() {
             <section className={card}><div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-6 py-5"><h2 className="text-base font-semibold">{t.recent}</h2><button className="min-h-11 text-sm font-medium text-[var(--accent)]" type="button" onClick={() => changeTab("orders")}>{t.seeAll} →</button></div>{orders?.items.length ? orderList(3) : !loading && orders && empty("book", t.emptyOrders, t.emptyOrdersText, <Link className={secondary} href={localized(locale, "/catalog")}>{t.catalog}<Icon name="arrow" className="size-4"/></Link>)}</section>
           </>}
           {tab === "orders" && <section className={card}><div className="border-b border-[var(--line)] px-6 py-6"><h2 className="text-xl font-semibold">{t.orders}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.orderHelp}</p></div>{orders?.items.length ? <>{orderList()}{orders.items.length < orders.total && <div className="p-5 text-center"><button type="button" className={secondary} disabled={busy} onClick={moreOrders}>{t.loadMore}</button></div>}</> : !loading && orders && empty("orders", t.emptyOrders, t.emptyOrdersText, <Link className={secondary} href={localized(locale, "/catalog")}>{t.catalog}</Link>)}</section>}
-          {tab === "profile" && <section className={cx(card, "p-7 max-sm:p-5")}><h2 className="text-xl font-semibold">{t.profile}</h2><form className="mt-7 grid max-w-xl gap-5" onSubmit={saveProfile} key={customer.id + customer.fullName + customer.locale}><label className={fieldClass}>{t.fullName}<input className={inputClass} name="fullName" autoComplete="name" placeholder={t.namePlaceholder} defaultValue={customer.fullName} minLength={2} maxLength={100} required disabled={busy}/></label><label className={fieldClass}>{t.preferredLanguage}<select className={inputClass} name="locale" defaultValue={customer.locale} disabled={busy}><option value="hy">Հայերեն</option><option value="ru">Русский</option><option value="en">English</option></select></label><div className="rounded-2xl bg-[var(--paper)] p-4 text-sm"><p className="text-[var(--muted)]">{t.phone}</p><p className="mt-2 break-words">{customer.phone ?? t.notAdded}{customer.phone && <span className="ml-3 text-xs text-emerald-700">✓ {t.verified}</span>}</p>{customer.googleConnected && <><p className="mt-5 text-[var(--muted)]">{t.googleAccount}</p><p className="mt-2 break-all">{customer.googleEmail}</p></>}</div><button className={cx(primaryButton, "justify-self-start")} type="submit" disabled={busy}>{busy ? t.saving : t.save}<Icon name="check" className="size-4"/></button></form></section>}
+          {tab === "profile" && <section className={cx(card, "p-7 max-sm:p-5")}><h2 className="text-xl font-semibold">{t.profile}</h2><form className="mt-7 grid max-w-xl gap-5" onSubmit={saveProfile} key={customer.id + customer.fullName + customer.locale}><label className={fieldClass}>{t.fullName}<input className={inputClass} name="fullName" autoComplete="name" placeholder={t.namePlaceholder} defaultValue={customer.fullName} minLength={2} maxLength={100} required disabled={busy}/></label><label className={fieldClass}>{t.preferredLanguage}<select className={inputClass} name="locale" defaultValue={customer.locale} disabled={busy}><option value="hy">Հայերեն</option><option value="ru">Русский</option><option value="en">English</option></select></label><div className="rounded-2xl bg-[var(--paper)] p-4 text-sm"><p className="text-[var(--muted)]">{t.email}</p><p className="mt-2 break-all">{customer.email ?? t.notAdded}</p><p className="mt-2 text-xs leading-6 text-[var(--muted)]">{t.emailInfo}</p>{customer.googleConnected && <><p className="mt-5 text-[var(--muted)]">{t.googleAccount}</p><p className="mt-2 break-all">{customer.googleEmail}</p></>}</div><button className={cx(primaryButton, "justify-self-start")} type="submit" disabled={busy}>{busy ? t.saving : t.save}<Icon name="check" className="size-4"/></button></form></section>}
           {tab === "addresses" && <>
             <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{t.addressTitle}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.addressIntro}</p></div>{!addressForm && addresses.length < 10 && <button type="button" className={secondary} onClick={() => setAddressForm("new")}><Icon name="plus" className="size-4"/>{t.addAddress}</button>}</div>
             {addressForm && <form className={cx(card, "grid gap-5 p-6 max-sm:p-5")} onSubmit={saveAddress} key={editedAddress?.id ?? "new-address"}><div className="flex items-center justify-between gap-4"><h3 className="font-semibold">{editedAddress ? t.edit : t.addAddress}</h3><button type="button" className="min-h-11 text-sm text-[var(--muted)]" disabled={busy} onClick={() => setAddressForm(null)}>{t.cancel}</button></div><div className="grid gap-5 sm:grid-cols-2"><label className={fieldClass}>{t.addressLabel}<input className={inputClass} name="label" placeholder={t.labelPlaceholder} defaultValue={editedAddress?.label ?? ""} required maxLength={40} disabled={busy}/></label><label className={fieldClass}>{t.fullName}<input className={inputClass} name="fullName" autoComplete="name" defaultValue={editedAddress?.fullName ?? customer.fullName} minLength={2} maxLength={100} required disabled={busy}/></label><label className={fieldClass}>{t.phone}<input className={inputClass} name="phone" type="tel" autoComplete="tel" placeholder="+374 99 123456" defaultValue={editedAddress?.phone ?? customer.phone ?? ""} required maxLength={30} disabled={busy}/></label><label className={fieldClass}>{t.district}<select className={inputClass} name="district" defaultValue={editedAddress?.district ?? ""} required disabled={busy}><option value="" disabled>{t.chooseDistrict}</option>{dictionary[locale].cart.districtOptions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label><label className={cx(fieldClass, "sm:col-span-2")}>{t.address}<input className={inputClass} name="addressLine" autoComplete="street-address" defaultValue={editedAddress?.addressLine ?? ""} required minLength={5} maxLength={200} disabled={busy}/></label></div><label className="flex min-h-11 items-center gap-3 text-sm"><input className="size-4 accent-[var(--accent)]" type="checkbox" name="isDefault" defaultChecked={editedAddress?.isDefault || addresses.length === 0} disabled={busy}/>{t.defaultAddress}</label><button type="submit" className={cx(primaryButton, "justify-self-start")} disabled={busy}>{busy ? t.saving : t.save}</button></form>}
             <div className="grid gap-4 sm:grid-cols-2">{addresses.map(address => <article className={cx(card, "flex min-w-0 flex-col p-5")} key={address.id}><div className="flex flex-wrap items-center justify-between gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]"><Icon name="pin"/></span>{address.isDefault && <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--accent)]">{t.defaultAddress}</span>}</div><h3 className="mt-4 break-words font-semibold">{address.label}</h3><p className="mt-2 break-words text-sm leading-7 text-[var(--muted)]">{address.addressLine}<br/>{dictionary[locale].cart.districtOptions.find(([code]) => code === address.district)?.[1]}</p><p className="mt-3 text-sm">{address.fullName}<br/><span className="mt-1 inline-block text-[var(--muted)]">{address.phone}</span></p><div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 pt-4"><button type="button" className="min-h-11 text-sm font-medium text-[var(--accent)]" disabled={busy} onClick={() => { setAddressForm(address); setDeleteId(null); }}>{t.edit}</button>{!address.isDefault && <button type="button" className="min-h-11 text-xs text-[var(--muted)]" disabled={busy} onClick={() => { void action(async () => { await accountRequest("addresses/" + address.id, { method: "PATCH", body: JSON.stringify({ ...address, id: undefined, isDefault: true }) }); setAddresses(await accountRequest<AccountAddress[]>("addresses")); }); }}>{t.makeDefault}</button>}<button type="button" className="ml-auto min-h-11 text-sm text-rose-700" disabled={busy} onClick={() => setDeleteId(address.id)}>{t.remove}</button></div>{deleteId === address.id && <div className="mt-3 rounded-xl bg-rose-50 p-3"><p className="text-sm text-rose-800">{t.deleteQuestion}</p><div className="mt-2 flex flex-wrap gap-4"><button type="button" className="min-h-11 text-sm font-semibold text-rose-800" disabled={busy} onClick={() => { void action(async () => { await accountRequest("addresses/" + address.id, { method: "DELETE" }); setAddresses(await accountRequest<AccountAddress[]>("addresses")); setDeleteId(null); }); }}>{t.confirmDelete}</button><button type="button" className="min-h-11 text-sm" disabled={busy} onClick={() => setDeleteId(null)}>{t.cancel}</button></div></div>}</article>)}</div>
             {!addresses.length && !addressForm && !loading && orders && <section className={card}>{empty("pin", t.emptyAddress, t.emptyAddressText, <button type="button" className={primaryButton} onClick={() => setAddressForm("new")}>{t.addAddress}</button>)}</section>}
           </>}
-          {tab === "security" && <section className={cx(card, "p-7 max-sm:p-5")}><h2 className="text-xl font-semibold">{t.security}</h2><p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.securityIntro}</p><div className="mt-7 divide-y divide-[var(--line)]"><div className="flex flex-wrap items-center gap-4 py-5"><span className="grid size-11 place-items-center rounded-xl bg-[var(--paper)] text-[var(--accent)]"><Icon name="phone"/></span><div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">{customer.phone ?? t.phone}</h3><p className="mt-1 text-xs leading-6 text-[var(--muted)]">{customer.phone ? t.phoneConnected : t.connectPhoneText}</p></div>{customer.phone ? <span className="text-xs text-emerald-700">✓ {t.verified}</span> : <button type="button" className={secondary} disabled={!config?.smsEnabled} onClick={() => setLinkPhone(true)}>{t.connect}</button>}</div><div className="flex flex-wrap items-center gap-4 py-5"><span className="grid size-11 place-items-center rounded-xl bg-[var(--paper)]"><GoogleMark/></span><div className="min-w-0 flex-1"><h3 className="break-all text-sm font-semibold">{customer.googleEmail ?? t.googleAccount}</h3><p className="mt-1 text-xs leading-6 text-[var(--muted)]">{customer.googleConnected ? t.googleConnected : t.google}</p></div>{customer.googleConnected ? <span className="text-xs text-emerald-700">✓ {t.connected}</span> : <button type="button" className={secondary} disabled={!config?.googleEnabled} onClick={() => window.location.assign(googleSignInUrl(locale, true))}>{t.connect}</button>}</div></div>{linkPhone && <div className="my-6 rounded-2xl border border-[var(--line)] p-5"><AuthPanel config={config} locale={locale} onSuccess={onAuthenticated} link/><button className="mt-3 min-h-11 text-sm text-[var(--muted)]" type="button" onClick={() => setLinkPhone(false)}>{t.cancel}</button></div>}<div className="mt-5 rounded-2xl bg-[var(--paper)] p-5"><h3 className="text-sm font-semibold">{t.sessions}</h3><p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.sessionsText}</p><button className={cx(secondary, "mt-5 text-rose-700")} type="button" disabled={busy} onClick={() => logout(true)}><Icon name="logout" className="size-4"/>{t.logoutAll}</button></div></section>}
+          {tab === "security" && <section className={cx(card, "p-7 max-sm:p-5")}><h2 className="text-xl font-semibold">{t.security}</h2><p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.securityIntro}</p>
+            <div className="mt-6 rounded-2xl bg-[var(--paper)] p-5"><p className="text-xs text-[var(--muted)]">{t.email}</p><p className="mt-2 break-all text-sm font-semibold">{customer.email ?? t.notAdded}</p><p className="mt-2 text-xs leading-6 text-[var(--muted)]">{t.emailInfo}</p></div>
+            {customer.passwordEnabled && <PasswordChangePanel key={customer.id} locale={locale} onSuccess={refreshCustomer}/>}
+            {(customer.googleConnected || config?.googleEnabled) && <div className="mt-7 flex flex-wrap items-center gap-4 border-t border-[var(--line)] py-5"><span className="grid size-11 place-items-center rounded-xl bg-[var(--paper)]"><GoogleMark/></span><div className="min-w-0 flex-1"><h3 className="break-all text-sm font-semibold">{customer.googleEmail ?? t.googleAccount}</h3><p className="mt-1 text-xs leading-6 text-[var(--muted)]">{customer.googleConnected ? t.googleConnected : t.google}</p></div>{customer.googleConnected ? <span className="text-xs text-emerald-700">✓ {t.connected}</span> : <button type="button" className={secondary} disabled={!config?.googleEnabled} onClick={() => window.location.assign(googleSignInUrl(locale, true))}>{t.connect}</button>}</div>}
+            <p className="mt-6 text-xs leading-6 text-[var(--muted)]">{t.passwordHelp} <a className="text-[var(--accent)] underline underline-offset-2" href="mailto:grqaser@gmail.com">{t.contactSupport}</a></p>
+            <div className="mt-6 rounded-2xl bg-[var(--paper)] p-5"><h3 className="text-sm font-semibold">{t.sessions}</h3><p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.sessionsText}</p><button className={cx(secondary, "mt-5 text-rose-700")} type="button" disabled={busy} onClick={() => logout(true)}><Icon name="logout" className="size-4"/>{t.logoutAll}</button></div>
+          </section>}
         </div>
       </div>
     </div>

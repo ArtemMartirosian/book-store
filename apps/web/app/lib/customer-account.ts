@@ -1,11 +1,11 @@
 import { publicApiBase } from './catalog-api';
 
-export type CustomerAccount = { id: string; fullName: string; phone: string | null; googleEmail: string | null; googleConnected: boolean; locale: string; createdAt: string };
+export type CustomerAccount = { id: string; fullName: string; email: string | null; passwordEnabled: boolean; emailVerified: false; phone: string | null; googleEmail: string | null; googleConnected: boolean; locale: string; createdAt: string };
 export type AccountAddress = { id: string; label: string; fullName: string; phone: string; district: string; addressLine: string; isDefault: boolean };
 export type AccountOrder = { id: string; orderNumber: string; status: string; createdAt: string; totalAmd: number; deliveryFeeAmd: number; address: string;
   items: Array<{ productId: string; title: string; author: string; quantity: number; unitPriceAmd: number; subtotalAmd: number }> };
 export type AccountOrders = { items: AccountOrder[]; total: number; offset: number };
-export type AccountConfig = { smsEnabled: boolean; googleEnabled: boolean; codeLength: number; resendAfterSeconds: number };
+export type AccountConfig = { passwordEnabled: boolean; googleEnabled: boolean; smsEnabled?: false; codeLength?: number; resendAfterSeconds?: number };
 export class AccountError extends Error {
   constructor(readonly code: string, readonly status: number) { super(code); }
 }

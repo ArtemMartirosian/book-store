@@ -83,7 +83,8 @@ test("privacy and ordering terms are real translated pages with support, matchin
       assert.equal(metadata.description, policyCopy[locale][kind].description);
       assert.equal(metadata.robots.index, true);
       if (kind === "privacy") {
-        for (const fact of ["openid", "email", "profile", "Google", "Gmail", "Twilio", "HttpOnly", "30"]) assert.ok(html.includes(fact), locale + "/" + fact);
+        for (const fact of ["openid", "email", "profile", "Google", "Gmail", "scrypt", "HttpOnly", "30"]) assert.ok(html.includes(fact), locale + "/" + fact);
+        assert.ok(!html.includes("Twilio"), "the removed SMS sign-in is not described as an active provider");
       } else {
         assert.ok(html.includes("AMD"));
         assert.ok(html.includes("1 000") || html.includes("1,000"));

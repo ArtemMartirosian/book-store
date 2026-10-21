@@ -2,6 +2,8 @@
 
 Базовый `infra/docker-compose.yml` предназначен также для локального запуска. Production-настройки находятся в версионируемом `infra/docker-compose.production.yml`; их необходимо подключать **вторым файлом**. Настоящий `.env`, пароли, database dumps и ключи SSH не хранятся в Git.
 
+`infra/docker-compose.local.yml` используется только для локального HTTP-запуска: он устанавливает API `NODE_ENV=development`. Не применять его на публичном сервере. Production использует `NODE_ENV=production` и HTTPS, в том числе для обычной регистрации по email/паролю.
+
 ## Существующая установка на сервере
 
 На текущем сервере используется `/opt/grqaser/compose.sh`: он читает секретный `/opt/grqaser/.env`, задаёт проект `grqaser` и объединяет `/opt/grqaser/app/infra/docker-compose.yml` с **внешним** `/opt/grqaser/compose.production.yml`. Внешний override не обновляется автоматически командой `git pull` внутри `/opt/grqaser/app`.

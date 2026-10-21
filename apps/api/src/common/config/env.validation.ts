@@ -110,7 +110,7 @@ export const validateEnvironment = (env: RawEnvironment): RawEnvironment => {
   try {
     const url = new URL(customerSiteUrl);
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== customerSiteUrl ||
-        url.username || url.password || ((customerSmsEnabled || customerGoogleEnabled) && nodeEnv === 'production' && url.protocol !== 'https:')) throw new Error();
+        url.username || url.password || (nodeEnv === 'production' && url.protocol !== 'https:')) throw new Error();
   } catch { throw new Error('CUSTOMER_SITE_URL must be an exact origin; enabled production login requires HTTPS'); }
   if (customerSmsEnabled && (!/^AC[a-f0-9]{32}$/iu.test(String(env.TWILIO_ACCOUNT_SID ?? '')) ||
       !/^VA[a-f0-9]{32}$/iu.test(String(env.TWILIO_VERIFY_SERVICE_SID ?? '')) || !env.TWILIO_AUTH_TOKEN)) {

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Header, Post, Query, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { RequestCodeDto, VerifyCodeDto } from './customer-auth.dto';
+import { CustomerLoginDto, CustomerPasswordDto, CustomerRegisterDto } from './customer-auth.dto';
 import { CustomerAuthService } from './customer-auth.service';
 
 @Controller('customer/auth')
@@ -12,14 +12,21 @@ export class CustomerAuthController {
     const customer = await this.auth.identity(request);
     return { customer: customer ? this.auth.publicCustomer(customer) : null };
   }
-  @Post('code') @Header('Cache-Control', 'no-store') async requestCode(@Body() input: RequestCodeDto, @Req() request: FastifyRequest) {
+  @Post('register') @Header('Cache-Control', 'no-store') async register(@Body() input: CustomerRegisterDto, @Req() request: FastifyRequest, @Res({ passthrough: true }) response: FastifyReply) {
     this.auth.assertMutation(request);
-    const customer = input.link ? await this.auth.requireIdentity(request) : null;
-    return this.auth.requestCode(input.phone, input.locale, request.ip, customer?.id);
+    const result = await this.auth.register(input, request);
+    response.header('Set-Cookie', result.cookie);
+    return { customer: this.auth.publicCustomer(result.customer) };
   }
-  @Post('verify') @Header('Cache-Control', 'no-store') async verify(@Body() input: VerifyCodeDto, @Req() request: FastifyRequest, @Res({ passthrough: true }) response: FastifyReply) {
+  @Post('login') @Header('Cache-Control', 'no-store') async login(@Body() input: CustomerLoginDto, @Req() request: FastifyRequest, @Res({ passthrough: true }) response: FastifyReply) {
     this.auth.assertMutation(request);
-    const result = await this.auth.verifyCode(input.challengeId, input.code, request);
+    const result = await this.auth.login(input, request);
+    response.header('Set-Cookie', result.cookie);
+    return { customer: this.auth.publicCustomer(result.customer) };
+  }
+  @Post('password') @Header('Cache-Control', 'no-store') async password(@Body() input: CustomerPasswordDto, @Req() request: FastifyRequest, @Res({ passthrough: true }) response: FastifyReply) {
+    this.auth.assertMutation(request);
+    const result = await this.auth.changePassword(input, request);
     response.header('Set-Cookie', result.cookie);
     return { customer: this.auth.publicCustomer(result.customer) };
   }

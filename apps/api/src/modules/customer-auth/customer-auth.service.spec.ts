@@ -49,32 +49,13 @@ describe('Customer account authentication boundaries', () => {
     prisma.customerSession.findUnique.mockResolvedValue({ customer: { id: 'secret' }, expiresAt: new Date(0) });
     expect(await auth.identity(request({ cookie: '__Host-grqaser_session=' + 'a'.repeat(43) }))).toBeNull();
   });
-  it('expired codes and exhausted attempt budgets cannot reach the SMS provider', async () => {
-    const { auth, prisma, providers } = fixture();
-    prisma.customerChallenge.findUnique.mockResolvedValue({ phone: '+37499123456', expiresAt: new Date(0) });
+  it('disables SMS authentication even when provider credentials exist', async () => {
+    const { auth, providers, prisma } = fixture();
+    expect(auth.configuration()).toMatchObject({ passwordEnabled: true, smsEnabled: false });
+    await expect(auth.requestCode('+37499123456', 'hy', '127.0.0.1')).rejects.toThrow();
     await expect(auth.verifyCode('challenge', '123456', request())).rejects.toThrow();
-    prisma.customerChallenge.findUnique.mockResolvedValue({ phone: '+37499123456', expiresAt: new Date(Date.now() + 60_000) });
-    prisma.customerChallenge.updateMany.mockResolvedValue({ count: 0 });
-    await expect(auth.verifyCode('challenge', '123456', request())).rejects.toThrow();
+    expect(providers.sendCode).not.toHaveBeenCalled();
     expect(providers.verifyCode).not.toHaveBeenCalled();
-    expect(prisma.customerSession.create).not.toHaveBeenCalled();
-  });
-  it('a wrong code consumes an attempt and cannot create a session', async () => {
-    const { auth, prisma, providers } = fixture();
-    prisma.customerChallenge.findUnique.mockResolvedValue({ phone: '+37499123456', expiresAt: new Date(Date.now() + 60_000) });
-    prisma.customerChallenge.updateMany.mockResolvedValue({ count: 1 });
-    providers.verifyCode.mockResolvedValue(false);
-    await expect(auth.verifyCode('challenge', '999999', request())).rejects.toThrow();
-    expect(prisma.customerChallenge.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ attempts: { lt: 5 }, consumedAt: null }) }));
-    expect(prisma.customerSession.create).not.toHaveBeenCalled();
-  });
-  it('an approval already consumed by another request cannot be replayed', async () => {
-    const { auth, prisma, providers } = fixture();
-    prisma.customerChallenge.findUnique.mockResolvedValue({ phone: '+37499123456', expiresAt: new Date(Date.now() + 60_000) });
-    prisma.customerChallenge.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
-    providers.verifyCode.mockResolvedValue(true);
-    await expect(auth.verifyCode('challenge', '123456', request())).rejects.toThrow();
-    expect(prisma.customer.upsert).not.toHaveBeenCalled();
     expect(prisma.customerSession.create).not.toHaveBeenCalled();
   });
   it('rejects a Google callback without the browser state cookie before exchanging its code', async () => {

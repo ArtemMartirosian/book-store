@@ -1,0 +1,6 @@
+# Local Docker development only. Never apply this override on the public server.
+# PostgreSQL is still used; development cookies allow the localhost HTTP UI.
+services:
+  api:
+    environment:
+      NODE_ENV: development

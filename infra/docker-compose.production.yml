@@ -19,6 +19,7 @@ services:
 
   api:
     environment:
+      NODE_ENV: production
       CORS_ORIGINS: ${LUMI_CORS_ORIGINS:-https://grqaser.am}
       TRUST_PROXY_HOPS: "1"
       TRUST_PROXY_CIDRS: "172.18.0.1/32"

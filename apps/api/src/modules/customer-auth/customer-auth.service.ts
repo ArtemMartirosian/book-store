@@ -1,10 +1,20 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Customer } from '@prisma/client';
+import type { Customer, Prisma } from '@prisma/client';
+import { isEmail } from 'class-validator';
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { CustomerAuthProviders } from './customer-auth.providers';
+import { assertNewPassword, assertPasswordInput, hashCustomerPassword, verifyCustomerPassword } from './customer-password';
+
+export function normalizeAccountEmail(value: string): string {
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (email.length > 254 || !/^[\x21-\x7e]+$/u.test(email) || !isEmail(email, { allow_utf8_local_part: false })) {
+    throw new BadRequestException({ code: 'INVALID_EMAIL' });
+  }
+  return email;
+}
 
 export const tokenHash = (value: string) => createHash('sha256').update(value).digest('hex');
 export function normalizeAccountPhone(value: string): string {
@@ -25,6 +35,7 @@ export function readCookie(request: FastifyRequest, name: string): string | unde
 
 @Injectable()
 export class CustomerAuthService {
+  private nextCleanupAt = 0;
   constructor(readonly prisma: PrismaService, readonly providers: CustomerAuthProviders, private readonly config: ConfigService) {}
 
   get secure(): boolean { return this.config.get('NODE_ENV') === 'production'; }
@@ -34,11 +45,12 @@ export class CustomerAuthService {
     return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${this.secure ? '; Secure' : ''}`;
   }
   publicCustomer(customer: Customer) {
-    return { id: customer.id, fullName: customer.fullName, phone: customer.phone, googleEmail: customer.googleEmail,
+    return { id: customer.id, fullName: customer.fullName, email: customer.email ?? null, passwordEnabled: Boolean(customer.passwordHash), emailVerified: false,
+      phone: customer.phone, googleEmail: customer.googleEmail,
       googleConnected: Boolean(customer.googleSubject), locale: customer.locale, createdAt: customer.createdAt.toISOString() };
   }
   configuration() {
-    return { smsEnabled: this.prisma.isPostgres && this.providers.smsEnabled,
+    return { passwordEnabled: this.prisma.isPostgres, smsEnabled: false,
       googleEnabled: this.prisma.isPostgres && this.providers.googleEnabled, codeLength: 6, resendAfterSeconds: 60 };
   }
   assertStorage(): void {
@@ -84,40 +96,104 @@ export class CustomerAuthService {
     });
     if (count.count > maximum) throw new HttpException({ code: 'TOO_MANY_ATTEMPTS', retryAfterSeconds: seconds }, 429);
   }
-  async requestCode(phoneInput: string, locale: string, ip: string, customerId?: string) {
-    this.assertStorage();
-    if (!this.providers.smsEnabled) throw new ServiceUnavailableException({ code: 'SMS_UNAVAILABLE' });
-    const phone = normalizeAccountPhone(phoneInput);
-    await this.limit('sms-ip:' + ip, 10, 3600);
-    await this.limit('sms-phone:' + phone, 1, 60);
-    await this.limit('sms-phone:' + phone, 5, 86400);
-    await this.limit('sms-global', 100, 86400);
-    await this.providers.sendCode(phone, locale);
-    // A new code invalidates earlier challenges for this number, including other tabs.
-    await this.prisma.customerChallenge.updateMany({ where: { phone, consumedAt: null }, data: { consumedAt: new Date() } });
-    const challenge = await this.prisma.customerChallenge.create({ data: { phone, customerId, expiresAt: new Date(Date.now() + 10 * 60_000) } });
-    await this.cleanup();
-    return { challengeId: challenge.id, phone, expiresAt: challenge.expiresAt.toISOString(), resendAfterSeconds: 60 };
+  private async passwordLimits(kind: 'register' | 'login' | 'password', email: string, ip: string): Promise<void> {
+    if (Date.now() >= this.nextCleanupAt) {
+      this.nextCleanupAt = Date.now() + 60_000;
+      // Expired rows must also be maintained when all authentication attempts fail.
+      try { await this.cleanup(); } catch { /* Retry on a later request; never log credentials. */ }
+    }
+    if (kind === 'register') {
+      await this.limit('register-global', 100, 3600);
+      await this.limit('register-global', 500, 86400);
+      await this.limit('register-ip:' + ip, 10, 3600);
+      await this.limit('register-email:' + email, 3, 3600);
+    } else {
+      await this.limit('password-kdf-global', 300, 60);
+      await this.limit(kind + '-ip:' + ip, 30, 900);
+      await this.limit(kind + '-identity:' + email, 10, 900);
+    }
   }
-  async verifyCode(challengeId: string, code: string, request: FastifyRequest) {
-    this.assertStorage();
-    await this.limit('verify-ip:' + request.ip, 30, 900);
-    const challenge = await this.prisma.customerChallenge.findUnique({ where: { id: challengeId } });
-    if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date()) throw new BadRequestException({ code: 'CODE_EXPIRED' });
-    if (challenge.customerId && (await this.requireIdentity(request)).id !== challenge.customerId) throw new ForbiddenException();
-    const attempt = await this.prisma.customerChallenge.updateMany({
-      where: { id: challengeId, consumedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: 5 } }, data: { attempts: { increment: 1 } },
+  private async safeAuthentication<T>(operation: () => Promise<T>): Promise<T> {
+    try { return await operation(); }
+    catch (error) {
+      if (error instanceof HttpException) throw error;
+      // Prisma invocation errors can include write data, including password hashes.
+      throw new ServiceUnavailableException({ code: 'ACCOUNT_UNAVAILABLE' });
+    }
+  }
+  private async transactionalSession(tx: Prisma.TransactionClient, customerId: string, request: FastifyRequest, all = false): Promise<string> {
+    const previous = readCookie(request, this.cookieName);
+    if (all) await tx.customerSession.deleteMany({ where: { customerId } });
+    else if (previous) await tx.customerSession.deleteMany({ where: { tokenHash: tokenHash(previous) } });
+    const token = randomBytes(32).toString('base64url');
+    await tx.customerSession.create({ data: { tokenHash: tokenHash(token), customerId, expiresAt: new Date(Date.now() + 30 * 86400_000) } });
+    return this.cookie(this.cookieName, token, 30 * 86400);
+  }
+  async register(input: { email: string; password: string; fullName: string; locale: string }, request: FastifyRequest) {
+    return this.safeAuthentication(async () => {
+      this.assertStorage();
+      const email = normalizeAccountEmail(input.email);
+      assertNewPassword(input.password);
+      const fullName = typeof input.fullName === 'string' ? input.fullName.trim() : '';
+      if (!['hy', 'ru', 'en'].includes(input.locale) || [...fullName].length < 2 || [...fullName].length > 100) {
+        throw new BadRequestException({ code: 'INVALID_PROFILE' });
+      }
+      await this.passwordLimits('register', email, request.ip);
+      const passwordHash = await hashCustomerPassword(input.password);
+      try {
+        return await this.prisma.$transaction(async tx => {
+          const customer = await tx.customer.create({ data: { email, passwordHash, fullName, locale: input.locale } });
+          const cookie = await this.transactionalSession(tx, customer.id, request);
+          return { customer, cookie };
+        });
+      } catch (error) {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+          throw new ConflictException({ code: 'EMAIL_ALREADY_REGISTERED' });
+        }
+        throw error;
+      }
     });
-    if (!attempt.count) throw new BadRequestException({ code: 'CODE_EXPIRED' });
-    if (!await this.providers.verifyCode(challenge.phone, code)) throw new BadRequestException({ code: 'CODE_INVALID' });
-    const used = await this.prisma.customerChallenge.updateMany({ where: { id: challengeId, consumedAt: null }, data: { consumedAt: new Date() } });
-    if (!used.count) throw new BadRequestException({ code: 'CODE_EXPIRED' });
-    const owner = await this.prisma.customer.findUnique({ where: { phone: challenge.phone } });
-    if (challenge.customerId && owner && owner.id !== challenge.customerId) throw new ConflictException({ code: 'IDENTITY_ALREADY_LINKED' });
-    const customer = challenge.customerId
-      ? await this.prisma.customer.update({ where: { id: challenge.customerId }, data: { phone: challenge.phone } })
-      : await this.prisma.customer.upsert({ where: { phone: challenge.phone }, create: { phone: challenge.phone }, update: {} });
-    return { customer, cookie: await this.session(customer.id) };
+  }
+  async login(input: { email: string; password: string }, request: FastifyRequest) {
+    return this.safeAuthentication(async () => {
+      this.assertStorage();
+      const email = normalizeAccountEmail(input.email);
+      assertPasswordInput(input.password);
+      await this.passwordLimits('login', email, request.ip);
+      const customer = await this.prisma.customer.findUnique({ where: { email } });
+      const valid = await verifyCustomerPassword(input.password, customer?.passwordHash);
+      if (!customer?.passwordHash || !valid) throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
+      return this.prisma.$transaction(async tx => {
+        // A no-op conditional UPDATE takes the customer row lock. Password changes
+        // use the same lock, preventing a verified old password creating a late session.
+        const locked = await tx.customer.updateMany({ where: { id: customer.id, passwordHash: customer.passwordHash }, data: { passwordHash: customer.passwordHash } });
+        if (locked.count !== 1) throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
+        return { customer, cookie: await this.transactionalSession(tx, customer.id, request) };
+      });
+    });
+  }
+  async changePassword(input: { currentPassword: string; newPassword: string }, request: FastifyRequest) {
+    return this.safeAuthentication(async () => {
+      this.assertStorage();
+      const customer = await this.requireIdentity(request);
+      assertPasswordInput(input.currentPassword); assertNewPassword(input.newPassword);
+      await this.passwordLimits('password', customer.id, request.ip);
+      const valid = await verifyCustomerPassword(input.currentPassword, customer.passwordHash);
+      if (!customer.passwordHash || !valid) throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
+      const passwordHash = await hashCustomerPassword(input.newPassword);
+      return this.prisma.$transaction(async tx => {
+        const changed = await tx.customer.updateMany({ where: { id: customer.id, passwordHash: customer.passwordHash }, data: { passwordHash } });
+        if (changed.count !== 1) throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
+        const cookie = await this.transactionalSession(tx, customer.id, request, true);
+        return { customer: { ...customer, passwordHash }, cookie };
+      });
+    });
+  }
+  async requestCode(_phoneInput: string, _locale: string, _ip: string, _customerId?: string): Promise<never> {
+    throw new ServiceUnavailableException({ code: 'SMS_UNAVAILABLE' });
+  }
+  async verifyCode(_challengeId: string, _code: string, _request: FastifyRequest): Promise<never> {
+    throw new ServiceUnavailableException({ code: 'SMS_UNAVAILABLE' });
   }
   async googleStart(locale: string, ip: string, customerId?: string) {
     this.assertStorage();
@@ -157,7 +233,7 @@ export class CustomerAuthService {
     return { customer, locale: flow.locale, cookie: await this.session(customer.id) };
   }
   private async cleanup() {
-    const cutoff = new Date(Date.now() - 86400_000);
+    const cutoff = new Date();
     await Promise.all([
       this.prisma.customerAuthRate.deleteMany({ where: { expiresAt: { lt: cutoff } } }),
       this.prisma.customerChallenge.deleteMany({ where: { expiresAt: { lt: cutoff } } }),

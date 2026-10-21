@@ -29,8 +29,10 @@ openssl rand -hex 32
 Витрина, API и worker после этого запускаются одной командой:
 
 ```bash
-docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml up -d --build
+docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml -f infra/docker-compose.local.yml up -d --build
 ```
+
+Второй файл предназначен только для локальной разработки по HTTP: он включает development-cookie API. На публичном сервере вместо него используется production-override и обязательный HTTPS.
 
 Docker Compose хранит заказы и закупочные задачи в именованном PostgreSQL volume
 `lumi_postgres`. Перед стартом API сервис `migrate` ждёт готовности PostgreSQL и
@@ -49,7 +51,7 @@ PostgreSQL и Redis доступны только с localhost на портах
 Остановить контейнеры LUMI Books:
 
 ```bash
-docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml down
+docker compose --env-file .env -p lumi-books -f infra/docker-compose.yml -f infra/docker-compose.local.yml down
 ```
 
 Обычный `down` сохраняет PostgreSQL volume, поэтому заказы переживают перезапуск контейнеров.

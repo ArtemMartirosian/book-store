@@ -11,7 +11,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const nativeRequire = createRequire(import.meta.url);
 
 // Render the real components; replace only the app context and Next navigation.
-function components(locale, search = "", reactOverride, contextOverrides = {}) {
+function components(locale, search = "", reactOverride, contextOverrides = {}, apiOverrides = {}) {
   const cache = new Map();
   const context = { locale, cartCount: 2, favorites: [{ id: "saved" }], isFavorite: () => false, toggleFavorite() {}, addToCart() {}, ...contextOverrides };
   function load(filename) {
@@ -22,6 +22,7 @@ function components(locale, search = "", reactOverride, contextOverrides = {}) {
     mod.paths = [path.join(root, "node_modules")];
     mod.require = (specifier) => {
       if (specifier === "react" && reactOverride) return reactOverride;
+      if (specifier === "../../lib/customer-account" && Object.keys(apiOverrides).length) return { ...load(path.join(root, "app/lib/customer-account.ts")), ...apiOverrides };
       if (specifier === "./StorefrontShell") return { useStorefront: () => context };
       if (specifier === "next/navigation") return { useRouter: () => ({ refresh() {} }), useSearchParams: () => new URLSearchParams(typeof search === "function" ? search() : search), usePathname: () => `/${locale}/catalog` };
       if (specifier === "next/link") return { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) };
@@ -123,20 +124,123 @@ test("publisher and accessory selections use real metadata without inventing dis
   assert.doesNotMatch(discounts, /<del|<s>|9000/u);
 });
 
-test("account offers Google and phone sign-in without enabling unconfigured providers on the initial render", () => {
+test("account offers email and password sign-in without phone authentication or dormant Google buttons", () => {
   for (const locale of ["ru", "hy", "en"]) {
     const AccountPage = components(locale)("AccountPage");
     const html = renderToStaticMarkup(React.createElement(AccountPage));
-    assert.ok(html.includes(`href="/${locale}/catalog"`));
-    assert.ok(html.includes(`href="/${locale}/privacy"`));
-    assert.ok(html.includes(`href="/${locale}/terms"`));
+    assert.ok(html.includes('href="/' + locale + '/catalog"'));
+    assert.ok(html.includes('href="/' + locale + '/privacy"'));
+    assert.ok(html.includes('href="/' + locale + '/terms"'));
     assert.match(html, /data-testid="customer-auth-panel"/u);
-    assert.match(html, /type="tel"/u);
-    assert.match(html, /name="phone"/u);
-    assert.match(html, /Google/u);
+    assert.match(html, /type="email"[^>]+autoComplete="username"/u);
+    assert.match(html, /type="password"[^>]+autoComplete="current-password"/u);
     assert.match(html, /<button[^>]+disabled=""/u);
-    assert.doesNotMatch(html, /type="(?:email|password)"|data-testid="customer-dashboard"/u);
+    assert.doesNotMatch(html, /type="tel"|name="phone"|one-time-code|Google|data-testid="customer-dashboard"/u);
+    assert.doesNotMatch(html, /Sign-in is temporarily unavailable|Вход временно недоступен|Մուտքը ժամանակավորապես անհասանելի/u);
   }
+});
+
+function formHarness(locale, exportName, request, extra = {}) {
+  const slots = [];
+  let hook = 0;
+  const reactOverride = {
+    ...React,
+    useState(initial) {
+      const index = hook++;
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? initial() : initial;
+      return [slots[index], next => { slots[index] = typeof next === "function" ? next(slots[index]) : next; }];
+    },
+    useRef(initial) {
+      const index = hook++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index];
+    },
+    useEffect() {},
+  };
+  const Component = components(locale, "", reactOverride, {}, { accountRequest: request, ...extra })("AccountPage", exportName);
+  const elements = node => Array.isArray(node) ? node.flatMap(elements) : React.isValidElement(node) ? [node, ...elements(node.props.children)] : [];
+  const props = { locale, config: { passwordEnabled: true, googleEnabled: false }, onSuccess: async () => {} };
+  const render = () => { hook = 0; return elements(Component(props)); };
+  const field = (name, value) => {
+    const element = render().find(item => item.props.name === name && typeof item.props.onChange === "function");
+    assert.ok(element, "form field exists: " + name);
+    element.props.onChange(element.type === "input" ? { target: { value } } : value);
+  };
+  return { render, field, props, submit: () => render().find(item => item.type === "form").props.onSubmit({ preventDefault() {} }) };
+}
+
+test("registration validates confirmation then sends exact Unicode password and opens the account without a code step", async () => {
+  const calls = [];
+  const harness = formHarness("en", "AuthPanel", async (path, options) => { calls.push({ path, ...JSON.parse(options.body) }); return { customer: { id: "new-account" } }; });
+  let signedIn = 0;
+  harness.props.onSuccess = async () => { signedIn++; };
+  harness.render().find(item => item.type === "button" && item.props.children === "Register").props.onClick();
+  harness.field("fullName", "  New Reader  ");
+  harness.field("email", "  Reader@Example.com  ");
+  const password = "  գաղտնի բառեր 2026  ";
+  harness.field("password", password);
+  harness.field("confirmPassword", "different password");
+  await harness.submit();
+  assert.equal(calls.length, 0);
+  assert.ok(harness.render().some(item => item.props.children === "The passwords do not match."));
+  harness.field("confirmPassword", password);
+  await harness.submit();
+  assert.deepEqual(calls, [{ path: "auth/register", fullName: "New Reader", email: "Reader@Example.com", password, locale: "en" }]);
+  assert.equal(signedIn, 1);
+  assert.equal(harness.render().find(item => item.props.name === "password").props.value, "");
+  assert.ok(!harness.render().some(item => item.props.name === "phone" || item.props.autoComplete === "one-time-code"));
+});
+
+test("registration measures Unicode characters instead of UTF-16 code units and preserves a 128-character passphrase", async () => {
+  const calls = [];
+  const harness = formHarness("en", "AuthPanel", async (path, options) => { calls.push(JSON.parse(options.body)); });
+  harness.render().find(item => item.type === "button" && item.props.children === "Register").props.onClick();
+  harness.field("fullName", "Reader");
+  harness.field("email", "reader@example.com");
+  harness.field("password", "📖".repeat(14));
+  harness.field("confirmPassword", "📖".repeat(14));
+  await harness.submit();
+  assert.equal(calls.length, 0, "14 Unicode characters are not a long enough new password");
+  const password = "📖".repeat(128);
+  harness.field("password", password);
+  harness.field("confirmPassword", password);
+  await harness.submit();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].password, password);
+});
+
+test("wrong credentials do not claim an expired session and the in-flight form cannot submit twice", async () => {
+  class FakeAccountError extends Error { constructor(code, status) { super(code); this.code = code; this.status = status; } }
+  let rejectRequest;
+  let requests = 0;
+  const harness = formHarness("en", "AuthPanel", () => { requests++; return new Promise((resolve, reject) => { rejectRequest = reject; }); }, { AccountError: FakeAccountError });
+  harness.field("email", "reader@example.com");
+  harness.field("password", "wrong password phrase");
+  const first = harness.submit();
+  await harness.submit();
+  assert.equal(requests, 1);
+  rejectRequest(new FakeAccountError("INVALID_CREDENTIALS", 401));
+  await first;
+  assert.ok(harness.render().some(item => item.props.children === "The email or password is incorrect."));
+  assert.ok(!harness.render().some(item => item.props.children === "Your session has ended. Please sign in again."));
+});
+
+test("password change requires matching new passwords and only sends the current and new password", async () => {
+  const calls = [];
+  const harness = formHarness("ru", "PasswordChangePanel", async (path, options) => { calls.push({ path, body: JSON.parse(options.body) }); });
+  let refreshes = 0;
+  harness.props.onSuccess = async () => { refreshes++; };
+  harness.field("currentPassword", "old long password");
+  harness.field("newPassword", "  new password phrase  ");
+  harness.field("confirmNewPassword", "does not match");
+  await harness.submit();
+  assert.equal(calls.length, 0);
+  harness.field("confirmNewPassword", "  new password phrase  ");
+  await harness.submit();
+  assert.deepEqual(calls, [{ path: "auth/password", body: { currentPassword: "old long password", newPassword: "  new password phrase  " } }]);
+  assert.equal(refreshes, 1);
+  assert.ok(harness.render().some(item => item.props.children === "Пароль изменён. Остальные сеансы завершены."));
+  assert.equal(harness.render().find(item => item.props.name === "currentPassword").props.value, "");
 });
 
 test("Google callback errors are visible to guests and signed-in customers in every language", () => {
@@ -158,7 +262,7 @@ test("Google callback errors are visible to guests and signed-in customers in ev
   }
 });
 
-test("dismissing a callback error and successful SMS authentication clear it even when navigation params stay cached", async () => {
+test("dismissing a callback error and successful password authentication clear it even when navigation params stay cached", async () => {
   let url = new URL("https://grqaser.digitalize.am/en/account?auth=failed&return=orders#security");
   const historyState = { existing: true };
   let refreshes = 0;
