@@ -14,11 +14,11 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache chromium openssl
-COPY --from=build /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/src/modules/crawler/fixtures ./dist/modules/crawler/fixtures
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/prisma ./prisma
+COPY --from=build --chown=node:node /app/src/modules/crawler/fixtures ./dist/modules/crawler/fixtures
 USER node
 EXPOSE 4000
 CMD ["node", "dist/main.js"]
