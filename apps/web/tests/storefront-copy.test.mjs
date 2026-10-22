@@ -76,20 +76,22 @@ test("page-specific public copy does not reintroduce sourcing or technical messa
   }
 });
 
-test("checkout still states cash payment, delivery fee and availability confirmation", () => {
+test("checkout retains cash payment and the delivery fee without obsolete stock-confirmation labels", () => {
   const expected = {
-    ru: { submit: "Оформить заказ", cash: /наличн/iu, availability: /налич/iu },
-    hy: { submit: "Ձևակերպել պատվերը", cash: /կանխիկ/iu, availability: /առկայ/iu },
-    en: { submit: "Place order", cash: /cash/iu, availability: /availability/iu },
+    ru: { submit: "Оформить заказ", cash: /наличн/iu },
+    hy: { submit: "Ձևակերպել պատվերը", cash: /կանխիկ/iu },
+    en: { submit: "Place order", cash: /cash/iu },
   };
   for (const locale of locales) {
-    const { cart, product, header } = dictionary[locale];
+    const { cart, product, header, card } = dictionary[locale];
     assert.equal(cart.submit, expected[locale].submit);
     assert.ok(cart.quoteChanged.includes(cart.submit), locale + ": repricing points to the real button");
     assert.match(cart.onDelivery, expected[locale].cash);
     assert.match(cart.successText, expected[locale].cash);
-    assert.match(cart.submitHint, expected[locale].availability);
-    assert.match(product.checkStock, expected[locale].availability);
+    assert.equal(Object.hasOwn(product, "checkStock"), false);
+    assert.equal(Object.hasOwn(product, "lastCheck"), false);
+    assert.equal(Object.hasOwn(card, "confirm"), false);
+    assert.doesNotMatch(cart.submitHint, /առկայ|наличи|availability/iu);
     assert.match(header.announcement, /1[ ,]000 ֏/u);
     assert.match(product.delivery, /1[ ,]000 ֏/u);
   }

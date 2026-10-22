@@ -10,8 +10,6 @@ import { useStorefront } from "./StorefrontShell";
 import { dictionary, localized, localizeBookBinding, localizeBookCategory } from "./i18n";
 import { container, cx, eyebrow, sectionTitle } from "./ui";
 
-const dateLocales = { hy: "hy-AM", ru: "ru-RU", en: "en-US" } as const;
-
 function HeartIcon({ filled = false }: { filled?: boolean }) {
   return <svg className="size-5" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.7 5.8c-1.8-2-5-1.6-6.7.5L12 8.7l-2-2.4C8.3 4.2 5.1 3.8 3.3 5.8c-1.9 2.1-1.6 5.4.4 7.3L12 21l8.3-7.9c2-1.9 2.3-5.2.4-7.3Z" /></svg>;
 }
@@ -60,13 +58,6 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
     ...(book.isbn ? [["ISBN", book.isbn] as [string, string]] : []),
     ...(imageCount > 0 ? [[detailLabels.images, imageCount] as [string, number]] : []),
   ];
-  const observedAt = (() => {
-    const parsed = new Date(book.observedAt);
-    return Number.isNaN(parsed.valueOf())
-      ? ""
-      : new Intl.DateTimeFormat(dateLocales[locale], { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Yerevan" }).format(parsed);
-  })();
-
   return (
     <div className="min-h-[70vh] bg-[var(--paper)] text-[var(--ink)] max-sm:pb-24">
       <nav className={cx(container, "flex min-h-16 items-center gap-2 overflow-hidden text-xs text-[var(--muted)]")} aria-label={t.catalog}>
@@ -105,10 +96,10 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
               <strong className="text-[30px] font-bold tracking-[-.035em]">{formatAmd(book.price)}</strong>
               <span className="text-xs text-[var(--muted)]">{t.servicePrice}</span>
             </div>
-            <div className="mt-4 flex items-start gap-2.5">
-              <i className={cx("mt-1.5 size-1.5 shrink-0 rounded-full bg-[var(--accent)]", unavailable && "bg-[#995846]")} />
-              <div className="grid gap-1"><strong className={cx("text-sm font-medium text-[var(--accent)]", unavailable && "text-[#995846]")}>{unavailable ? t.unavailable : t.checkStock}</strong>{unavailable || observedAt ? <small className="text-xs leading-5 text-[var(--muted)]" suppressHydrationWarning>{unavailable ? t.unavailableHint : t.lastCheck + ": " + observedAt}</small> : null}</div>
-            </div>
+            {unavailable ? <div className="mt-4 flex items-start gap-2.5">
+              <i className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#995846]" />
+              <div className="grid gap-1"><strong className="text-sm font-medium text-[#995846]">{t.unavailable}</strong><small className="text-xs leading-5 text-[var(--muted)]">{t.unavailableHint}</small></div>
+            </div> : null}
             <div className="mt-6 grid grid-cols-[124px_minmax(0,1fr)] gap-3 max-sm:grid-cols-[116px_minmax(0,1fr)]">
               <div className="grid min-h-13 grid-cols-[44px_1fr_44px] items-center rounded-xl border border-[var(--line)]">
                 <button className="min-h-13 text-lg text-[var(--muted)] transition hover:text-[var(--accent)] disabled:opacity-30" type="button" disabled={quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label={controls.decrease}>−</button>

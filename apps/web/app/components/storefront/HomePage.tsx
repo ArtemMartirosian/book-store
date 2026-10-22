@@ -29,7 +29,7 @@ const marketCopy = {
     otherTitle: "Для любителей книг", otherText: "Закладки и книжные аксессуары.", otherEmpty: "Готовим этот раздел", otherHint: "Книжные аксессуары пока не добавлены в эту подборку. А пока можно выбрать новую книгу в каталоге.",
     discountTitle: "Скидки и предложения", discountEmpty: "Предложения со скидкой скоро появятся", discountHint: "Сейчас подтверждённых скидок нет. Актуальные цены на все книги указаны в каталоге.",
     specialTitle: "Специальная подборка", specialText: "Начните с книг по доступной цене.", specialLink: "Сначала недорогие",
-    finalTitle: "Выбирайте книги. Мы привезём.", finalText: "Доставка по Еревану — 1 000 ֏. Наличие и время подтвердим по телефону. Оплата наличными при получении.", finalCta: "Как заказать", finalCatalog: "Перейти в каталог",
+    finalTitle: "Выбирайте книги. Мы привезём.", finalText: "Доставка по Еревану — 1 000 ֏. Оплата наличными при получении.", finalCta: "Как заказать", finalCatalog: "Перейти в каталог",
     empty: "Книги скоро появятся", emptyHint: "Сейчас в каталоге нет доступных книг. Загляните немного позже.", error: "Не удалось загрузить книги", errorHint: "Каталог временно недоступен. Попробуйте обновить страницу.", categoriesError: "Не удалось загрузить все разделы каталога.", showcaseError: "Не удалось загрузить часть подборок.", retry: "Попробовать снова", loading: "Обновляем…",
   },
   hy: {
@@ -49,7 +49,7 @@ const marketCopy = {
     otherTitle: "Գրքասերների համար", otherText: "Էջանիշեր և գրքային պարագաներ։", otherEmpty: "Պատրաստում ենք այս բաժինը", otherHint: "Այս ընտրանիում դեռ գրքային պարագաներ ավելացված չեն։ Մինչ այդ կարող եք կատալոգից ընտրել նոր գիրք։",
     discountTitle: "Զեղչեր և առաջարկներ", discountEmpty: "Զեղչային առաջարկները շուտով կհայտնվեն", discountHint: "Այս պահին հաստատված զեղչեր չկան։ Գրքերի ընթացիկ գները նշված են կատալոգում։",
     specialTitle: "Հատուկ ընտրանի", specialText: "Սկսեք մատչելի գրքերից։", specialLink: "Սկզբում՝ մատչելիները",
-    finalTitle: "Դուք ընտրում եք։ Մենք առաքում ենք։", finalText: "Առաքում Երևանում՝ 1 000 ֏։ Առկայությունն ու ժամը կհաստատենք հեռախոսով։ Վճարումը՝ կանխիկ, ստանալիս։", finalCta: "Ինչպես պատվիրել", finalCatalog: "Բացել կատալոգը",
+    finalTitle: "Դուք ընտրում եք։ Մենք առաքում ենք։", finalText: "Առաքում Երևանում՝ 1 000 ֏։ Վճարումը՝ կանխիկ, ստանալիս։", finalCta: "Ինչպես պատվիրել", finalCatalog: "Բացել կատալոգը",
     empty: "Գրքերը շուտով կհայտնվեն", emptyHint: "Այս պահին կատալոգում հասանելի գրքեր չկան։ Այցելեք մի փոքր ուշ։", error: "Չհաջողվեց բեռնել գրքերը", errorHint: "Կատալոգը ժամանակավորապես հասանելի չէ։ Փորձեք թարմացնել էջը։", categoriesError: "Չհաջողվեց բեռնել կատալոգի բոլոր բաժինները։", showcaseError: "Չհաջողվեց բեռնել որոշ ընտրանիներ։", retry: "Կրկին փորձել", loading: "Թարմացնում ենք…",
   },
   en: {
@@ -69,7 +69,7 @@ const marketCopy = {
     otherTitle: "For book lovers", otherText: "Bookmarks and reading accessories.", otherEmpty: "This collection is on its way", otherHint: "Reading accessories have not been added to this selection yet. For now, discover your next book in the catalog.",
     discountTitle: "Discounts and offers", discountEmpty: "Discount offers will be here soon", discountHint: "There are no confirmed discounts right now. Current prices for every book are shown in the catalog.",
     specialTitle: "A special selection", specialText: "Start with books at an approachable price.", specialLink: "Lowest prices first",
-    finalTitle: "You choose. We bring the books.", finalText: "Delivery across Yerevan costs 1,000 ֏. We confirm availability and timing by phone. Pay cash when your order arrives.", finalCta: "How to order", finalCatalog: "Explore the catalog",
+    finalTitle: "You choose. We bring the books.", finalText: "Delivery across Yerevan costs 1,000 ֏. Pay cash when your order arrives.", finalCta: "How to order", finalCatalog: "Explore the catalog",
     empty: "Books will be here soon", emptyHint: "There are no available books in the catalog right now. Please check back later.", error: "We could not load the books", errorHint: "The catalog is temporarily unavailable. Please try refreshing.", categoriesError: "Some catalog categories could not be loaded.", showcaseError: "Some book selections could not be loaded.", retry: "Try again", loading: "Refreshing…",
   },
 } as const;

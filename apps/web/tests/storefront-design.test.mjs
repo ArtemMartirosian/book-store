@@ -10,6 +10,7 @@ import ts from "typescript";
 const root = path.resolve(import.meta.dirname, "..");
 const nativeRequire = createRequire(import.meta.url);
 const locales = ["hy", "ru", "en"];
+const removedStockCopy = /Առկայությունը կհաստատենք(?: հեռախոսով)?|Наличие подтвердим(?: по телефону)?|We confirm availability(?: by phone)?|Availability confirmed later|Վերջին ստուգում|Последняя проверка|Last checked/iu;
 const edition = {
   id: "verified-edition", slug: "verified-edition", title: "An actual edition", author: "An actual author",
   description: "An actual catalog description.", category: "Books", language: "English", price: 5700,
@@ -134,6 +135,59 @@ test("unverified rating and review fields never become storefront social proof",
   }
 });
 
+test("observed cards and product pages hide stock confirmation and check dates without changing observations", () => {
+  const observedAt = "2026-10-21T11:25:00.000Z";
+  const dateLocales = { hy: "hy-AM", ru: "ru-RU", en: "en-US" };
+  for (const locale of locales) {
+    const { component, dictionary } = components(locale);
+    const book = Object.freeze({ ...edition, observedAt });
+    const formattedDate = new Intl.DateTimeFormat(dateLocales[locale], {
+      dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Yerevan",
+    }).format(new Date(observedAt));
+    for (const name of ["BookCard", "BookDetailsPage"]) {
+      const html = render(component(name), { book, related: [] });
+      assert.doesNotMatch(html, removedStockCopy, locale + "/" + name);
+      assert.ok(!html.includes(observedAt), "raw source observation must not be customer-facing");
+      assert.ok(!html.includes(formattedDate), "valid observation dates stay hidden too");
+      assert.doesNotMatch(html, /Առկա է|В наличии|\bIn stock\b/iu, "observations do not become an unconditional stock promise");
+      if (name === "BookCard") {
+        const purchase = tagWith(html, "button", "aria-label", dictionary.card.add + ": " + book.title);
+        assert.ok(!purchase.includes('disabled=""'));
+      } else {
+        const purchases = [...html.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/gu)]
+          .filter(([, , content]) => content.includes(dictionary.product.add));
+        assert.equal(purchases.length, 2, "desktop and mobile purchase controls remain available");
+        for (const [, button] of purchases) assert.ok(!button.includes('disabled=""'));
+      }
+      assert.equal(book.observedAt, observedAt, "presentation does not delete source observations");
+      assert.equal(book.availability, "observed");
+    }
+  }
+});
+
+test("unavailable cards and product pages keep truthful labels and disabled purchase controls", () => {
+  for (const locale of locales) {
+    const { component, dictionary } = components(locale);
+    const book = Object.freeze({ ...edition, availability: "unavailable" });
+    const card = render(component("BookCard"), { book });
+    assert.ok(card.includes(dictionary.card.unavailable));
+    assert.ok(tagWith(card, "button", "aria-label", dictionary.card.unavailable + ": " + book.title).includes('disabled=""'));
+    const product = render(component("BookDetailsPage"), { book, related: [] });
+    assert.ok(product.includes(dictionary.product.unavailable));
+    assert.ok(product.includes(dictionary.product.unavailableHint));
+    const purchases = [...product.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/gu)]
+      .filter(([, , content]) => content.includes(dictionary.product.unavailableButton));
+    assert.equal(purchases.length, 2);
+    for (const [, button] of purchases) assert.ok(button.includes('disabled=""'));
+    for (const html of [card, product]) {
+      assert.doesNotMatch(html, removedStockCopy);
+      assert.ok(!html.includes(book.observedAt));
+    }
+    assert.equal(book.availability, "unavailable");
+    assert.equal(book.observedAt, edition.observedAt);
+  }
+});
+
 test("product tabs have linked accessible panels and a single initial keyboard tab stop", () => {
   for (const locale of locales) {
     const { component } = components(locale);
@@ -196,14 +250,14 @@ test("shell navigation uses actual localized routes and bounded search inputs", 
   }
 });
 
-test("author links encode filters, invalid check dates stay hidden, and empty related sections stay absent", () => {
+test("author links encode filters, invalid observations stay hidden, and empty related sections stay absent", () => {
   for (const locale of locales) {
     const { component, dictionary } = components(locale);
     const author = "Writer / անուն & Имя?";
     const html = render(component("BookDetailsPage"), { book: { ...edition, author, observedAt: "invalid-observation-date" }, related: [] });
     assert.ok(html.includes(`href="/${locale}/catalog?author=${encodeURIComponent(author)}"`));
     assert.ok(!html.includes("invalid-observation-date"));
-    assert.ok(!html.includes(dictionary.product.lastCheck + ":"));
+    assert.doesNotMatch(html, removedStockCopy);
     assert.ok(!html.includes(dictionary.product.continue));
   }
 });

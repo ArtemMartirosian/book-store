@@ -9,7 +9,7 @@ export const localeMeta = {
     favorites: { title: "Նախընտրելի գրքեր", description: "Այս դիտարկիչում պահպանված ձեր նախընտրելի գրքերը Գրքասերում։" },
     search: { title: "Գրքերի ընդլայնված որոնում", description: "Գտեք գիրքը Գրքասերում ըստ անվանման, հեղինակի, ISBN-ի կամ հրատարակչի։" },
     contacts: { title: "Կապ գրախանութի հետ", description: "Գրքասեր առցանց գրախանութի կապի միջոցները։ Հարցեր գրքերի, պատվերի հաստատման և Երևանի առաքման մասին։" },
-    information: { title: "Գրքերի պատվեր, առաքում և վճարում", description: "Ինչպես պատվիրել Գրքասերում․ առկայության հաստատում, առաքում Երևանում և կանխիկ վճարում ստանալիս։ Ծանոթացեք պատվերի պայմաններին։" },
+    information: { title: "Գրքերի պատվեր, առաքում և վճարում", description: "Ինչպես պատվիրել Գրքասերում․ պատվերի ձևակերպում, առաքում Երևանում և կանխիկ վճարում ստանալիս։ Ծանոթացեք պատվերի պայմաններին։" },
   },
   ru: {
     home: { title: "Книжный интернет-магазин в Ереване", description: "Гркасер — книги на армянском, русском и английском языках. Выбирайте книги онлайн с доставкой по Еревану и оплатой наличными при получении." },
@@ -19,7 +19,7 @@ export const localeMeta = {
     favorites: { title: "Избранные книги", description: "Книги Гркасер, которые вы сохранили в избранном в этом браузере." },
     search: { title: "Расширенный поиск книг", description: "Найдите книгу в Гркасер по названию, автору, ISBN или издательству." },
     contacts: { title: "Контакты книжного магазина", description: "Как связаться с книжным интернет-магазином Гркасер по вопросам о книгах, подтверждении заказа и доставке по Еревану." },
-    information: { title: "Заказ, доставка и оплата книг", description: "Как заказать книги в Гркасер: подтверждение наличия, доставка по Еревану и оплата наличными при получении. Условия оформления заказа." },
+    information: { title: "Заказ, доставка и оплата книг", description: "Как заказать книги в Гркасер: оформление заказа, доставка по Еревану и оплата наличными при получении. Условия оформления заказа." },
   },
   en: {
     home: { title: "Online bookstore in Yerevan", description: "Discover Armenian, Russian and English books at Grqaser. Order books online with delivery across Yerevan and pay cash on delivery." },
@@ -29,6 +29,6 @@ export const localeMeta = {
     favorites: { title: "Favorite books", description: "Your favorite Grqaser books saved in this browser." },
     search: { title: "Advanced book search", description: "Find books at Grqaser by title, author, ISBN or publisher." },
     contacts: { title: "Contact the bookstore", description: "Contact the Grqaser online bookstore with questions about books, order confirmation and delivery across Yerevan." },
-    information: { title: "Book orders, delivery and payment", description: "How to order books at Grqaser: availability confirmation, delivery across Yerevan and cash on delivery. Learn about the ordering process." },
+    information: { title: "Book orders, delivery and payment", description: "How to order books at Grqaser: placing an order, delivery across Yerevan and cash on delivery. Learn about the ordering process." },
   },
 } as const satisfies Record<Locale, Record<"home" | "catalog" | "cart" | "account" | "favorites" | "search" | "contacts" | "information", { title: string; description: string }>>;
