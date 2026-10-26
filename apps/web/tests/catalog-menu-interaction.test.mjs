@@ -32,15 +32,24 @@ async function headerHarness(locale = "en", extraCategories = []) {
   let nodes = [];
   let oldNodes = new Map();
   let disposed = false;
+  let hitTarget = null;
   const document = {
     activeElement: null,
     addEventListener(name, callback) { const set = listeners.get(name) ?? new Set(); set.add(callback); listeners.set(name, set); },
     removeEventListener(name, callback) { listeners.get(name)?.delete(callback); },
     querySelector(selector) { return this.body.querySelector(selector); },
+    elementFromPoint() { return hitTarget; },
   };
   class DomNode {
     constructor(type, props = {}) { this.type = type; this.props = props; this.parentNode = null; this.children = []; this.focusCalls = 0; }
     contains(target) { for (let node = target; node; node = node.parentNode) if (node === this) return true; return false; }
+    get dataset() {
+      return Object.fromEntries(Object.entries(this.props).filter(([key]) => key.startsWith("data-")).map(([key, value]) => [key.slice(5).replace(/-([a-z])/gu, (_, letter) => letter.toUpperCase()), String(value)]));
+    }
+    closest(selector) {
+      if (selector === "a[data-catalog-category]" && this.type === "a" && this.props["data-catalog-category"] !== undefined) return this;
+      return this.parentNode?.closest(selector) ?? null;
+    }
     querySelector(selector) {
       const matches = node => selector === "a" ? node.type === "a" : selector.startsWith("#") ? node.props.id === selector.slice(1) : selector.startsWith("[data-catalog-level=") ? String(node.props["data-catalog-level"]) === selector.match(/data-catalog-level="([^"]+)"/u)?.[1] : node.props["aria-controls"] === selector.match(/aria-controls="([^"]+)"/u)?.[1];
       const descend = node => { for (const child of node.children) { if (matches(child)) return child; const nested = descend(child); if (nested) return nested; } return null; };
@@ -182,6 +191,7 @@ async function headerHarness(locale = "en", extraCategories = []) {
     render, find, trigger, menu, fire, emit, tick, dispose, document, outside,
     hover(node, extra = {}) { return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
     enterColumn(level, extra = {}) { const node = this.column(level); return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
+    hitTest(node) { hitTarget = node; },
     get pendingTimers() { return timers.size; },
     flushFrames() { while (frames.length) frames.shift()(); render(); },
     category(id) { return nodes.find(node => node.type === "a" && menu()?.contains(node) && node.props.href === `/${locale}/catalog?category=${id}`); },
@@ -431,15 +441,129 @@ test("stationary or leftward movement does not extend a deliberate branch dwell"
   }
 });
 
-test("scrolling a category column cancels pending hover geometry", async () => {
+test("a stationary pointer rearms the actual category after a column finishes scrolling", async () => {
   const h = await headerHarness();
   try {
     h.fire(h.trigger(), "onPointerEnter");
-    h.hover(h.category("gifts"));
+    h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+    h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+    h.hitTest(h.category("gifts").children[0]);
     h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
-    assert.equal(h.pendingTimers, 0);
-    h.tick(800);
+    assert.equal(h.pendingTimers, 1, "scroll replaces the old dwell with a settle timer");
+    h.tick(79);
     assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
+    h.tick(1);
+    assert.equal(h.pendingTimers, 1, "the row under the stationary pointer receives a fresh dwell");
+    h.tick(159);
+    assert.deepEqual(h.columns()[1], ["fiction", "science"]);
+    h.tick(1);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]], "scroll settling does not require another pointer movement to open children");
+    assert.equal(h.pendingTimers, 0);
+  } finally { h.dispose(); }
+});
+
+test("repeated scroll settling selects the current hit-tested row, never an obsolete candidate", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+    h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+    h.hitTest(h.category("gifts"));
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+    h.tick(60);
+    h.fire(h.menu(), "onPointerMove", { clientX: 420, clientY: 220 });
+    h.hitTest(h.category("science").children[0]);
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(1) });
+    h.tick(79);
+    assert.deepEqual(h.columns()[2], ["novels", "stories"]);
+    h.tick(1);
+    h.tick(159);
+    assert.deepEqual(h.columns()[2], ["novels", "stories"], "each new scroll restarts settling and a complete dwell");
+    h.tick(1);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]]);
+    assert.equal(h.pendingTimers, 0);
+  } finally { h.dispose(); }
+});
+
+test("scroll settling does not rearm an active row or a pointer outside the catalog", async () => {
+  for (const target of ["active-row", "outside", "no-hit"]) {
+    const h = await headerHarness();
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+      h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+      h.hitTest(target === "active-row" ? h.category("books").children[0] : target === "outside" ? h.outside : null);
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+      h.tick(80);
+      assert.equal(h.pendingTimers, 0, target);
+      h.tick(800);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
+    } finally { h.dispose(); }
+  }
+});
+
+test("closing, leaving or refocusing cancels a pending scroll-settle rearm", async () => {
+  for (const reason of ["Escape", "outside", "toggle", "category", "leave-trigger", "leave-outside", "active-row", "focus", "unmount"]) {
+    const h = await headerHarness();
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+      h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+      h.hitTest(h.category("gifts").children[0]);
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+      assert.equal(h.pendingTimers, 1);
+      if (reason === "Escape") h.emit("keydown", { key: "Escape" });
+      if (reason === "outside") h.emit("pointerdown", { target: h.outside });
+      if (reason === "toggle") h.fire(h.trigger(), "onClick");
+      if (reason === "category") h.fire(h.category("historical"), "onClick");
+      if (reason === "leave-trigger") h.fire(h.menu(), "onPointerLeave", { relatedTarget: h.trigger() });
+      if (reason === "leave-outside") {
+        h.fire(h.menu(), "onPointerLeave", { relatedTarget: h.outside });
+        h.tick(180);
+      }
+      if (reason === "active-row") h.hover(h.category("books"));
+      if (reason === "focus") { h.category("books").focus(); h.render(); }
+      if (reason === "unmount") h.dispose();
+      assert.equal(h.pendingTimers, 0, `${reason} cancels both delayed branch and scroll-settle timers`);
+      if (reason === "unmount") continue;
+      if (!h.menu()) h.fire(h.trigger(), "onPointerEnter");
+      h.tick(800);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]], `${reason} does not restore obsolete scroll intent`);
+      if (reason === "leave-trigger") {
+        h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+        h.tick(80);
+        h.tick(160);
+        assert.deepEqual(h.columns()[1], ["fiction", "science"], "panel departure clears the old pointer position, even toward its trigger");
+      }
+    } finally { h.dispose(); }
+  }
+});
+
+test("keyboard focus and PageDown scrolling cannot reuse an old mouse point, while a new wheel event restores pointer intent", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+    h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+    h.hitTest(h.category("gifts").children[0]);
+    h.category("books").focus();
+    h.render();
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+    h.tick(80);
+    h.tick(160);
+    assert.deepEqual(h.columns()[1], ["fiction", "science"], "focus-triggered scrolling does not rearm the old mouse row");
+    h.fire(h.menu(), "onPointerMove", { clientX: 120, clientY: 220 });
+    h.fire(h.menu(), "onKeyDownCapture", { key: "PageDown" });
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+    h.tick(80);
+    h.tick(160);
+    assert.deepEqual(h.columns()[1], ["fiction", "science"], "keyboard scrolling clears stale pointer intent");
+    assert.equal(h.pendingTimers, 0);
+    h.fire(h.menu(), "onWheelCapture", { clientX: 120, clientY: 220 });
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+    h.tick(80);
+    h.tick(160);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]], "a subsequent wheel event supplies fresh mouse coordinates without requiring pointer movement");
   } finally { h.dispose(); }
 });
 
