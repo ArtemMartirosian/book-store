@@ -1,4 +1,5 @@
 import "server-only";
+import { visibleStorefrontCategories } from "./storefront-categories";
 import {
   catalogQueryString,
   isCatalogCategoriesResponse,
@@ -34,7 +35,7 @@ export async function getServerCategories(locale: CatalogQuery["locale"]) {
   });
   const body = await readJson(response);
   if (!isCatalogCategoriesResponse(body)) throw new Error("Catalog API returned invalid categories");
-  return body;
+  return visibleStorefrontCategories(body);
 }
 
 export async function getServerBookBySlug(slug: string, locale: CatalogQuery["locale"]) {

@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { isCatalogCategoriesResponse, publicApiBase } from "../../lib/catalog-api";
+import { visibleStorefrontCategories } from "../../lib/storefront-categories";
 import { brandName, BRAND_LABELS } from "../../lib/brand";
 import type { Book, CatalogCategory } from "../../lib/types";
 import { accountRequest, type CustomerAccount } from "../../lib/customer-account";
@@ -267,7 +268,7 @@ function Header() {
         if (!response.ok) return;
         const result: unknown = await response.json();
         if (!isCatalogCategoriesResponse(result)) return;
-        setCatalogCategories(result);
+        setCatalogCategories(visibleStorefrontCategories(result));
         setActiveCatalogPath([]);
       })
       .catch(() => undefined);

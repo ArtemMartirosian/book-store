@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 import { brandName } from "../../lib/brand";
+import { visibleStorefrontCategories } from "../../lib/storefront-categories";
 import type { Book, CatalogCategory } from "../../lib/types";
 import { BookCard } from "./BookCard";
 import { BookCover } from "./BookCover";
@@ -142,8 +143,8 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
   const publisherBooks = allBooks.filter(book => Boolean(book.publisher?.trim())).slice(0, 24);
   const catalogHref = localized(locale, "/catalog");
   const newHref = catalogHref + "?isNew=true";
-  const combinedCategories = [...categories, ...allBooks.flatMap(book => book.categories ?? [])]
-    .filter((category, index, all) => all.findIndex(item => item.supplierCategoryId === category.supplierCategoryId) === index);
+  const combinedCategories = visibleStorefrontCategories([...categories, ...allBooks.flatMap(book => book.categories ?? [])]
+    .filter((category, index, all) => all.findIndex(item => item.supplierCategoryId === category.supplierCategoryId) === index));
   const byCategoryId = new Map(combinedCategories.map(category => [category.supplierCategoryId, category]));
   const bookInCategory = (book: Book, categoryId: string) => (book.categories ?? []).some(category => {
     let current: CatalogCategory | undefined = category;

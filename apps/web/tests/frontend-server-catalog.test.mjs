@@ -10,8 +10,11 @@ function moduleUrl(source) {
 
 const clientSource = await readFile(new URL("../app/lib/catalog-api.ts", import.meta.url), "utf8");
 const serverSource = await readFile(new URL("../app/lib/server-catalog-api.ts", import.meta.url), "utf8");
+const categoriesSource = await readFile(new URL("../app/lib/storefront-categories.ts", import.meta.url), "utf8");
+const categoriesUrl = moduleUrl(categoriesSource);
+const clientUrl = moduleUrl(clientSource.replace('from "./storefront-categories"', 'from "' + categoriesUrl + '"'));
 // Only the server-only build marker is omitted; execute the real fetch/validation/mapping code.
-const api = await import(moduleUrl(serverSource.replace('import "server-only";', "").replace('from "./catalog-api"', 'from "' + moduleUrl(clientSource) + '"')));
+const api = await import(moduleUrl(serverSource.replace('import "server-only";', "").replace('from "./catalog-api"', 'from "' + clientUrl + '"').replace('from "./storefront-categories"', 'from "' + categoriesUrl + '"')));
 
 const book = {
   id: "real-book", slug: "real-book", title: "Book", author: "Author", description: "Description",

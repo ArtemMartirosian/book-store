@@ -8,7 +8,15 @@ const root = path.resolve(import.meta.dirname, "..");
 const internalCopy = /books\.am|\bsupplier\b|\bprocure(?:ment)?\b|\b(?:scraping|crawler|markup|reseller)\b|поставщик|закуп|выкуп|нацен|перекуп|парсинг|мատակարար|վերավաճառ|փարս|ձեռք կբեր|\bAPI\b|SMS[- ]?(?:provider|провайдер)|книжный сервис|book service|գրքային ծառայություն|сервис LUMI|LUMI service|LUMI ծառայություն/iu;
 
 async function importDataModule(relativePath) {
-  const source = await readFile(path.join(root, relativePath), "utf8");
+  let source = await readFile(path.join(root, relativePath), "utf8");
+  if (relativePath === "app/lib/catalog-api.ts") {
+    const categories = await readFile(path.join(root, "app/lib/storefront-categories.ts"), "utf8");
+    const compiled = ts.transpileModule(categories, {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    });
+    const categoriesUrl = "data:text/javascript;base64," + Buffer.from(compiled.outputText).toString("base64");
+    source = source.replace('from "./storefront-categories"', 'from "' + categoriesUrl + '"');
+  }
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   });

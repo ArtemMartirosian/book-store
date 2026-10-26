@@ -1,4 +1,5 @@
 import type { Book, BookAccent, BookAttribute, BookDetailSection, CatalogCategory } from "./types";
+import { visibleStorefrontCategories } from "./storefront-categories";
 
 export type CatalogSort = "popular" | "new" | "price-asc" | "price-desc" | "title";
 export type CatalogLanguage = "hy" | "ru" | "en";
@@ -121,6 +122,7 @@ function storefrontImageUrl(value: string | null | undefined): string | null {
 }
 
 export function mapCatalogBook(book: CatalogApiBook): Book {
+  const categories = visibleStorefrontCategories(book.categories ?? []);
   const imageUrls = [...new Set(
     (book.imageUrls ?? (book.coverImageUrl ? [book.coverImageUrl] : []))
       .map(storefrontImageUrl)
@@ -132,10 +134,10 @@ export function mapCatalogBook(book: CatalogApiBook): Book {
     title: book.title,
     author: book.author,
     category:
-      book.categories?.find(({ supplierCategoryId }) => supplierCategoryId !== "7463")?.name ??
-      book.categories?.[0]?.name ??
+      categories.find(({ supplierCategoryId }) => supplierCategoryId !== "7463")?.name ??
+      categories[0]?.name ??
       { hy: "Գրքեր", ru: "Книги", en: "Books" }[book.locale],
-    categories: book.categories ?? [],
+    categories,
     language: languageLabels[book.language],
     price: book.price.amount,
     year: book.publicationYear ?? undefined,

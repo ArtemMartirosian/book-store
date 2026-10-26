@@ -14,6 +14,7 @@ import {
   type CatalogSort,
 } from "../../lib/catalog-api";
 import { catalogLanguageDefinitions } from "../../lib/catalog-data";
+import { visibleStorefrontCategories } from "../../lib/storefront-categories";
 import type { Book, CatalogCategory } from "../../lib/types";
 import { BookCard } from "./BookCard";
 import { useStorefront } from "./StorefrontShell";
@@ -64,7 +65,7 @@ export function CatalogPage({ initialData, initialCategories = [] }: CatalogPage
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { query, author, publisher, series, minPrice, maxPrice, hasCover, isNew, language, category, sort, availableOnly, page } = parseCatalogState(searchParams.toString());
-  const [categories, setCategories] = useState<CatalogCategory[]>(initialCategories);
+  const [categories, setCategories] = useState<CatalogCategory[]>(() => visibleStorefrontCategories(initialCategories));
   const [items, setItems] = useState<Book[]>(initialData?.items ?? []);
   const [total, setTotal] = useState(initialData?.total ?? 0);
   const [loading, setLoading] = useState(!initialData);
@@ -78,7 +79,7 @@ export function CatalogPage({ initialData, initialCategories = [] }: CatalogPage
       .then(async (response) => {
         if (!response.ok) return;
         const body: unknown = await response.json();
-        if (!controller.signal.aborted && isCatalogCategoriesResponse(body)) setCategories(body);
+        if (!controller.signal.aborted && isCatalogCategoriesResponse(body)) setCategories(visibleStorefrontCategories(body));
       })
       .catch(() => undefined);
     return () => controller.abort();
