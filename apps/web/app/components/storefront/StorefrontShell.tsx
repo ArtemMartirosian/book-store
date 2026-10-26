@@ -196,6 +196,8 @@ function Header() {
   const [activeCatalogPath, setActiveCatalogPath] = useState<string[]>([]);
   const catalogCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const catalogTriggerRef = useRef<HTMLButtonElement>(null);
+  const catalogMenuRef = useRef<HTMLDivElement>(null);
   const t = dictionary[locale].header;
   const serviceLabels = {
     ru: { about: "О нас", offers: "По приятной цене", news: "Журнал", delivery: "Как заказать", faq: "Вопросы и ответы", contacts: "Контакты", advanced: "Расширенный поиск", publishers: "Издательства", recommendations: "Рекомендуем" },
@@ -233,11 +235,14 @@ function Header() {
     const data = new FormData(event.currentTarget);
     if (!String(data.get("q") ?? "").trim() && !String(data.get("category") ?? "").trim()) event.preventDefault();
   };
-  const cancelCatalogClose = () => {
+  const cancelCatalogClose = useCallback(() => {
     if (!catalogCloseTimer.current) return;
     clearTimeout(catalogCloseTimer.current);
     catalogCloseTimer.current = null;
-  };
+  }, []);
+  const containsCatalogTarget = useCallback((target: EventTarget | null) => target instanceof Node && (
+    Boolean(catalogTriggerRef.current?.contains(target)) || Boolean(catalogMenuRef.current?.contains(target))
+  ), []);
   const openCatalog = () => {
     cancelCatalogClose();
     setCatalogOpen(true);
@@ -245,7 +250,7 @@ function Header() {
   const closeCatalogSoon = () => {
     cancelCatalogClose();
     catalogCloseTimer.current = setTimeout(() => {
-      setCatalogOpen(false);
+      if (!catalogMenuRef.current?.contains(document.activeElement)) setCatalogOpen(false);
       catalogCloseTimer.current = null;
     }, 180);
   };
@@ -269,33 +274,35 @@ function Header() {
     return () => controller.abort();
   }, [locale]);
 
-  useEffect(() => () => cancelCatalogClose(), []);
+  useEffect(() => () => cancelCatalogClose(), [cancelCatalogClose]);
 
   useEffect(() => {
     if (!catalogOpen && !mobileOpen) return;
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !headerRef.current?.contains(document.activeElement)) return;
+      if (event.key !== "Escape") return;
       event.preventDefault();
-      const trigger = headerRef.current.querySelector<HTMLButtonElement>(catalogOpen ? '[aria-controls="desktop-catalog-menu"]' : '[aria-controls="mobile-navigation-menu"]');
-      if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
-      catalogCloseTimer.current = null;
+      const restoreFocus = catalogOpen ? containsCatalogTarget(document.activeElement) : Boolean(headerRef.current?.contains(document.activeElement));
+      const trigger = catalogOpen ? catalogTriggerRef.current : headerRef.current?.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation-menu"]');
+      cancelCatalogClose();
       setMobileOpen(false);
       setCatalogOpen(false);
-      trigger?.focus();
+      if (restoreFocus) trigger?.focus({ preventScroll: true });
     };
     document.addEventListener("keydown", onEscape);
     const onOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && !headerRef.current?.contains(event.target)) {
+      if (!(event.target instanceof Node)) return;
+      if (catalogOpen && !containsCatalogTarget(event.target)) {
+        cancelCatalogClose();
         setCatalogOpen(false);
-        setMobileOpen(false);
       }
+      if (mobileOpen && !headerRef.current?.contains(event.target)) setMobileOpen(false);
     };
     document.addEventListener("pointerdown", onOutsidePointer);
     return () => {
       document.removeEventListener("keydown", onEscape);
       document.removeEventListener("pointerdown", onOutsidePointer);
     };
-  }, [catalogOpen, mobileOpen]);
+  }, [catalogOpen, mobileOpen, cancelCatalogClose, containsCatalogTarget]);
 
   const catalogChildren = new Map<string, CatalogCategory[]>();
   for (const category of catalogCategories) {
@@ -326,9 +333,8 @@ function Header() {
     catalogColumnLabel = selected.name;
   }
   const activateCatalogCategory = (level: number, supplierCategoryId: string) => {
-    setActiveCatalogPath((current) => current[level] === supplierCategoryId
-      ? current
-      : [...current.slice(0, level), supplierCategoryId]);
+    const nextPath = [...catalogColumns.slice(0, level).map((column) => column.selectedId), supplierCategoryId];
+    setActiveCatalogPath((current) => nextPath.every((id, index) => current[index] === id) ? current : nextPath);
   };
   const mobileCategoryTree = (items: CatalogCategory[], ancestors: string[] = []): ReactNode => items.map((category) => {
     if (ancestors.includes(category.supplierCategoryId) || ancestors.length >= 6) return null;
@@ -347,7 +353,7 @@ function Header() {
           <label className="relative flex h-11 shrink-0 items-center text-[var(--ink)]"><span className="sr-only">{languageLabel}</span><select className="h-full cursor-pointer appearance-none rounded-lg bg-transparent pl-2 pr-6 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" value={locale} onChange={(event) => changeLocale(event.target.value as Locale)} aria-label={languageLabel}>{languageOptions.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><Icon name="chevron" className="pointer-events-none absolute right-1 size-3 rotate-90" /></label>
         </div>
       </div>
-      <header ref={headerRef} className="sticky top-0 z-50 border-b border-[var(--line)] bg-white/95 backdrop-blur-xl" onPointerLeave={(event) => { if (event.pointerType === "mouse") closeCatalogSoon(); }}>
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-[var(--line)] bg-white/95 backdrop-blur-xl">
         <div className={cx(container, "flex min-h-[88px] items-center gap-7 max-sm:min-h-[76px] max-sm:gap-2")}>
           <Link className="shrink-0" href={localized(locale)} aria-label={brandName(locale) + " — " + BRAND_LABELS[locale]} onClick={closeMenus}><Logo locale={locale} /></Link>
           <form className="mx-auto hidden h-12 min-w-[180px] max-w-[610px] flex-1 items-center rounded-xl border border-[var(--line)] bg-[var(--paper)] pl-4 pr-1 transition focus-within:border-[var(--accent)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--accent)]/10 md:flex" action={localized(locale, "/catalog")} onSubmit={submitSearch}>
@@ -380,14 +386,16 @@ function Header() {
         <div className="hidden border-t border-[var(--line)]/65 xl:block">
           <div className={cx(container, "flex min-h-[52px] items-center justify-between gap-5")}>
             <nav className="flex items-center gap-5 text-xs font-medium text-[var(--ink)]" aria-label={t.menu}>
-              <button className="mr-1 flex min-h-11 items-center gap-2.5 rounded-xl bg-[var(--accent)] px-4 text-white transition hover:bg-[var(--accent-deep)]" type="button" aria-expanded={catalogOpen} aria-controls="desktop-catalog-menu" onMouseEnter={openCatalog} onBlur={closeCatalogSoon} onClick={() => {
+              <button ref={catalogTriggerRef} className="mr-1 flex min-h-11 items-center gap-2.5 rounded-xl bg-[var(--accent)] px-4 text-white transition hover:bg-[var(--accent-deep)]" type="button" aria-expanded={catalogOpen} aria-controls="desktop-catalog-menu" onPointerEnter={(event) => { if (event.pointerType === "mouse") openCatalog(); }} onPointerLeave={(event) => { if (event.pointerType === "mouse" && !containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onBlur={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onClick={(event) => {
+                cancelCatalogClose();
+                if (catalogOpen) { setCatalogOpen(false); return; }
                 openCatalog();
-                window.requestAnimationFrame(() => document.querySelector<HTMLAnchorElement>("#desktop-catalog-menu a")?.focus());
+                if (event.detail === 0) window.requestAnimationFrame(() => catalogMenuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus());
               }} onKeyDown={(event) => {
                 if (event.key !== "ArrowDown") return;
                 event.preventDefault();
                 openCatalog();
-                window.requestAnimationFrame(() => document.querySelector<HTMLAnchorElement>("#desktop-catalog-menu a")?.focus());
+                window.requestAnimationFrame(() => catalogMenuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus());
               }}>
                 <Icon name="menu" className="size-[17px]" />{t.catalog}<Icon name="chevron" className={cx("size-3 transition", catalogOpen && "rotate-90")} />
               </button>
@@ -401,7 +409,7 @@ function Header() {
           </div>
         </div>
         {catalogOpen && (
-          <div id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden" onMouseEnter={cancelCatalogClose} onFocusCapture={cancelCatalogClose} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) closeCatalogSoon(); }}>
+          <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogClose(); }} onPointerLeave={(event) => { if (event.pointerType === "mouse" && !containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onFocusCapture={cancelCatalogClose} onBlurCapture={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }}>
             <div className={cx(container, "py-5")}>
               <div className="mb-4 flex items-center justify-between gap-5">
                 <div><span className="text-[12px] font-medium uppercase tracking-[.14em] text-[var(--muted)]">{t.catalog}</span><strong className="mt-1 block font-display text-3xl font-normal text-[var(--accent)]">{t.allCategories}</strong></div>
