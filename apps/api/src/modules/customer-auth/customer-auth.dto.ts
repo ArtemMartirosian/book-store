@@ -6,10 +6,13 @@ export class CustomerLoginDto {
   @IsEmail({ allow_utf8_local_part: false }) @MaxLength(254)
   email!: string;
 
-  @IsString() @MinLength(1) @MaxLength(128)
+  @IsString() @MinLength(1)
   password!: string;
 }
 export class CustomerRegisterDto extends CustomerLoginDto {
+  @IsString() @MinLength(6)
+  override password = '';
+
   @Transform(({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value)
   @IsString() @Length(2, 100)
   fullName!: string;
@@ -18,9 +21,9 @@ export class CustomerRegisterDto extends CustomerLoginDto {
   locale: 'hy' | 'ru' | 'en' = 'hy';
 }
 export class CustomerPasswordDto {
-  @IsString() @MinLength(1) @MaxLength(128)
+  @IsString() @MinLength(1)
   currentPassword!: string;
 
-  @IsString() @MinLength(15) @MaxLength(128)
+  @IsString() @MinLength(6)
   newPassword!: string;
 }

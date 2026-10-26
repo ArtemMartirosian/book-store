@@ -87,7 +87,7 @@ export function AuthPanel({ config, locale, onSuccess }: { config: AccountConfig
     event.preventDefault();
     if (locked.current || !config?.passwordEnabled) return;
     const length = Array.from(password).length;
-    if (length > 128 || (registering && length < 15)) { setError(t.passwordWeak); return; }
+    if (registering && length < 6) { setError(t.passwordWeak); return; }
     if (registering && password !== confirmation) { setError(t.passwordMismatch); return; }
     locked.current = true; setBusy(true); setError("");
     try {
@@ -130,7 +130,7 @@ export function PasswordChangePanel({ locale, onSuccess }: { locale: Locale; onS
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (locked.current) return;
-    if (Array.from(nextPassword).length < 15 || Array.from(nextPassword).length > 128) { setError(t.passwordWeak); return; }
+    if (Array.from(nextPassword).length < 6) { setError(t.passwordWeak); return; }
     if (nextPassword !== confirmation) { setError(t.passwordMismatch); return; }
     locked.current = true; setBusy(true); setError(""); setSuccess(false);
     try {

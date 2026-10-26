@@ -6,17 +6,16 @@ const prefix = 'scrypt$1$32768$8$3$';
 const encoded = /^scrypt\$1\$32768\$8\$3\$([a-f0-9]{32})\$([a-f0-9]{128})$/u;
 // A non-account reference, used only to give absent identities the same KDF work.
 export const DUMMY_PASSWORD_HASH = prefix + '0'.repeat(32) + '$' + '0'.repeat(128);
-const commonPasswords = new Set(['123456789012345', '1234567890123456', 'passwordpassword', 'password123456789', 'qwertyuiopasdfgh', 'letmeinletmeinletmein']);
 let activeDerivations = 0;
 
 export function assertPasswordInput(password: string): void {
-  if (typeof password !== 'string' || [...password].length < 1 || [...password].length > 128) {
+  if (typeof password !== 'string' || password.length < 1) {
     throw new BadRequestException({ code: 'INVALID_PASSWORD' });
   }
 }
 export function assertNewPassword(password: string): void {
   assertPasswordInput(password);
-  if ([...password].length < 15 || commonPasswords.has(password.toLowerCase())) {
+  if ([...password].length < 6) {
     throw new BadRequestException({ code: 'WEAK_PASSWORD' });
   }
 }

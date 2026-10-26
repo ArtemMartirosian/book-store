@@ -216,6 +216,27 @@ test("minimal authentication still disables unavailable sign-in and only offers 
   assert.match(renderAuthPanel("en", "login", { passwordEnabled: true, googleEnabled: true }), /Continue with Google/u);
 });
 
+test("registration and password-change hints state only a six-character minimum in every language", () => {
+  const hints = {
+    hy: { registration: "6+ նիշ", change: "Առնվազն 6 նիշ։" },
+    ru: { registration: "6+ символов", change: "Не менее 6 символов." },
+    en: { registration: "6+ characters", change: "At least 6 characters." },
+  };
+  for (const locale of ["hy", "ru", "en"]) {
+    const registration = renderAuthPanel(locale, "register");
+    const PasswordChangePanel = components(locale)("AccountPage", "PasswordChangePanel");
+    const change = renderToStaticMarkup(React.createElement(PasswordChangePanel, { locale, onSuccess: async () => {} }));
+    assert.ok(registration.includes(hints[locale].registration));
+    assert.ok(change.includes(hints[locale].change));
+    for (const html of [registration, change]) {
+      assert.doesNotMatch(html, /(?:15|16)\s*[–-]\s*128|от (?:15|16) до 128|15–128/u);
+      for (const input of html.match(/<input\b[^>]*>/gu) ?? []) {
+        if (/type="password"/u.test(input)) assert.doesNotMatch(input, /minLength|maxLength/u);
+      }
+    }
+  }
+});
+
 test("guest loading state does not flash an interactive sign-in form or a marketing illustration", () => {
   const AccountPage = components("en", "", undefined, { customer: null, customerLoaded: false })("AccountPage");
   const html = renderToStaticMarkup(React.createElement(AccountPage));
@@ -286,22 +307,38 @@ test("registration validates confirmation then sends exact Unicode password and 
   assert.ok(!harness.render().some(item => item.props.name === "phone" || item.props.autoComplete === "one-time-code"));
 });
 
-test("registration measures Unicode characters instead of UTF-16 code units and preserves a 128-character passphrase", async () => {
+test("registration rejects fewer than six Unicode characters and accepts six or more without an old upper limit", async () => {
   const calls = [];
   const harness = formHarness("en", "AuthPanel", async (path, options) => { calls.push(JSON.parse(options.body)); });
   harness.render().find(item => item.type === "button" && item.props.children === "Register").props.onClick();
   harness.field("fullName", "Reader");
   harness.field("email", "reader@example.com");
-  harness.field("password", "📖".repeat(14));
-  harness.field("confirmPassword", "📖".repeat(14));
-  await harness.submit();
-  assert.equal(calls.length, 0, "14 Unicode characters are not a long enough new password");
-  const password = "📖".repeat(128);
-  harness.field("password", password);
-  harness.field("confirmPassword", password);
-  await harness.submit();
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].password, password);
+  for (const password of ["12345", "📖".repeat(5)]) {
+    harness.field("password", password);
+    harness.field("confirmPassword", password);
+    await harness.submit();
+    assert.equal(calls.length, 0, "five Unicode characters are not enough, even when UTF-16 length is ten");
+    assert.ok(harness.render().some(item => item.props.children === "Enter a password with at least 6 characters."));
+  }
+  const accepted = ["123456", "📖".repeat(6), "  " + "📖".repeat(129) + "  "];
+  for (const password of accepted) {
+    harness.field("password", password);
+    harness.field("confirmPassword", password);
+    await harness.submit();
+  }
+  assert.deepEqual(calls.map(call => call.password), accepted, "passwords are sent exactly, without trimming or truncation");
+});
+
+test("login does not apply the new-password minimum or the removed 128-character limit", async () => {
+  const calls = [];
+  const harness = formHarness("en", "AuthPanel", async (path, options) => { calls.push({ path, ...JSON.parse(options.body) }); });
+  harness.field("email", "reader@example.com");
+  const accepted = ["a", "📖".repeat(129)];
+  for (const password of accepted) {
+    harness.field("password", password);
+    await harness.submit();
+  }
+  assert.deepEqual(calls, accepted.map(password => ({ path: "auth/login", email: "reader@example.com", password })));
 });
 
 test("wrong credentials do not claim an expired session and the in-flight form cannot submit twice", async () => {
@@ -336,6 +373,27 @@ test("password change requires matching new passwords and only sends the current
   assert.equal(refreshes, 1);
   assert.ok(harness.render().some(item => item.props.children === "Пароль изменён. Остальные сеансы завершены."));
   assert.equal(harness.render().find(item => item.props.name === "currentPassword").props.value, "");
+});
+
+test("password change uses the same Unicode six-character minimum and preserves longer-than-128 passwords", async () => {
+  const calls = [];
+  const harness = formHarness("en", "PasswordChangePanel", async (path, options) => { calls.push({ path, ...JSON.parse(options.body) }); });
+  for (const password of ["12345", "📖".repeat(5)]) {
+    harness.field("currentPassword", "x");
+    harness.field("newPassword", password);
+    harness.field("confirmNewPassword", password);
+    await harness.submit();
+    assert.equal(calls.length, 0);
+    assert.ok(harness.render().some(item => item.props.children === "Enter a password with at least 6 characters."));
+  }
+  const accepted = ["123456", "📖".repeat(6), "  " + "📖".repeat(129) + "  "];
+  for (const password of accepted) {
+    harness.field("currentPassword", "x");
+    harness.field("newPassword", password);
+    harness.field("confirmNewPassword", password);
+    await harness.submit();
+  }
+  assert.deepEqual(calls, accepted.map(newPassword => ({ path: "auth/password", currentPassword: "x", newPassword })));
 });
 
 test("Google callback errors are visible to guests and signed-in customers in every language", () => {

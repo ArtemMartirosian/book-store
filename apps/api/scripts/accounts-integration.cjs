@@ -61,13 +61,17 @@ let app;
    remoteAddress: '192.0.2.50',
   });
   const email = 'qa-' + randomUUID() + '@example.test';
-  const password = 'A private QA bookstore passphrase';
+  // Exactly six characters, including a common choice: length is the only new-password policy.
+  const password = '123456';
   const input = { fullName: 'QA Reader', email, password, locale: 'hy' };
   // An unverified email must never take over a Google identity with the same email.
   const googleOnly = await db.customer.create({ data: { googleSubject: 'qa-google-' + randomUUID(), googleEmail: email, fullName: 'Google-only QA' } });
   assert.equal((await call('POST', 'auth/code', { phone: '+37499123456' })).statusCode, 404);
   assert.equal((await call('POST', 'auth/verify', { challengeId: randomUUID(), code: '123456' })).statusCode, 404);
   assert.equal((await call('POST', 'auth/register', { ...input, password: 'short' })).statusCode, 400);
+  assert.equal(await db.customer.count({ where: { email } }), 0, 'five-character passwords cannot create a customer');
+  assert.equal(await db.customerSession.count(), 0, 'invalid registration cannot create a session');
+  assert.equal(await db.customerAuthRate.count(), 0, 'invalid registration is rejected before rate-limit writes');
   assert.equal((await call('POST', 'auth/register', input, undefined, { origin: 'https://other.example.test' })).statusCode, 403);
   assert.equal((await call('POST', 'auth/register', { ...input, unexpected: true })).statusCode, 400);
   assert.equal(await db.customer.count({ where: { email } }), 0);
@@ -90,6 +94,21 @@ let app;
   assert.equal((await call('POST', 'auth/register', input)).statusCode, 409);
   assert.equal(await db.customer.count({ where: { email } }), 1);
   checks.push('http_registration_validation_unverified_email_no_google_merge_and_secure_cookie');
+
+  // More than 128 Unicode code points must remain intact through registration and login.
+  const unicodeEmail = 'unicode-' + randomUUID() + '@example.test';
+  const unicodePassword = '🔑'.repeat(128) + 'Ж';
+  assert.equal(Array.from(unicodePassword).length, 129);
+  const unicodeRegistered = await call('POST', 'auth/register', { ...input, email: unicodeEmail, password: unicodePassword });
+  assert.equal(unicodeRegistered.statusCode, 201);
+  const unicodeCookie = cookieFrom(unicodeRegistered);
+  assert.equal((await call('POST', 'auth/login', { email: unicodeEmail, password: unicodePassword })).statusCode, 201);
+  assert.equal((await call('POST', 'auth/login', { email: unicodeEmail, password: '🔑'.repeat(128) + 'ж' })).statusCode, 401,
+   'the final character after the former maximum is not truncated or normalized');
+  assert.equal((await call('GET', 'profile', undefined, unicodeCookie)).statusCode, 200);
+  assert.equal((await call('POST', 'auth/logout?all=true', undefined, unicodeCookie)).statusCode, 201);
+  assert.equal((await call('GET', 'profile', undefined, unicodeCookie)).statusCode, 401);
+  checks.push('http_password_129_unicode_code_points_round_trip_without_truncation');
 
   const wrong = await call('POST', 'auth/login', { email, password: 'wrong password phrase' });
   const unknown = await call('POST', 'auth/login', { email: 'absent-' + randomUUID() + '@example.test', password });
@@ -146,7 +165,12 @@ let app;
   assert.equal((await customers.orders(other.id, 0)).total, 0);
   checks.push('http_private_order_projection_ownership_and_idempotent_replay');
 
-  const nextPassword = 'A changed private QA passphrase';
+  const nextPassword = '654321';
+  const hashBeforeShortChange = (await db.customer.findUnique({ where: { email } })).passwordHash;
+  assert.equal((await call('POST', 'auth/password', { currentPassword: password, newPassword: 'short' }, cookie)).statusCode, 400);
+  assert.equal((await db.customer.findUnique({ where: { email } })).passwordHash, hashBeforeShortChange,
+   'a five-character replacement must not change the stored hash');
+  assert.equal((await call('GET', 'profile', undefined, cookie)).statusCode, 200);
   const wrongChange = await call('POST', 'auth/password', { currentPassword: 'wrong current phrase', newPassword: nextPassword }, cookie);
   assert.equal(wrongChange.statusCode, 401);
   const changed = await call('POST', 'auth/password', { currentPassword: password, newPassword: nextPassword }, cookie);
@@ -158,7 +182,7 @@ let app;
   assert.equal((await call('POST', 'auth/login', { email, password })).statusCode, 401);
   assert.equal((await call('POST', 'auth/login', { email, password: nextPassword })).statusCode, 201);
   cookie = changedCookie;
-  checks.push('http_password_change_revokes_all_old_sessions_and_preserves_account');
+  checks.push('http_six_character_password_registration_login_and_change_with_session_revocation');
 
   let currentPassword = nextPassword;
   for (let i = 0; i < 3; i++) {

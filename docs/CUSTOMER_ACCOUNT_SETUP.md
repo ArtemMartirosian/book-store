@@ -11,7 +11,7 @@ For local Docker HTTP development, apply `infra/docker-compose.local.yml` after 
 - `POST /api/v1/customer/auth/register`: full name, email, password and locale. Creates the account and a server session immediately.
 - `POST /api/v1/customer/auth/login`: email and password. Invalid credentials receive the same generic response, including unknown email addresses.
 - `POST /api/v1/customer/auth/password`: authenticated request with current and new passwords. Revokes existing sessions and returns a fresh current-device session.
-- Passwords contain 15–128 characters, support passphrases, and are never silently trimmed or truncated. They are stored only as versioned, individually salted scrypt hashes (N=32768, r=8, p=3); comparison is timing-safe. Expensive hashing has bounded concurrency and durable request limits.
+- New passwords require at least 6 Unicode characters, without composition rules, a password blocklist or the former 128-character cap. Passwords and passphrases are never silently trimmed or truncated; the server's normal HTTP request-body limit still applies. They are stored only as versioned, individually salted scrypt hashes (N=32768, r=8, p=3); comparison is timing-safe. Expensive hashing has bounded concurrency and durable request limits. Existing passwords remain valid for sign-in.
 - Mutations require the exact configured origin and `X-Grqaser-Client: storefront`. Production requires an HTTPS `CUSTOMER_SITE_URL`. Keep the API behind the existing same-origin reverse proxy.
 - No email-based password reset or password disclosure is implemented. Public support is `grqaser@gmail.com`; an unverified email match alone must never authorize recovery.
 
