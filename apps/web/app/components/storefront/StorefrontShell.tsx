@@ -296,7 +296,9 @@ function Header() {
 
   useEffect(() => {
     if (!catalogOpen && !mobileOpen) return;
-    const onEscape = (event: KeyboardEvent) => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Page scrolling can start from BODY while a mouse-open catalog is visible.
+      if (catalogOpen) { cancelCatalogHover(); catalogPointer.current = null; }
       if (event.key !== "Escape") return;
       event.preventDefault();
       const restoreFocus = catalogOpen ? containsCatalogTarget(document.activeElement) : Boolean(headerRef.current?.contains(document.activeElement));
@@ -307,7 +309,7 @@ function Header() {
       setCatalogOpen(false);
       if (restoreFocus) trigger?.focus({ preventScroll: true });
     };
-    document.addEventListener("keydown", onEscape);
+    document.addEventListener("keydown", onKeyDown);
     const onOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Node)) return;
       if (catalogOpen && !containsCatalogTarget(event.target)) {
@@ -319,7 +321,7 @@ function Header() {
     };
     document.addEventListener("pointerdown", onOutsidePointer);
     return () => {
-      document.removeEventListener("keydown", onEscape);
+      document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onOutsidePointer);
     };
   }, [catalogOpen, mobileOpen, cancelCatalogClose, cancelCatalogHover, containsCatalogTarget]);
@@ -474,7 +476,7 @@ function Header() {
           </div>
         </div>
         {catalogOpen && (
-          <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden"
+          <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full flex max-h-[calc(100dvh-186px)] flex-col overflow-y-auto border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden"
             onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogClose(); }}
             onPointerMove={(event) => { if (event.pointerType !== "mouse") return; const resumed = catalogPointer.current === null; const point = { x: event.clientX, y: event.clientY }; catalogPointer.current = point; if (resumed) queueCatalogPointerRow(point); }}
             onPointerDownCapture={(event) => { cancelCatalogHover(); catalogPointer.current = event.pointerType === "mouse" ? { x: event.clientX, y: event.clientY } : null; }}
@@ -484,13 +486,13 @@ function Header() {
             onFocusCapture={() => { cancelCatalogClose(); cancelCatalogHover(); catalogPointer.current = null; }}
             onKeyDownCapture={() => { cancelCatalogHover(); catalogPointer.current = null; }}
             onBlurCapture={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }}>
-            <div className={cx(container, "py-5")}>
-              <div className="mb-4 flex items-center justify-between gap-5">
+            <div className={cx(container, "flex min-h-0 flex-col py-5")}>
+              <div className="mb-4 flex shrink-0 items-center justify-between gap-5">
                 <div><span className="text-[12px] font-medium uppercase tracking-[.14em] text-[var(--muted)]">{t.catalog}</span><strong className="mt-1 block font-display text-3xl font-normal text-[var(--accent)]">{t.allCategories}</strong></div>
                 <Link className="inline-flex min-h-11 items-center gap-5 rounded-full border border-[var(--accent)] px-5 text-[13px] font-medium text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-white" href={localized(locale, "/catalog")} onClick={closeMenus}>{t.allCategories}<span aria-hidden="true">↗</span></Link>
               </div>
               {catalogColumns.length > 0 ? (
-                <div className="grid h-[min(62vh,520px)] grid-flow-col auto-cols-[minmax(240px,25%)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
+                <div className="grid h-[min(62vh,520px)] min-h-0 grid-flow-col auto-cols-[minmax(240px,25%)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
                   {catalogColumns.map((column, level) => (
                     <section data-catalog-level={level} className="min-w-0 overflow-y-auto border-r border-[var(--line)] bg-white/55 p-3 last:border-r-0" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogHover(); }} key={level}>
                       <h3 className="sticky top-0 z-10 mb-2 bg-[var(--white)]/95 px-2 py-2 text-[12px] font-medium uppercase tracking-[.11em] text-[var(--muted)] backdrop-blur">{column.label}</h3>

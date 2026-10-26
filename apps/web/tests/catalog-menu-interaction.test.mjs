@@ -243,6 +243,32 @@ test("moving between trigger, panel and subcategories cancels closure; repeat cl
   } finally { h.dispose(); }
 });
 
+test("short-height catalog keeps the complete viewport-bounded flex shrink chain and scrollable columns", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    const panel = h.menu();
+    const grid = h.column(0).parentNode;
+    const inner = grid.parentNode;
+    const title = inner.children[0];
+    const hasClasses = (node, expected) => {
+      const actual = new Set(node.props.className.split(/\s+/u));
+      for (const name of expected) assert.ok(actual.has(name), `${node.type} retains ${name}`);
+    };
+    assert.equal(inner.parentNode, panel, "the flex container is inside the viewport-bounded menu");
+    assert.equal(title.parentNode, inner);
+    hasClasses(panel, ["flex", "flex-col", "max-h-[calc(100dvh-186px)]", "overflow-y-auto"]);
+    hasClasses(inner, ["flex", "flex-col", "min-h-0", "py-5"]);
+    hasClasses(title, ["shrink-0"]);
+    hasClasses(grid, ["grid", "min-h-0", "h-[min(62vh,520px)]", "grid-flow-col", "auto-cols-[minmax(240px,25%)]", "overflow-x-auto"]);
+    for (let level = 0; level < h.columns().length; level++) {
+      assert.equal(h.column(level).parentNode, grid);
+      hasClasses(h.column(level), ["min-w-0", "overflow-y-auto"]);
+    }
+    assert.doesNotMatch(grid.props.className, /1fr/u, "column tracks stay stable when branch depth changes");
+  } finally { h.dispose(); }
+});
+
 test("default visible ancestors survive hovering a non-first child and deeper sibling", async () => {
   for (const locale of ["hy", "ru", "en"]) {
     const h = await headerHarness(locale);
@@ -598,6 +624,51 @@ test("late pointer entry after keyboard scrolling is ignored until real movement
       h.tick(1);
       assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]], "actual movement restores the row under the cursor without another pointer entry or repeated dwell resets");
       assert.equal(h.pendingTimers, 0);
+    } finally { h.dispose(); }
+  }
+});
+
+test("PageDown from the body cancels stale hover intent until actual pointer movement or a fresh wheel event", async () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    const h = await headerHarness(locale);
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.hover(h.category("science"), { clientX: 420, clientY: 220 });
+      h.tick(160);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]]);
+      assert.equal(h.document.activeElement, h.document.body, "opening and hovering do not move keyboard focus from the body");
+      h.hover(h.category("fiction"), { clientX: 420, clientY: 220 });
+      assert.equal(h.pendingTimers, 1);
+      const key = h.emit("keydown", { key: "PageDown", target: h.document.body });
+      assert.equal(key.defaultPrevented, false, "normal page scrolling remains available");
+      assert.equal(h.document.activeElement, h.document.body);
+      assert.equal(h.pendingTimers, 0, "the document-level keyboard event cancels the pending pointer candidate");
+      h.hitTest(h.category("fiction").children[0]);
+      h.fire(h.category("fiction"), "onPointerEnter", { clientX: 420, clientY: 220 });
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(1) });
+      h.tick(80);
+      assert.equal(h.pendingTimers, 0, "late pointer entry and scroll cannot rearm an old mouse position");
+      h.tick(160);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]]);
+      assert.ok(h.menu(), "PageDown does not dismiss the open catalog");
+      h.fire(h.menu(), "onPointerMove", { clientX: 421, clientY: 220 });
+      h.tick(160);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]], "a real movement over the same row restores mouse intent");
+      h.emit("keydown", { key: "PageDown", target: h.document.body });
+      h.hitTest(h.category("science").children[0]);
+      h.fire(h.category("science"), "onPointerEnter", { clientX: 420, clientY: 220 });
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(1) });
+      h.tick(80);
+      h.tick(160);
+      assert.deepEqual(h.columns()[2], ["novels", "stories"]);
+      h.fire(h.menu(), "onWheelCapture", { clientX: 420, clientY: 220 });
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(1) });
+      h.tick(80);
+      h.tick(160);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]], "a fresh wheel event also restores mouse intent without another row entry");
+      assert.equal(h.pendingTimers, 0);
+      assert.equal(h.document.activeElement, h.document.body);
+      assert.equal(h.trigger().focusCalls, 0);
     } finally { h.dispose(); }
   }
 });
