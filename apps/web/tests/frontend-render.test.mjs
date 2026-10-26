@@ -216,7 +216,7 @@ test("minimal authentication still disables unavailable sign-in and only offers 
   assert.match(renderAuthPanel("en", "login", { passwordEnabled: true, googleEnabled: true }), /Continue with Google/u);
 });
 
-test("registration and password-change hints state only a six-character minimum in every language", () => {
+test("registration omits the password-length hint without dangling descriptions, while password-change guidance remains", () => {
   const hints = {
     hy: { registration: "6+ նիշ", change: "Առնվազն 6 նիշ։" },
     ru: { registration: "6+ символов", change: "Не менее 6 символов." },
@@ -226,7 +226,13 @@ test("registration and password-change hints state only a six-character minimum 
     const registration = renderAuthPanel(locale, "register");
     const PasswordChangePanel = components(locale)("AccountPage", "PasswordChangePanel");
     const change = renderToStaticMarkup(React.createElement(PasswordChangePanel, { locale, onSuccess: async () => {} }));
-    assert.ok(registration.includes(hints[locale].registration));
+    assert.ok(!registration.includes(hints[locale].registration));
+    assert.doesNotMatch(registration, /account-auth-password-hint/u);
+    for (const input of registration.match(/<input\b[^>]*>/gu) ?? []) {
+      for (const id of input.match(/aria-describedby="([^"]+)"/u)?.[1].split(/\s+/u) ?? []) {
+        assert.ok(registration.includes('id="' + id + '"'), "each input description must have a rendered target");
+      }
+    }
     assert.ok(change.includes(hints[locale].change));
     for (const html of [registration, change]) {
       assert.doesNotMatch(html, /(?:15|16)\s*[–-]\s*128|от (?:15|16) до 128|15–128/u);
