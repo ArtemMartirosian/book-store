@@ -260,12 +260,13 @@ test("short-height catalog keeps the complete viewport-bounded flex shrink chain
     hasClasses(panel, ["flex", "flex-col", "max-h-[calc(100dvh-186px)]", "overflow-y-auto"]);
     hasClasses(inner, ["flex", "flex-col", "min-h-0", "py-5"]);
     hasClasses(title, ["shrink-0"]);
-    hasClasses(grid, ["grid", "min-h-0", "h-[min(62vh,520px)]", "grid-flow-col", "auto-cols-[minmax(240px,25%)]", "overflow-x-auto"]);
+    hasClasses(grid, ["grid", "min-h-0", "h-[min(62vh,520px)]", "grid-flow-col", "auto-cols-[max(240px,25%)]", "overflow-x-auto"]);
     for (let level = 0; level < h.columns().length; level++) {
       assert.equal(h.column(level).parentNode, grid);
       hasClasses(h.column(level), ["min-w-0", "overflow-y-auto"]);
     }
     assert.doesNotMatch(grid.props.className, /1fr/u, "column tracks stay stable when branch depth changes");
+    assert.equal(h.find(node => /auto-cols-\[minmax\(/u.test(String(node.props.className ?? ""))), undefined, "no rendered Header element retains resizable minmax auto-column tracks");
   } finally { h.dispose(); }
 });
 

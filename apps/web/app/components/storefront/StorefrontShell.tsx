@@ -492,7 +492,7 @@ function Header() {
                 <Link className="inline-flex min-h-11 items-center gap-5 rounded-full border border-[var(--accent)] px-5 text-[13px] font-medium text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-white" href={localized(locale, "/catalog")} onClick={closeMenus}>{t.allCategories}<span aria-hidden="true">↗</span></Link>
               </div>
               {catalogColumns.length > 0 ? (
-                <div className="grid h-[min(62vh,520px)] min-h-0 grid-flow-col auto-cols-[minmax(240px,25%)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
+                <div className="grid h-[min(62vh,520px)] min-h-0 grid-flow-col auto-cols-[max(240px,25%)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
                   {catalogColumns.map((column, level) => (
                     <section data-catalog-level={level} className="min-w-0 overflow-y-auto border-r border-[var(--line)] bg-white/55 p-3 last:border-r-0" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogHover(); }} key={level}>
                       <h3 className="sticky top-0 z-10 mb-2 bg-[var(--white)]/95 px-2 py-2 text-[12px] font-medium uppercase tracking-[.11em] text-[var(--muted)] backdrop-blur">{column.label}</h3>
