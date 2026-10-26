@@ -19,7 +19,7 @@ const categories = [
 
 // Exercise the real Header and its handlers without a dev server or production writes.
 // Hooks, the DOM, and time are deterministic; only a test-local export is appended in memory.
-async function headerHarness(locale = "en") {
+async function headerHarness(locale = "en", extraCategories = []) {
   const originals = Object.fromEntries(["window", "document", "Node", "fetch", "setTimeout", "clearTimeout"].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const slots = [];
   const effectQueue = [];
@@ -31,6 +31,7 @@ async function headerHarness(locale = "en") {
   let timerId = 0;
   let nodes = [];
   let oldNodes = new Map();
+  let disposed = false;
   const document = {
     activeElement: null,
     addEventListener(name, callback) { const set = listeners.get(name) ?? new Set(); set.add(callback); listeners.set(name, set); },
@@ -41,9 +42,13 @@ async function headerHarness(locale = "en") {
     constructor(type, props = {}) { this.type = type; this.props = props; this.parentNode = null; this.children = []; this.focusCalls = 0; }
     contains(target) { for (let node = target; node; node = node.parentNode) if (node === this) return true; return false; }
     querySelector(selector) {
-      const matches = node => selector === "a" ? node.type === "a" : selector.startsWith("#") ? node.props.id === selector.slice(1) : node.props["aria-controls"] === selector.match(/aria-controls="([^"]+)"/u)?.[1];
+      const matches = node => selector === "a" ? node.type === "a" : selector.startsWith("#") ? node.props.id === selector.slice(1) : selector.startsWith("[data-catalog-level=") ? String(node.props["data-catalog-level"]) === selector.match(/data-catalog-level="([^"]+)"/u)?.[1] : node.props["aria-controls"] === selector.match(/aria-controls="([^"]+)"/u)?.[1];
       const descend = node => { for (const child of node.children) { if (matches(child)) return child; const nested = descend(child); if (nested) return nested; } return null; };
       return descend(this);
+    }
+    getBoundingClientRect() {
+      const left = Number(this.props["data-catalog-level"] ?? 0) * 300;
+      return { left, right: left + 300, top: 100, bottom: 700, width: 300, height: 600, x: left, y: 100 };
     }
     focus() {
       document.activeElement = this;
@@ -61,7 +66,7 @@ async function headerHarness(locale = "en") {
   outside.parentNode = document.body;
   const setTimer = (callback, delay = 0) => { const id = ++timerId; timers.set(id, { callback, due: clock + delay }); return id; };
   for (const [key, value] of Object.entries({
-    document, Node: DomNode, fetch: async () => ({ ok: true, json: async () => categories }),
+    document, Node: DomNode, fetch: async () => ({ ok: true, json: async () => [...categories, ...extraCategories] }),
     window: { setTimeout: setTimer, clearTimeout: id => timers.delete(id), requestAnimationFrame: callback => frames.push(callback) },
     setTimeout: setTimer, clearTimeout: id => timers.delete(id),
   })) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -147,7 +152,7 @@ async function headerHarness(locale = "en") {
   const fire = (node, handler, extra = {}) => {
     assert.ok(node, "event target exists");
     assert.equal(typeof node.props[handler], "function", handler + " exists");
-    const event = { target: node, currentTarget: node, relatedTarget: null, pointerType: "mouse", detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra };
+    const event = { target: node, currentTarget: node, relatedTarget: null, pointerType: "mouse", clientX: 0, clientY: 0, timeStamp: clock, detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra };
     node.props[handler](event);
     render();
     return event;
@@ -164,6 +169,8 @@ async function headerHarness(locale = "en") {
     render();
   };
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
     for (const slot of slots) slot?.cleanup?.();
     for (const [key, descriptor] of Object.entries(originals)) if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
   };
@@ -173,10 +180,13 @@ async function headerHarness(locale = "en") {
   render();
   return {
     render, find, trigger, menu, fire, emit, tick, dispose, document, outside,
+    hover(node, extra = {}) { return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
+    enterColumn(level, extra = {}) { const node = this.column(level); return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
     get pendingTimers() { return timers.size; },
     flushFrames() { while (frames.length) frames.shift()(); render(); },
     category(id) { return nodes.find(node => node.type === "a" && menu()?.contains(node) && node.props.href === `/${locale}/catalog?category=${id}`); },
     columns() { return nodes.filter(node => node.type === "section" && menu()?.contains(node)).map(section => nodes.filter(node => node.type === "a" && section.contains(node)).map(node => node.props.href.split("category=")[1])); },
+    column(level) { return nodes.filter(node => node.type === "section" && menu()?.contains(node))[level]; },
   };
 }
 
@@ -222,20 +232,264 @@ test("default visible ancestors survive hovering a non-first child and deeper si
     try {
       h.fire(h.trigger(), "onPointerEnter");
       assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
-      h.fire(h.category("science"), "onMouseEnter");
+      h.hover(h.category("science"));
+      assert.deepEqual(h.columns()[2], ["novels", "stories"], "a transient sibling hover does not immediately discard the open branch");
+      h.tick(600);
       assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]]);
-      h.fire(h.category("fiction"), "onMouseEnter");
-      h.fire(h.category("stories"), "onMouseEnter");
+      h.hover(h.category("fiction"));
+      h.tick(600);
+      h.hover(h.category("stories"));
+      h.tick(600);
       assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["short"]]);
       h.fire(h.category("short"), "onClick");
       assert.equal(h.menu(), undefined, "the selected leaf remains clickable");
       h.fire(h.trigger(), "onPointerEnter");
-      h.fire(h.category("gifts"), "onMouseEnter");
+      h.hover(h.category("gifts"));
+      h.tick(600);
       assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]]);
-      h.fire(h.category("bookmarks"), "onMouseEnter");
+      h.hover(h.category("bookmarks"));
+      assert.deepEqual(h.columns()[2], ["paper"], "hovering a leaf does not instantly remove the deeper column");
+      h.tick(600);
       assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"]]);
     } finally { h.dispose(); }
   }
+});
+
+test("crossing ancestor rows toward descendants retains all six category levels", async () => {
+  const deeperCategories = [
+    category("modern", "novels"), category("ancient", "historical"), category("medieval", "historical"),
+    category("egypt", "ancient"), category("rome", "ancient"), category("modern-collection", "modern"), category("medieval-collection", "medieval"),
+  ];
+  const expected = [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical", "modern"], ["ancient", "medieval"], ["egypt", "rome"]];
+  for (const locale of ["hy", "ru", "en"]) {
+    const h = await headerHarness(locale, deeperCategories);
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      assert.deepEqual(h.columns(), expected);
+      for (const [level, sibling] of ["gifts", "science", "stories", "modern", "medieval"].entries()) {
+        h.hover(h.category(sibling));
+        assert.deepEqual(h.columns(), expected, `crossing a sibling at depth ${level} does not collapse descendants`);
+        h.enterColumn(level + 1);
+        h.tick(600);
+        assert.deepEqual(h.columns(), expected, `entering the next column cancels stale depth-${level} hover intent`);
+        assert.equal(h.pendingTimers, 0);
+      }
+      h.fire(h.category("rome"), "onClick");
+      assert.equal(h.menu(), undefined, "a sixth-level leaf can be selected");
+    } finally { h.dispose(); }
+  }
+});
+
+test("a deliberate sibling dwell commits within a bounded delay and successive intent replaces the old candidate", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    assert.deepEqual(h.columns()[1], ["fiction", "science"]);
+    h.enterColumn(1);
+    h.hover(h.category("science"));
+    h.tick(600);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]], "only the latest intended sibling branch is activated");
+    assert.equal(h.pendingTimers, 0);
+    h.hover(h.category("gifts"));
+    h.tick(600);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]]);
+    h.hover(h.category("bookmarks"));
+    h.tick(600);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"]], "a deliberate leaf hover can still replace the open branch");
+  } finally { h.dispose(); }
+});
+
+test("keyboard focus immediately overrides a pending ancestor hover", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    h.category("science").focus();
+    h.render();
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["physics"]]);
+    assert.equal(h.pendingTimers, 0, "keyboard intent cancels the pending mouse candidate");
+    h.tick(600);
+    assert.deepEqual(h.columns()[1], ["fiction", "science"]);
+  } finally { h.dispose(); }
+});
+
+test("reentering the active row or focusing the panel's all-books link cancels branch intent", async () => {
+  for (const target of ["active-row", "all-books-link"]) {
+    const h = await headerHarness();
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.hover(h.category("gifts"));
+      if (target === "active-row") h.hover(h.category("books"));
+      else {
+        h.find(node => node.type === "a" && h.menu().contains(node) && node.props.href === "/en/catalog").focus();
+        h.render();
+      }
+      assert.equal(h.pendingTimers, 0, target);
+      h.tick(800);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
+    } finally { h.dispose(); }
+  }
+});
+
+test("leaving an old row cannot cancel the newer intended sibling", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    h.enterColumn(1);
+    h.hover(h.category("science"));
+    h.fire(h.category("gifts"), "onPointerLeave", { relatedTarget: h.category("science") });
+    assert.equal(h.pendingTimers, 1, "row-leave cancellation is scoped to its own candidate");
+    h.tick(160);
+    assert.deepEqual(h.columns()[2], ["physics"]);
+  } finally { h.dispose(); }
+});
+
+test("closing and reopening never executes a stale category hover timer", async () => {
+  for (const reason of ["Escape", "outside", "toggle", "category", "leave"]) {
+    const h = await headerHarness();
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.hover(h.category("gifts"));
+      assert.equal(h.pendingTimers, 1, "a delayed branch switch is pending");
+      if (reason === "Escape") h.emit("keydown", { key: "Escape" });
+      if (reason === "outside") h.emit("pointerdown", { target: h.outside });
+      if (reason === "toggle") h.fire(h.trigger(), "onClick");
+      if (reason === "category") h.fire(h.category("historical"), "onClick");
+      if (reason === "leave") {
+        h.fire(h.menu(), "onPointerLeave", { relatedTarget: h.outside });
+        h.tick(180);
+      }
+      assert.equal(h.menu(), undefined, reason);
+      assert.equal(h.pendingTimers, 0, `${reason} cancels delayed category changes`);
+      h.fire(h.trigger(), "onPointerEnter");
+      h.tick(600);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]], `${reason} does not leave stale hover intent after reopening`);
+    } finally { h.dispose(); }
+  }
+});
+
+test("unmounting clears pending branch hover timers", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    assert.equal(h.pendingTimers, 1);
+    h.dispose();
+    assert.equal(h.pendingTimers, 0);
+  } finally { h.dispose(); }
+});
+
+test("leaving a candidate row cancels its delayed branch switch", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    h.fire(h.category("gifts"), "onPointerLeave", { relatedTarget: h.category("books") });
+    assert.equal(h.pendingTimers, 0);
+    h.tick(800);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
+  } finally { h.dispose(); }
+});
+
+test("moving toward a descendant extends hover grace only up to a bounded deadline", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("science"), { clientX: 400, clientY: 220 });
+    h.fire(h.menu(), "onPointerMove", { clientX: 420, clientY: 220 });
+    h.tick(159);
+    assert.deepEqual(h.columns()[2], ["novels", "stories"]);
+    h.tick(1);
+    assert.deepEqual(h.columns()[2], ["novels", "stories"], "diagonal travel towards the existing child column extends the initial dwell");
+    for (let step = 1; step <= 5; step++) {
+      h.fire(h.menu(), "onPointerMove", { clientX: 420 + step * 15, clientY: 220 });
+      h.tick(100);
+      assert.deepEqual(h.columns()[2], ["novels", "stories"], `grace deferral ${step} protects the open branch`);
+    }
+    h.fire(h.menu(), "onPointerMove", { clientX: 510, clientY: 220 });
+    h.tick(100);
+    assert.deepEqual(h.columns()[2], ["physics"], "a hover switch cannot be delayed indefinitely by continued pointer motion");
+    assert.equal(h.pendingTimers, 0);
+  } finally { h.dispose(); }
+});
+
+test("stationary or leftward movement does not extend a deliberate branch dwell", async () => {
+  for (const clientX of [400, 380]) {
+    const h = await headerHarness();
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.hover(h.category("science"), { clientX: 400, clientY: 220 });
+      h.fire(h.menu(), "onPointerMove", { clientX, clientY: 220 });
+      h.tick(159);
+      assert.deepEqual(h.columns()[2], ["novels", "stories"]);
+      h.tick(1);
+      assert.deepEqual(h.columns()[2], ["physics"], "only motion towards the descendant corridor extends the 160ms delay");
+      assert.equal(h.pendingTimers, 0);
+    } finally { h.dispose(); }
+  }
+});
+
+test("scrolling a category column cancels pending hover geometry", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    h.hover(h.category("gifts"));
+    h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+    assert.equal(h.pendingTimers, 0);
+    h.tick(800);
+    assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]]);
+  } finally { h.dispose(); }
+});
+
+test("touch and pen category pointer entry cannot start desktop hover switching", async () => {
+  const h = await headerHarness();
+  try {
+    h.fire(h.trigger(), "onClick");
+    for (const pointerType of ["touch", "pen"]) {
+      h.hover(h.category("gifts"), { pointerType });
+      h.tick(800);
+      assert.deepEqual(h.columns()[1], ["fiction", "science"]);
+      assert.equal(h.pendingTimers, 0);
+    }
+  } finally { h.dispose(); }
+});
+
+test("catalog pointer corridor allows diagonal descendants with edge tolerance, not backward or unrelated movement", () => {
+  const filename = path.join(root, "app/lib/catalog-hover-intent.ts");
+  const mod = new Module(filename);
+  mod._compile(ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, filename);
+  const { isMovingTowardCatalogColumn: toward } = mod.exports;
+  const origin = { x: 100, y: 200 };
+  const column = { left: 300, top: 100, bottom: 400 };
+  for (const current of [{ x: 150, y: 200 }, { x: 150, y: 165 }, { x: 150, y: 260 }, { x: 300, y: 60 }, { x: 300, y: 440 }]) {
+    assert.equal(toward(origin, current, column), true, JSON.stringify(current));
+  }
+  for (const current of [{ x: 100, y: 200 }, { x: 99, y: 200 }, { x: 301, y: 200 }, { x: 150, y: 164 }, { x: 150, y: 261 }, { x: 300, y: 59 }, { x: 300, y: 441 }]) {
+    assert.equal(toward(origin, current, column), false, JSON.stringify(current));
+  }
+  assert.equal(toward(origin, { x: 150, y: 200 }, { ...column, left: 100 }), false, "the target column must be ahead");
+  assert.equal(toward(origin, { x: 150, y: 200 }, { ...column, left: 90 }), false, "backwards columns do not create a corridor");
+  assert.equal(toward({ x: 100, y: 0 }, { x: 150, y: 20 }, column), true, "diagonal travel from above the column is supported");
+  assert.equal(toward({ x: 100, y: 0 }, { x: 150, y: 0 }, column), false, "horizontal movement outside the opening is unrelated");
+  assert.equal(toward({ x: 100, y: 500 }, { x: 150, y: 480 }, column), true, "diagonal travel from below the column is supported");
+});
+
+test("hover navigation never restores the hidden accessory category or its descendants", async () => {
+  const h = await headerHarness("hy", [category("7480", "7463"), category("future-child", "7480")]);
+  try {
+    h.fire(h.trigger(), "onPointerEnter");
+    assert.equal(h.category("7480"), undefined);
+    assert.equal(h.category("future-child"), undefined);
+    h.hover(h.category("gifts"));
+    h.tick(600);
+    assert.equal(h.category("7480"), undefined);
+    h.fire(h.trigger(), "onClick");
+    h.fire(h.find(node => node.props["aria-controls"] === "mobile-navigation-menu"), "onClick");
+    assert.equal(h.find(node => node.props.href?.includes("category=7480")), undefined);
+    assert.equal(h.find(node => node.props.href?.includes("category=future-child")), undefined);
+  } finally { h.dispose(); }
 });
 
 test("outside pointer dismisses the desktop catalog on another header control, not just outside the header", async () => {

@@ -14,6 +14,7 @@ import {
 } from "react";
 import { isCatalogCategoriesResponse, publicApiBase } from "../../lib/catalog-api";
 import { visibleStorefrontCategories } from "../../lib/storefront-categories";
+import { isMovingTowardCatalogColumn, type CatalogPointerPoint } from "../../lib/catalog-hover-intent";
 import { brandName, BRAND_LABELS } from "../../lib/brand";
 import type { Book, CatalogCategory } from "../../lib/types";
 import { accountRequest, type CustomerAccount } from "../../lib/customer-account";
@@ -196,6 +197,9 @@ function Header() {
   const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([]);
   const [activeCatalogPath, setActiveCatalogPath] = useState<string[]>([]);
   const catalogCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catalogHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catalogPointer = useRef<CatalogPointerPoint | null>(null);
+  const catalogHover = useRef<{ level: number; id: string; origin: CatalogPointerPoint; lastPoint: CatalogPointerPoint; deferrals: number; commit: () => void } | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const catalogTriggerRef = useRef<HTMLButtonElement>(null);
   const catalogMenuRef = useRef<HTMLDivElement>(null);
@@ -241,15 +245,22 @@ function Header() {
     clearTimeout(catalogCloseTimer.current);
     catalogCloseTimer.current = null;
   }, []);
+  const cancelCatalogHover = useCallback(() => {
+    if (catalogHoverTimer.current !== null) clearTimeout(catalogHoverTimer.current);
+    catalogHoverTimer.current = null;
+    catalogHover.current = null;
+  }, []);
   const containsCatalogTarget = useCallback((target: EventTarget | null) => target instanceof Node && (
     Boolean(catalogTriggerRef.current?.contains(target)) || Boolean(catalogMenuRef.current?.contains(target))
   ), []);
   const openCatalog = () => {
     cancelCatalogClose();
+    if (!catalogOpen) catalogPointer.current = null;
     setCatalogOpen(true);
   };
   const closeCatalogSoon = () => {
     cancelCatalogClose();
+    cancelCatalogHover();
     catalogCloseTimer.current = setTimeout(() => {
       if (!catalogMenuRef.current?.contains(document.activeElement)) setCatalogOpen(false);
       catalogCloseTimer.current = null;
@@ -257,6 +268,7 @@ function Header() {
   };
   const closeMenus = () => {
     cancelCatalogClose();
+    cancelCatalogHover();
     setMobileOpen(false);
     setCatalogOpen(false);
   };
@@ -268,14 +280,15 @@ function Header() {
         if (!response.ok) return;
         const result: unknown = await response.json();
         if (!isCatalogCategoriesResponse(result)) return;
+        cancelCatalogHover();
         setCatalogCategories(visibleStorefrontCategories(result));
         setActiveCatalogPath([]);
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [locale]);
+  }, [locale, cancelCatalogHover]);
 
-  useEffect(() => () => cancelCatalogClose(), [cancelCatalogClose]);
+  useEffect(() => () => { cancelCatalogClose(); cancelCatalogHover(); }, [cancelCatalogClose, cancelCatalogHover]);
 
   useEffect(() => {
     if (!catalogOpen && !mobileOpen) return;
@@ -285,6 +298,7 @@ function Header() {
       const restoreFocus = catalogOpen ? containsCatalogTarget(document.activeElement) : Boolean(headerRef.current?.contains(document.activeElement));
       const trigger = catalogOpen ? catalogTriggerRef.current : headerRef.current?.querySelector<HTMLButtonElement>('[aria-controls="mobile-navigation-menu"]');
       cancelCatalogClose();
+      cancelCatalogHover();
       setMobileOpen(false);
       setCatalogOpen(false);
       if (restoreFocus) trigger?.focus({ preventScroll: true });
@@ -294,6 +308,7 @@ function Header() {
       if (!(event.target instanceof Node)) return;
       if (catalogOpen && !containsCatalogTarget(event.target)) {
         cancelCatalogClose();
+        cancelCatalogHover();
         setCatalogOpen(false);
       }
       if (mobileOpen && !headerRef.current?.contains(event.target)) setMobileOpen(false);
@@ -303,7 +318,7 @@ function Header() {
       document.removeEventListener("keydown", onEscape);
       document.removeEventListener("pointerdown", onOutsidePointer);
     };
-  }, [catalogOpen, mobileOpen, cancelCatalogClose, containsCatalogTarget]);
+  }, [catalogOpen, mobileOpen, cancelCatalogClose, cancelCatalogHover, containsCatalogTarget]);
 
   const catalogChildren = new Map<string, CatalogCategory[]>();
   for (const category of catalogCategories) {
@@ -334,8 +349,33 @@ function Header() {
     catalogColumnLabel = selected.name;
   }
   const activateCatalogCategory = (level: number, supplierCategoryId: string) => {
+    cancelCatalogHover();
     const nextPath = [...catalogColumns.slice(0, level).map((column) => column.selectedId), supplierCategoryId];
     setActiveCatalogPath((current) => nextPath.every((id, index) => current[index] === id) ? current : nextPath);
+  };
+  const queueCatalogCategory = (level: number, id: string, point: CatalogPointerPoint) => {
+    cancelCatalogHover();
+    catalogHover.current = { level, id, origin: catalogPointer.current ?? point, lastPoint: point, deferrals: 0, commit: () => activateCatalogCategory(level, id) };
+    const commitWhenSettled = () => {
+      const pending = catalogHover.current;
+      if (!pending) return;
+      const pointer = catalogPointer.current ?? pending.lastPoint;
+      const childColumn = catalogMenuRef.current?.querySelector<HTMLElement>(`[data-catalog-level="${pending.level + 1}"]`);
+      // Give a diagonal trip to the existing child column priority over crossed siblings.
+      if (childColumn && pending.deferrals < 6 && pointer.x > pending.lastPoint.x + 1 && isMovingTowardCatalogColumn(pending.origin, pointer, childColumn.getBoundingClientRect())) {
+        pending.lastPoint = pointer;
+        pending.deferrals += 1;
+        catalogHoverTimer.current = setTimeout(commitWhenSettled, 100);
+        return;
+      }
+      const commit = pending.commit;
+      cancelCatalogHover();
+      commit();
+    };
+    catalogHoverTimer.current = setTimeout(commitWhenSettled, 160);
+  };
+  const leaveCatalogCategory = (level: number, id: string) => {
+    if (catalogHover.current?.level === level && catalogHover.current.id === id) cancelCatalogHover();
   };
   const mobileCategoryTree = (items: CatalogCategory[], ancestors: string[] = []): ReactNode => items.map((category) => {
     if (ancestors.includes(category.supplierCategoryId) || ancestors.length >= 6) return null;
@@ -389,12 +429,14 @@ function Header() {
             <nav className="flex items-center gap-5 text-xs font-medium text-[var(--ink)]" aria-label={t.menu}>
               <button ref={catalogTriggerRef} className="mr-1 flex min-h-11 items-center gap-2.5 rounded-xl bg-[var(--accent)] px-4 text-white transition hover:bg-[var(--accent-deep)]" type="button" aria-expanded={catalogOpen} aria-controls="desktop-catalog-menu" onPointerEnter={(event) => { if (event.pointerType === "mouse") openCatalog(); }} onPointerLeave={(event) => { if (event.pointerType === "mouse" && !containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onBlur={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onClick={(event) => {
                 cancelCatalogClose();
+                cancelCatalogHover();
                 if (catalogOpen) { setCatalogOpen(false); return; }
                 openCatalog();
                 if (event.detail === 0) window.requestAnimationFrame(() => catalogMenuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus());
               }} onKeyDown={(event) => {
                 if (event.key !== "ArrowDown") return;
                 event.preventDefault();
+                cancelCatalogHover();
                 openCatalog();
                 window.requestAnimationFrame(() => catalogMenuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus());
               }}>
@@ -410,22 +452,22 @@ function Header() {
           </div>
         </div>
         {catalogOpen && (
-          <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogClose(); }} onPointerLeave={(event) => { if (event.pointerType === "mouse" && !containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }} onFocusCapture={cancelCatalogClose} onBlurCapture={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }}>
+          <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogClose(); }} onPointerMove={(event) => { if (event.pointerType === "mouse") catalogPointer.current = { x: event.clientX, y: event.clientY }; }} onPointerLeave={(event) => { if (event.pointerType === "mouse" && !containsCatalogTarget(event.relatedTarget)) { cancelCatalogHover(); closeCatalogSoon(); } }} onScrollCapture={cancelCatalogHover} onFocusCapture={() => { cancelCatalogClose(); cancelCatalogHover(); }} onBlurCapture={(event) => { if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }}>
             <div className={cx(container, "py-5")}>
               <div className="mb-4 flex items-center justify-between gap-5">
                 <div><span className="text-[12px] font-medium uppercase tracking-[.14em] text-[var(--muted)]">{t.catalog}</span><strong className="mt-1 block font-display text-3xl font-normal text-[var(--accent)]">{t.allCategories}</strong></div>
                 <Link className="inline-flex min-h-11 items-center gap-5 rounded-full border border-[var(--accent)] px-5 text-[13px] font-medium text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-white" href={localized(locale, "/catalog")} onClick={closeMenus}>{t.allCategories}<span aria-hidden="true">↗</span></Link>
               </div>
               {catalogColumns.length > 0 ? (
-                <div className="grid h-[min(62vh,520px)] grid-flow-col auto-cols-[minmax(220px,1fr)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
+                <div className="grid h-[min(62vh,520px)] grid-flow-col auto-cols-[minmax(240px,25%)] overflow-x-auto rounded-[22px] border border-[var(--line)] bg-[var(--white)]">
                   {catalogColumns.map((column, level) => (
-                    <section className="min-w-0 overflow-y-auto border-r border-[var(--line)] bg-white/55 p-3 last:border-r-0" key={level}>
+                    <section data-catalog-level={level} className="min-w-0 overflow-y-auto border-r border-[var(--line)] bg-white/55 p-3 last:border-r-0" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogHover(); }} key={level}>
                       <h3 className="sticky top-0 z-10 mb-2 bg-[var(--white)]/95 px-2 py-2 text-[12px] font-medium uppercase tracking-[.11em] text-[var(--muted)] backdrop-blur">{column.label}</h3>
                       <nav className="grid gap-1" aria-label={column.label}>
                         {column.items.map((category) => {
                           const hasChildren = (catalogChildren.get(category.supplierCategoryId)?.length ?? 0) > 0;
                           const active = column.selectedId === category.supplierCategoryId;
-                          return <Link className={cx("flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px] font-bold leading-4 transition", active ? "bg-[var(--paper)] text-[var(--accent)]" : "text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--accent-deep)]")} href={`${localized(locale, "/catalog")}?category=${category.supplierCategoryId}`} onMouseEnter={() => { if (!active) activateCatalogCategory(level, category.supplierCategoryId); }} onFocus={() => { if (!active) activateCatalogCategory(level, category.supplierCategoryId); }} onClick={closeMenus} key={category.supplierCategoryId}><span>{category.name}</span>{hasChildren ? <Icon name="chevron" className="size-3 shrink-0" /> : <span className="text-[14px] opacity-35">↗</span>}</Link>;
+                          return <Link className={cx("flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px] font-bold leading-4 transition", active ? "bg-[var(--paper)] text-[var(--accent)]" : "text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--accent-deep)]")} href={`${localized(locale, "/catalog")}?category=${category.supplierCategoryId}`} onPointerEnter={(event) => { if (event.pointerType !== "mouse") return; if (active) cancelCatalogHover(); else queueCatalogCategory(level, category.supplierCategoryId, { x: event.clientX, y: event.clientY }); }} onPointerLeave={() => leaveCatalogCategory(level, category.supplierCategoryId)} onFocus={() => activateCatalogCategory(level, category.supplierCategoryId)} onClick={closeMenus} key={category.supplierCategoryId}><span>{category.name}</span>{hasChildren ? <Icon name="chevron" className="size-3 shrink-0" /> : <span className="text-[14px] opacity-35">↗</span>}</Link>;
                         })}
                       </nav>
                     </section>
