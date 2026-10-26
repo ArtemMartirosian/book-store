@@ -189,7 +189,14 @@ async function headerHarness(locale = "en", extraCategories = []) {
   render();
   return {
     render, find, trigger, menu, fire, emit, tick, dispose, document, outside,
-    hover(node, extra = {}) { return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
+    hover(node, extra = {}) {
+      hitTarget = node;
+      const event = fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra);
+      // Real mouse entry is followed by movement. A late entry caused only by
+      // keyboard scrolling is tested separately without this synthetic move.
+      fire(menu(), "onPointerMove", { pointerType: event.pointerType, clientX: event.clientX, clientY: event.clientY });
+      return event;
+    },
     enterColumn(level, extra = {}) { const node = this.column(level); return fire(node, node?.props.onPointerEnter ? "onPointerEnter" : "onMouseEnter", extra); },
     hitTest(node) { hitTarget = node; },
     get pendingTimers() { return timers.size; },
@@ -565,6 +572,34 @@ test("keyboard focus and PageDown scrolling cannot reuse an old mouse point, whi
     h.tick(160);
     assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]], "a subsequent wheel event supplies fresh mouse coordinates without requiring pointer movement");
   } finally { h.dispose(); }
+});
+
+test("late pointer entry after keyboard scrolling is ignored until real movement resumes over the current row", async () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    const h = await headerHarness(locale);
+    try {
+      h.fire(h.trigger(), "onPointerEnter");
+      h.hover(h.category("gifts"), { clientX: 120, clientY: 220 });
+      h.hitTest(h.category("gifts").children[0]);
+      h.category("books").focus();
+      h.render();
+      h.fire(h.menu(), "onKeyDownCapture", { key: "PageDown" });
+      h.fire(h.menu(), "onScrollCapture", { target: h.column(0) });
+      h.fire(h.category("gifts"), "onPointerEnter", { clientX: 120, clientY: 220 });
+      h.tick(80);
+      h.tick(160);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["fiction", "science"], ["novels", "stories"], ["historical"]], "a browser-generated pointer entry without movement cannot replace the keyboard branch");
+      assert.equal(h.pendingTimers, 0);
+      h.fire(h.menu(), "onPointerMove", { clientX: 121, clientY: 220 });
+      h.tick(80);
+      h.fire(h.menu(), "onPointerMove", { clientX: 122, clientY: 220 });
+      h.tick(79);
+      assert.deepEqual(h.columns()[1], ["fiction", "science"]);
+      h.tick(1);
+      assert.deepEqual(h.columns(), [["books", "gifts"], ["cards", "bookmarks"], ["paper"]], "actual movement restores the row under the cursor without another pointer entry or repeated dwell resets");
+      assert.equal(h.pendingTimers, 0);
+    } finally { h.dispose(); }
+  }
 });
 
 test("touch and pen category pointer entry cannot start desktop hover switching", async () => {

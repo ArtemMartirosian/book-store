@@ -199,6 +199,7 @@ function Header() {
   const catalogCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catalogHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catalogScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A null point suspends mouse hover until movement, a wheel event or a mouse press.
   const catalogPointer = useRef<CatalogPointerPoint | null>(null);
   const catalogHover = useRef<{ level: number; id: string; origin: CatalogPointerPoint; lastPoint: CatalogPointerPoint; deferrals: number; commit: () => void } | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -380,6 +381,13 @@ function Header() {
   const leaveCatalogCategory = (level: number, id: string) => {
     if (catalogHover.current?.level === level && catalogHover.current.id === id) cancelCatalogHover();
   };
+  const queueCatalogPointerRow = (point: CatalogPointerPoint) => {
+    const row = document.elementFromPoint(point.x, point.y)?.closest<HTMLAnchorElement>("a[data-catalog-category]");
+    if (!row || !catalogMenuRef.current?.contains(row) || row.dataset.catalogActive === "true") return;
+    const id = row.dataset.catalogCategory;
+    const level = Number(row.dataset.catalogLevel);
+    if (id && Number.isInteger(level) && level >= 0 && level < catalogColumns.length) queueCatalogCategory(level, id, point);
+  };
   const settleCatalogScroll = () => {
     cancelCatalogHover();
     catalogScrollTimer.current = setTimeout(() => {
@@ -388,11 +396,7 @@ function Header() {
       if (!point) return;
       // Scrolling can move a new row under a stationary cursor after pointerenter.
       // Restart its normal dwell using the visible row, never the stale candidate.
-      const row = document.elementFromPoint(point.x, point.y)?.closest<HTMLAnchorElement>("a[data-catalog-category]");
-      if (!row || !catalogMenuRef.current?.contains(row) || row.dataset.catalogActive === "true") return;
-      const id = row.dataset.catalogCategory;
-      const level = Number(row.dataset.catalogLevel);
-      if (id && Number.isInteger(level) && level >= 0 && level < catalogColumns.length) queueCatalogCategory(level, id, point);
+      queueCatalogPointerRow(point);
     }, 80);
   };
   const mobileCategoryTree = (items: CatalogCategory[], ancestors: string[] = []): ReactNode => items.map((category) => {
@@ -472,7 +476,7 @@ function Header() {
         {catalogOpen && (
           <div ref={catalogMenuRef} id="desktop-catalog-menu" className="absolute inset-x-0 top-full border-b border-[var(--line)] bg-[var(--paper)] shadow-[0_20px_40px_rgba(32,44,40,.09)] max-xl:hidden"
             onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelCatalogClose(); }}
-            onPointerMove={(event) => { if (event.pointerType === "mouse") catalogPointer.current = { x: event.clientX, y: event.clientY }; }}
+            onPointerMove={(event) => { if (event.pointerType !== "mouse") return; const resumed = catalogPointer.current === null; const point = { x: event.clientX, y: event.clientY }; catalogPointer.current = point; if (resumed) queueCatalogPointerRow(point); }}
             onPointerDownCapture={(event) => { cancelCatalogHover(); catalogPointer.current = event.pointerType === "mouse" ? { x: event.clientX, y: event.clientY } : null; }}
             onPointerLeave={(event) => { if (event.pointerType !== "mouse") return; cancelCatalogHover(); catalogPointer.current = null; if (!containsCatalogTarget(event.relatedTarget)) closeCatalogSoon(); }}
             onWheelCapture={(event) => { catalogPointer.current = { x: event.clientX, y: event.clientY }; }}
@@ -494,7 +498,7 @@ function Header() {
                         {column.items.map((category) => {
                           const hasChildren = (catalogChildren.get(category.supplierCategoryId)?.length ?? 0) > 0;
                           const active = column.selectedId === category.supplierCategoryId;
-                          return <Link data-catalog-category={category.supplierCategoryId} data-catalog-level={level} data-catalog-active={active} className={cx("flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px] font-bold leading-4 transition", active ? "bg-[var(--paper)] text-[var(--accent)]" : "text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--accent-deep)]")} href={`${localized(locale, "/catalog")}?category=${category.supplierCategoryId}`} onPointerEnter={(event) => { if (event.pointerType !== "mouse") return; if (active) cancelCatalogHover(); else queueCatalogCategory(level, category.supplierCategoryId, { x: event.clientX, y: event.clientY }); }} onPointerLeave={() => leaveCatalogCategory(level, category.supplierCategoryId)} onFocus={() => activateCatalogCategory(level, category.supplierCategoryId)} onClick={closeMenus} key={category.supplierCategoryId}><span>{category.name}</span>{hasChildren ? <Icon name="chevron" className="size-3 shrink-0" /> : <span className="text-[14px] opacity-35">↗</span>}</Link>;
+                          return <Link data-catalog-category={category.supplierCategoryId} data-catalog-level={level} data-catalog-active={active} className={cx("flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px] font-bold leading-4 transition", active ? "bg-[var(--paper)] text-[var(--accent)]" : "text-[var(--muted)] hover:bg-[var(--paper)] hover:text-[var(--accent-deep)]")} href={`${localized(locale, "/catalog")}?category=${category.supplierCategoryId}`} onPointerEnter={(event) => { if (event.pointerType !== "mouse" || catalogPointer.current === null) return; if (active) cancelCatalogHover(); else queueCatalogCategory(level, category.supplierCategoryId, { x: event.clientX, y: event.clientY }); }} onPointerLeave={() => leaveCatalogCategory(level, category.supplierCategoryId)} onFocus={() => activateCatalogCategory(level, category.supplierCategoryId)} onClick={closeMenus} key={category.supplierCategoryId}><span>{category.name}</span>{hasChildren ? <Icon name="chevron" className="size-3 shrink-0" /> : <span className="text-[14px] opacity-35">↗</span>}</Link>;
                         })}
                       </nav>
                     </section>
