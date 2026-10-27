@@ -14,7 +14,7 @@ export const dictionary = {
   ru: {
     header: {
       catalog: "Каталог", new: "Новинки", armenian: "На армянском", delivery: "Доставка",
-      search: "Название, автор или ISBN", searchButton: "Найти", account: "Кабинет", favorites: "Избранное", cart: "Корзина",
+      search: "Название или автор", searchButton: "Найти", account: "Кабинет", favorites: "Избранное", cart: "Корзина",
       mobileSearch: "Найти книгу…",
       searchSuggestions: "Книги", searchLoading: "Ищем книги…", searchEmpty: "Ничего не найдено. Попробуйте другой запрос.", searchError: "Не удалось загрузить подсказки. Попробуйте полный поиск.", searchAll: "Все результаты поиска",
       announcement: "Доставка по Еревану — 1 000 ֏", menu: "Открыть меню",
@@ -81,7 +81,7 @@ export const dictionary = {
   hy: {
     header: {
       catalog: "Գրացուցակ", new: "Նորույթներ", armenian: "Հայերեն գրքեր", delivery: "Առաքում",
-      search: "Գիրք, հեղինակ կամ ISBN", searchButton: "Փնտրել", account: "Իմ էջը", favorites: "Նախընտրելի", cart: "Զամբյուղ",
+      search: "Գիրք կամ հեղինակ", searchButton: "Փնտրել", account: "Իմ էջը", favorites: "Նախընտրելի", cart: "Զամբյուղ",
       mobileSearch: "Փնտրել գիրք…",
       searchSuggestions: "Գրքեր", searchLoading: "Փնտրում ենք գրքեր…", searchEmpty: "Ոչինչ չի գտնվել։ Փորձեք այլ հարցում։", searchError: "Չհաջողվեց բեռնել հուշումները։ Փորձեք ամբողջական որոնումը։", searchAll: "Որոնման բոլոր արդյունքները",
       announcement: "Առաքում Երևանում՝ 1 000 ֏", menu: "Բացել ընտրացանկը",
@@ -146,7 +146,7 @@ export const dictionary = {
   en: {
     header: {
       catalog: "Catalog", new: "New arrivals", armenian: "Armenian books", delivery: "Delivery",
-      search: "Title, author or ISBN", searchButton: "Search", account: "Account", favorites: "Favorites", cart: "Cart",
+      search: "Title or author", searchButton: "Search", account: "Account", favorites: "Favorites", cart: "Cart",
       mobileSearch: "Search books…",
       searchSuggestions: "Books", searchLoading: "Searching books…", searchEmpty: "No books found. Try another search.", searchError: "Suggestions are unavailable. Try the full search.", searchAll: "View all search results",
       announcement: "Yerevan delivery — 1,000 ֏", menu: "Open menu",
