@@ -12,7 +12,7 @@ import {
 import type { Book } from "../../lib/types";
 import { BookCard } from "./BookCard";
 import { useStorefront } from "./StorefrontShell";
-import type { Locale } from "./i18n";
+import { type Locale, localizeBookLanguage } from "./i18n";
 import { container, cx, eyebrow, sectionTitle } from "./ui";
 
 type SearchField = "title" | "author" | "description" | "productCode" | "barcode" | "isbn" | "publisher" | "series";
@@ -190,7 +190,7 @@ export function AdvancedSearchPage() {
           <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
             {(Object.keys(t.fields) as SearchField[]).map((field) => <label className="group grid gap-2 rounded-2xl border border-[#e3e5ef] bg-[#f7f8fc] p-4 transition focus-within:border-[#6258ff] focus-within:bg-[#ffffff] focus-within:shadow-[0_0_0_4px_rgba(98,88,255,.08)]" key={field}><span className="text-sm font-medium text-[#727789]">{t.fields[field]}</span><input className="min-h-11 min-w-0 bg-transparent text-base font-normal text-[#18192d] outline-none placeholder:text-[#9296a6]" value={values[field]} onChange={(event) => setField(field, event.target.value)} maxLength={field === "description" || field === "title" || field === "author" ? 500 : field === "productCode" || field === "barcode" || field === "isbn" ? 128 : 256} /></label>)}
           </div>
-          <label className="mt-4 flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-[#e3e5ef] bg-[#f7f8fc] p-4 max-sm:flex-col max-sm:items-stretch"><span className="text-sm font-medium text-[#727789]">{t.language}</span><select className="min-h-12 min-w-0 rounded-xl border border-[#e3e5ef] bg-[#ffffff] px-4 text-base font-normal outline-none focus:border-[#6258ff]" value={language} onChange={(event) => { clearResults(); setLanguage(event.target.value as CatalogLanguage | "all"); }}><option value="all">{t.all}</option><option value="hy">Հայերեն</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+          <label className="mt-4 flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-[#e3e5ef] bg-[#f7f8fc] p-4 max-sm:flex-col max-sm:items-stretch"><span className="text-sm font-medium text-[#727789]">{t.language}</span><select className="min-h-12 min-w-0 rounded-xl border border-[#e3e5ef] bg-[#ffffff] px-4 text-base font-normal outline-none focus:border-[#6258ff]" value={language} onChange={(event) => { clearResults(); setLanguage(event.target.value as CatalogLanguage | "all"); }}><option value="all">{t.all}</option><option value="hy">{localizeBookLanguage(locale, "hy")}</option><option value="ru">{localizeBookLanguage(locale, "ru")}</option><option value="en">{localizeBookLanguage(locale, "en")}</option></select></label>
           <div className="mt-5 flex gap-3 max-sm:flex-col"><button className="flex min-h-13 flex-1 items-center justify-between rounded-xl bg-[#6258ff] px-6 text-sm font-medium text-white transition hover:bg-[#5147e2] disabled:cursor-not-allowed disabled:opacity-45" type="submit" disabled={!hasCriteria || loading}>{loading ? t.searching : t.search}<span className="text-lg">↗</span></button><button className="min-h-13 rounded-xl border border-[#e3e5ef] px-6 text-sm font-medium text-[#727789] transition hover:bg-[#f0eeff]" type="button" onClick={reset}>{t.reset}</button></div>
         </form>
       </section>

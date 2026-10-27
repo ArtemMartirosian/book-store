@@ -18,7 +18,7 @@ import { visibleStorefrontCategories } from "../../lib/storefront-categories";
 import type { Book, CatalogCategory } from "../../lib/types";
 import { BookCard } from "./BookCard";
 import { useStorefront } from "./StorefrontShell";
-import { dictionary } from "./i18n";
+import { dictionary, localizeBookLanguage } from "./i18n";
 import { container, cx } from "./ui";
 
 const allValue = "all";
@@ -153,7 +153,7 @@ export function CatalogPage({ initialData, initialCategories = [] }: CatalogPage
     return pathname + (search ? `?${search}` : "");
   };
   const languageLabel = (value: CatalogLanguage | typeof allValue) =>
-    value === allValue ? t.allLanguages : catalogLanguageDefinitions.find((item) => item.slug === value)?.value ?? value;
+    value === allValue ? t.allLanguages : localizeBookLanguage(locale, catalogLanguageDefinitions.find((item) => item.slug === value)?.value ?? value);
   const categoryLabel = category === allValue ? status.allSections : categories.find((item) => item.supplierCategoryId === category)?.name ?? category;
   const activeFilters = [query ? `${t.searchChip}: ${query}` : "", author ? `${facets.author}: ${author}` : "", publisher ? `${facets.publisher}: ${publisher}` : "", series ? `${facets.series}: ${series}` : "", minPrice !== undefined || maxPrice !== undefined ? `${facets.price} ${minPrice ?? 0}–${maxPrice ?? "∞"}` : "", hasCover === true ? facets.cover : hasCover === false ? `${facets.cover}: −` : "", isNew === true ? facets.newOnly : isNew === false ? `${facets.newOnly}: −` : "", language !== allValue ? languageLabel(language) : "", category !== allValue ? categoryLabel : "", availableOnly ? t.available : ""].filter(Boolean);
 
@@ -177,7 +177,7 @@ export function CatalogPage({ initialData, initialCategories = [] }: CatalogPage
         </div>
         <div className={cx(container, "book-rail flex items-center gap-2 overflow-x-auto pb-7")}>
           <button className={cx("min-h-11 shrink-0 rounded-full border px-4 text-sm transition", language === allValue ? "border-[#6258ff] bg-[#6258ff] text-white" : "border-[#e3e5ef] bg-transparent text-[#62687d] hover:border-[#6258ff]")} type="button" onClick={() => changeLanguage(allValue)}>{t.allLanguages}</button>
-          {catalogLanguageDefinitions.map((item) => <button className={cx("min-h-11 shrink-0 rounded-full border px-4 text-sm transition", language === item.slug ? "border-[#6258ff] bg-[#6258ff] text-white" : "border-[#e3e5ef] bg-transparent text-[#62687d] hover:border-[#6258ff]")} type="button" onClick={() => changeLanguage(item.slug)} key={item.slug}>{item.value}</button>)}
+          {catalogLanguageDefinitions.map((item) => <button className={cx("min-h-11 shrink-0 rounded-full border px-4 text-sm transition", language === item.slug ? "border-[#6258ff] bg-[#6258ff] text-white" : "border-[#e3e5ef] bg-transparent text-[#62687d] hover:border-[#6258ff]")} type="button" onClick={() => changeLanguage(item.slug)} key={item.slug}>{languageLabel(item.slug)}</button>)}
         </div>
       </section>
 

@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Book } from "../../lib/types";
 import { formatAmd } from "../../lib/catalog-data";
+import { localizeBookDetailSection, localizeBookDimensions, localizeBookWeight } from "../../lib/book-localization";
 import { BookCard } from "./BookCard";
 import { BookCover } from "./BookCover";
 import { useStorefront } from "./StorefrontShell";
-import { dictionary, localized, localizeBookBinding, localizeBookCategory } from "./i18n";
+import { dictionary, localized, localizeBookBinding, localizeBookCategory, localizeBookLanguage } from "./i18n";
 import { container, cx, eyebrow, sectionTitle } from "./ui";
 
 function HeartIcon({ filled = false }: { filled?: boolean }) {
@@ -23,6 +24,7 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
   const t = dictionary[locale].product;
   const unavailable = book.availability === "unavailable";
   const category = localizeBookCategory(locale, book.category);
+  const language = localizeBookLanguage(locale, book.language);
   const binding = book.binding ? localizeBookBinding(locale, book.binding) : null;
   const description = book.description.trim() || t.fallback;
   const publisherLabel = { hy: "Հրատարակիչ", ru: "Издательство", en: "Publisher" }[locale];
@@ -31,7 +33,7 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
     ru: { productCode: "Код товара", weight: "Вес", barcode: "Штрих-код", newness: "Новинка", yes: "Да", no: "Нет", format: "Формат", series: "Серия", images: "Изображения", sourceSections: "Дополнительно об издании" },
     en: { productCode: "Product code", weight: "Weight", barcode: "Barcode", newness: "New release", yes: "Yes", no: "No", format: "Format", series: "Series", images: "Images", sourceSections: "More about this edition" },
   }[locale];
-  const detailSections = book.detailSections ?? [];
+  const detailSections = (book.detailSections ?? []).map((section) => localizeBookDetailSection(locale, section));
   const controls = {
     hy: { description: "Նկարագրություն", specifications: "Բնութագրեր", decrease: "Նվազեցնել քանակը", increase: "Ավելացնել քանակը", quantity: "Քանակ", more: "Կարդալ ավելին" },
     ru: { description: "Описание", specifications: "Характеристики", decrease: "Уменьшить количество", increase: "Увеличить количество", quantity: "Количество", more: "Читать описание" },
@@ -42,18 +44,18 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
   const displayedBook = images[activeImage]
     ? { ...book, coverImageUrl: images[activeImage] }
     : book;
-  const chips = [book.language, category, book.year ? String(book.year) : null].filter((item): item is string => Boolean(item));
+  const chips = [language, category, book.year ? String(book.year) : null].filter((item): item is string => Boolean(item));
   const details: Array<[string, string | number]> = [
     ...(book.productCode ? [[detailLabels.productCode, book.productCode] as [string, string]] : []),
-    [t.language, book.language],
+    [t.language, language],
     ...(book.publisher ? [[publisherLabel, book.publisher] as [string, string]] : [[t.category, category] as [string, string]]),
     ...(book.year ? [[t.year, book.year] as [string, number]] : []),
     ...(book.pages ? [[t.pages, book.pages] as [string, number]] : []),
     ...(binding ? [[t.binding, binding] as [string, string]] : []),
-    ...(book.weight ? [[detailLabels.weight, book.weight] as [string, string]] : []),
+    ...(book.weight ? [[detailLabels.weight, localizeBookWeight(locale, book.weight)] as [string, string]] : []),
     ...(book.barcode ? [[detailLabels.barcode, book.barcode] as [string, string]] : []),
     ...(book.isNew !== null && book.isNew !== undefined ? [[detailLabels.newness, book.isNew ? detailLabels.yes : detailLabels.no] as [string, string]] : []),
-    ...(book.dimensions ? [[detailLabels.format, book.dimensions] as [string, string]] : []),
+    ...(book.dimensions ? [[detailLabels.format, localizeBookDimensions(locale, book.dimensions)] as [string, string]] : []),
     ...(book.series ? [[detailLabels.series, book.series] as [string, string]] : []),
     ...(book.isbn ? [["ISBN", book.isbn] as [string, string]] : []),
     ...(imageCount > 0 ? [[detailLabels.images, imageCount] as [string, number]] : []),
@@ -94,7 +96,6 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
           <aside className="mt-5 rounded-2xl border border-[var(--line)] bg-white p-6 max-sm:p-4">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <strong className="text-[30px] font-bold tracking-[-.035em]">{formatAmd(book.price)}</strong>
-              <span className="text-xs text-[var(--muted)]">{t.servicePrice}</span>
             </div>
             {unavailable ? <div className="mt-4 flex items-start gap-2.5">
               <i className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#995846]" />

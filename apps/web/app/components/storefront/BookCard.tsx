@@ -5,7 +5,7 @@ import type { Book } from "../../lib/types";
 import { formatAmd } from "../../lib/catalog-data";
 import { BookCover } from "./BookCover";
 import { useStorefront } from "./StorefrontShell";
-import { dictionary, localized } from "./i18n";
+import { dictionary, localized, localizeBookLanguage } from "./i18n";
 import { cx } from "./ui";
 
 type BookCardProps = { book: Book; variant?: "default" | "compact" };
@@ -38,7 +38,7 @@ export function BookCard({ book, variant = "default" }: BookCardProps) {
 
       <div className="flex flex-1 flex-col p-4 max-sm:p-3">
         <div className="mb-2 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5 text-[var(--muted)]">
-          <span>{book.language}</span>
+          <span>{localizeBookLanguage(locale, book.language)}</span>
           {unavailable ? <span className="text-[#b45359]">· {t.unavailable}</span> : null}
         </div>
         <Link href={href} className="line-clamp-2 min-h-[2.8em] text-[16px] font-semibold leading-[1.4] tracking-[-.015em] text-[var(--ink)] transition hover:text-[var(--accent)] max-sm:text-[14px]">{book.title}</Link>

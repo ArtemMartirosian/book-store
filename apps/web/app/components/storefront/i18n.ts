@@ -220,12 +220,31 @@ const bookCategoryLabels: Record<string, Record<Locale, string>> = {
   "Антиутопия": { hy: "Հակաուտոպիա", ru: "Антиутопия", en: "Dystopia" },
 };
 
-const bookBindingLabels: Record<string, Record<Locale, string>> = {
-  "Կոշտ կազմ": { hy: "Կոշտ կազմ", ru: "Твёрдый переплёт", en: "Hardcover" },
-  "Твёрдый переплёт": { hy: "Կոշտ կազմ", ru: "Твёрдый переплёт", en: "Hardcover" },
-  "Мягкая обложка": { hy: "Փափուկ կազմ", ru: "Мягкая обложка", en: "Paperback" },
-  Hardcover: { hy: "Կոշտ կազմ", ru: "Твёрдый переплёт", en: "Hardcover" },
-};
+const bookBindingLabels = {
+  paperback: { hy: "Փափուկ կազմ", ru: "Мягкая обложка", en: "Paperback" },
+  hardcover: { hy: "Կոշտ կազմ", ru: "Твёрдый переплёт", en: "Hardcover" },
+  jacket: { hy: "Կոշտ կազմ՝ սուպեր շապիկով", ru: "Твёрдый переплёт с суперобложкой", en: "Hardcover with dust jacket" },
+} satisfies Record<string, Record<Locale, string>>;
+
+const normalizeBookTerm = (value: string) => value.normalize("NFKC").toLowerCase().replace(/ё/gu, "е").replace(/[\s\p{P}\p{S}]+/gu, "");
+const bookBindingAliases = new Map<string, keyof typeof bookBindingLabels>([
+  ...["Paperback", "PB", "Paper back", "Softcover", "Softback", "Мягкая обложка", "Мягкий переплёт", "Мягкая", "Փափուկ կազմ", "Փափուկ"].map((value) => [normalizeBookTerm(value), "paperback"] as const),
+  ...["Hardcover", "Hardback", "Hard cover", "Твёрдый переплёт", "Твердая обложка", "Твердая", "Կոշտ կազմ", "Կոշտ"].map((value) => [normalizeBookTerm(value), "hardcover"] as const),
+  ...["Hardcover with dust jacket", "Hardback with dust jacket", "Hardcover + dust jacket", "Твёрдый переплёт с суперобложкой", "Твердая с суперобложкой", "Твердая обложка с суперобложкой", "կոշտ կազմ + սուպեր շապիկ", "կոշտ+ սուպեր շապիկ", "Կոշտ կազմ՝ սուպեր շապիկով", "Սուպեր շապիկով կոշտ կազմ"].map((value) => [normalizeBookTerm(value), "jacket"] as const),
+]);
+
+const bookLanguageLabels = {
+  hy: { hy: "Հայերեն", ru: "Армянский", en: "Armenian" },
+  ru: { hy: "Ռուսերեն", ru: "Русский", en: "Russian" },
+  en: { hy: "Անգլերեն", ru: "Английский", en: "English" },
+  fr: { hy: "Ֆրանսերեն", ru: "Французский", en: "French" },
+} satisfies Record<string, Record<Locale, string>>;
+const bookLanguageAliases = new Map<string, keyof typeof bookLanguageLabels>([
+  ...["hy", "hye", "arm", "Armenian", "Հայերեն", "Армянский"].map((value) => [normalizeBookTerm(value), "hy"] as const),
+  ...["ru", "rus", "Russian", "Русский", "Ռուսերեն"].map((value) => [normalizeBookTerm(value), "ru"] as const),
+  ...["en", "eng", "English", "Английский", "Անգլերեն"].map((value) => [normalizeBookTerm(value), "en"] as const),
+  ...["fr", "fra", "fre", "French", "Французский", "Ֆրանսերեն"].map((value) => [normalizeBookTerm(value), "fr"] as const),
+]);
 
 const bookBadgeLabels: Record<string, Record<Locale, string>> = {
   "Новинка": { hy: "Նորույթ", ru: "Новинка", en: "New" },
@@ -241,7 +260,16 @@ export function localizeBookCategory(locale: Locale, value: string) {
 }
 
 export function localizeBookBinding(locale: Locale, value: string) {
-  return bookBindingLabels[value]?.[locale] ?? value;
+  const binding = bookBindingAliases.get(normalizeBookTerm(value));
+  return binding ? bookBindingLabels[binding][locale] : value;
+}
+
+export function localizeBookLanguage(locale: Locale, value: string): string {
+  const language = bookLanguageAliases.get(normalizeBookTerm(value));
+  if (language) return bookLanguageLabels[language][locale];
+  const parts = value.split(/\s*(?:[,;/|+&]|\s+and\s+|\s+и\s+|\s+և\s+)\s*/iu);
+  if (parts.length > 1 && parts.some((part) => bookLanguageAliases.has(normalizeBookTerm(part)))) return parts.map((part) => localizeBookLanguage(locale, part)).join(", ");
+  return value;
 }
 
 export function localizeBookBadge(locale: Locale, value: string) {
