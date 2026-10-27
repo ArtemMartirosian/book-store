@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
-  type FormEvent,
   type ReactNode,
   useContext,
   useCallback,
@@ -21,6 +20,7 @@ import { accountRequest, type CustomerAccount } from "../../lib/customer-account
 import { subtractOrderedItems } from "../../lib/checkout-client.mjs";
 import { dictionary, localized, type Locale } from "./i18n";
 import { container, cx } from "./ui";
+import { HeaderSearch } from "./HeaderSearch";
 
 export type CartLine = { book: Book; quantity: number };
 
@@ -238,10 +238,6 @@ function Header() {
   ];
   const languageLabel = { hy: "Լեզու", ru: "Язык", en: "Language" }[locale];
   const changeLocale = (next: Locale) => window.location.assign(localePath(next));
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    const data = new FormData(event.currentTarget);
-    if (!String(data.get("q") ?? "").trim() && !String(data.get("category") ?? "").trim()) event.preventDefault();
-  };
   const cancelCatalogClose = useCallback(() => {
     if (!catalogCloseTimer.current) return;
     clearTimeout(catalogCloseTimer.current);
@@ -421,12 +417,7 @@ function Header() {
       <header ref={headerRef} className="sticky top-0 z-50 border-b border-[var(--line)] bg-white/95 backdrop-blur-xl">
         <div className={cx(container, "flex min-h-[88px] items-center gap-7 max-sm:min-h-[76px] max-sm:gap-2")}>
           <Link className="shrink-0" href={localized(locale)} aria-label={brandName(locale) + " — " + BRAND_LABELS[locale]} onClick={closeMenus}><Logo locale={locale} /></Link>
-          <form className="mx-auto hidden h-12 min-w-[180px] max-w-[610px] flex-1 items-center rounded-xl border border-[var(--line)] bg-[var(--paper)] pl-4 pr-1 transition focus-within:border-[var(--accent)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--accent)]/10 md:flex" action={localized(locale, "/catalog")} onSubmit={submitSearch}>
-            {rootCategories.length > 0 ? <select className="mr-3 hidden h-11 max-w-[135px] border-r border-[var(--line)] bg-transparent pr-3 text-xs text-[var(--muted)] outline-none focus-visible:text-[var(--accent)] 2xl:block" name="category" defaultValue="" aria-label={t.allCategories}><option value="">{t.allCategories}</option>{rootCategories.map((category) => <option key={category.id} value={category.supplierCategoryId}>{category.name}</option>)}</select> : null}
-            <Icon name="search" className="mr-3 size-[18px] shrink-0 text-[var(--muted)]" />
-            <input className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted)]" name="q" maxLength={120} placeholder={t.search} aria-label={t.search} />
-            <button className="h-11 rounded-lg bg-[var(--accent)] px-5 text-xs font-semibold text-white transition hover:bg-[var(--accent-deep)]" type="submit">{t.searchButton}</button>
-          </form>
+          <HeaderSearch locale={locale} categories={rootCategories} suspended={catalogOpen || mobileOpen} onNavigate={closeMenus} />
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <Link className="hidden size-11 place-items-center rounded-full text-[var(--accent)] transition hover:bg-[var(--paper)] lg:grid" href={localized(locale, "/account")} aria-label={t.account}><Icon name="user" /></Link>
             <Link className="relative grid size-11 place-items-center rounded-full text-[var(--accent)] transition hover:bg-[var(--paper)]" href={localized(locale, "/favorites")} aria-label={t.favorites}>
@@ -443,10 +434,7 @@ function Header() {
           </div>
         </div>
         <div className={cx(container, "pb-4 md:hidden")}>
-          <form data-testid="mobile-header-search" role="search" aria-label={t.searchButton} className="flex h-14 items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-1 transition focus-within:border-[var(--accent)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--accent)]/10" method="get" action={localized(locale, "/catalog")} onSubmit={submitSearch}>
-            <input className="h-11 min-w-0 flex-1 bg-transparent pl-3 pr-1 text-base leading-6 text-[var(--ink)] outline-none placeholder:text-[var(--muted)]" type="search" enterKeyHint="search" name="q" maxLength={120} placeholder={t.mobileSearch} aria-label={t.search} />
-            <button className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--accent)] text-white transition hover:bg-[var(--accent-deep)] active:scale-95" type="submit" aria-label={t.searchButton}><Icon name="search" className="size-5" /></button>
-          </form>
+          <HeaderSearch locale={locale} mobile suspended={catalogOpen || mobileOpen} onNavigate={closeMenus} />
         </div>
         <div className="hidden border-t border-[var(--line)]/65 xl:block">
           <div className={cx(container, "flex min-h-[52px] items-center justify-between gap-5")}>

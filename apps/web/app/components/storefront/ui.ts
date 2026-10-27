@@ -18,6 +18,7 @@ export const accentClasses = {
 } as const;
 
 export const coverSizeClasses = {
+  search: "h-14 w-10 p-[5px_3px_4px_5px]",
   mini: "h-[114px] w-[76px] p-[12px_8px_10px_14px]",
   card: "h-[240px] w-[160px] p-[22px_16px_18px_22px] max-sm:h-[186px] max-sm:w-[124px] max-sm:p-[16px_12px_14px_16px]",
   hero: "aspect-[.66] w-full p-[26px_20px_22px_26px]",

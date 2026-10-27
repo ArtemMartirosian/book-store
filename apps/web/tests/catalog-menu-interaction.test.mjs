@@ -82,6 +82,7 @@ async function headerHarness(locale = "en", extraCategories = []) {
 
   const reactOverride = {
     ...React,
+    useId() { const index = hook++; if (!(index in slots)) slots[index] = `test-id-${index}`; return slots[index]; },
     useContext: () => ({ locale, cartCount: 0, favorites: [] }),
     useState(initial) {
       const index = hook++;
