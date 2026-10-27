@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { publicBookSlugCandidate } from '../public-book-slug';
 import type { BookRecord, CatalogCategoryRecord } from '../book.model';
 import type {
   CatalogCategorySnapshot,
@@ -244,7 +245,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   }
 
   async findBySlug(slug: string): Promise<BookRecord | null> {
-    const book = [...this.books.values()].find((candidate) => candidate.slug === slug);
+    const book = [...this.books.values()].find((candidate) => candidate.publicSlug === slug || candidate.slug === slug);
     return book ? structuredClone(book) : null;
   }
 
@@ -342,11 +343,21 @@ export class InMemoryCatalogRepository implements CatalogRepository {
 
   async upsert(book: BookRecord): Promise<void> {
     const existing = this.books.get(book.id);
+    let publicSlug = existing?.publicSlug ?? null;
+    if (!publicSlug) {
+      const seed = /^books-am-\d+$/u.test(existing?.slug ?? book.slug) ? (existing?.title ?? book.title) : (existing?.slug ?? book.slug);
+      for (let attempt = 0; attempt < 64; attempt += 1) {
+        const candidate = publicBookSlugCandidate(seed, book.id, attempt);
+        if (![...this.books.values()].some((other) => other.id !== book.id && (other.slug === candidate || other.publicSlug === candidate))) { publicSlug = candidate; break; }
+      }
+      if (!publicSlug) throw new Error('PUBLIC_BOOK_SLUG_ALLOCATION_EXHAUSTED');
+    }
     this.books.set(
       book.id,
       structuredClone({
         ...existing,
         ...book,
+        publicSlug,
         imageUrls: [...new Set([...(existing?.imageUrls ?? []), ...(book.imageUrls ?? [])])],
         localizations: {
           ...(existing?.localizations ?? {}),

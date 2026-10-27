@@ -44,6 +44,7 @@ function modules({ locale = "hy", search = "", api = {}, cacheFactory } = {}) {
       if (specifier === "next/navigation") return {
         notFound() { throw new Error("NEXT_HTTP_ERROR_FALLBACK;404"); },
         redirect(to) { throw new Error("NEXT_REDIRECT;" + to); },
+        permanentRedirect(to) { throw new Error("NEXT_REDIRECT;308;" + to); },
         useSearchParams: () => new URLSearchParams(search), usePathname: () => `/${locale}/catalog`,
       };
       if (specifier === "next/link") return { __esModule: true, default: ({ children, prefetch, ...props }) => { void prefetch; return React.createElement("a", props, children); } };
@@ -222,6 +223,68 @@ test("product metadata uses its own book cover and links only available translat
   assert.ok(metadata.alternates.languages.hy);
   assert.ok(metadata.alternates.languages.en);
   assert.match(String(metadata.alternates.languages["x-default"]), /\/hy\/books\/book-1$/u);
+});
+
+test("legacy book URLs permanently redirect in every locale before related reads, sharing the metadata lookup", async () => {
+  for (const locale of ["hy", "ru", "en"]) {
+    let reads = 0;
+    let relatedReads = 0;
+    const canonicalBook = { ...book, slug: "madhouse-at-the-end-of-the-earth" };
+    const cacheFactory = (fn) => {
+      const entries = new Map();
+      return (...args) => {
+        const key = JSON.stringify(args);
+        if (!entries.has(key)) entries.set(key, fn(...args));
+        return entries.get(key);
+      };
+    };
+    const route = modules({ locale, cacheFactory, api: {
+      getServerBookBySlug: async (slug, requestedLocale) => {
+        reads++;
+        assert.equal(slug, "books-am-122337");
+        assert.equal(requestedLocale, locale);
+        return canonicalBook;
+      },
+      getServerCatalog: async () => { relatedReads++; return { items: [], total: 0, limit: 5, offset: 0 }; },
+    } })("app/[locale]/books/[slug]/page.tsx");
+    const args = { params: Promise.resolve({ locale, slug: "books-am-122337" }) };
+    for (const method of ["generateMetadata", "default"]) {
+      await assert.rejects(route[method](args), (error) => error.message === `NEXT_REDIRECT;308;/${locale}/books/${canonicalBook.slug}`);
+    }
+    assert.equal(reads, 1, "metadata and HTML reuse the same alias lookup for this request");
+    assert.equal(relatedReads, 0, "a legacy redirect does not fetch or render related books");
+  }
+});
+
+test("canonical title URLs render directly with matching metadata, hreflangs and JSON-LD", async () => {
+  const canonicalBook = {
+    ...book, slug: "madhouse-at-the-end-of-the-earth", title: "Madhouse at the End of the Earth",
+    availableLocales: ["hy", "ru", "en"], fallbackLocale: "en",
+  };
+  for (const locale of ["hy", "ru", "en"]) {
+    const route = modules({ locale, api: { getServerBookBySlug: async () => canonicalBook } })("app/[locale]/books/[slug]/page.tsx");
+    const args = { params: Promise.resolve({ locale, slug: canonicalBook.slug }) };
+    const metadata = await route.generateMetadata(args);
+    assert.ok(String(metadata.alternates.canonical).endsWith(`/${locale}/books/${canonicalBook.slug}`));
+    assert.ok(String(metadata.openGraph.url).endsWith(`/${locale}/books/${canonicalBook.slug}`));
+    for (const language of ["hy", "ru", "en"]) assert.ok(String(metadata.alternates.languages[language]).endsWith(`/${language}/books/${canonicalBook.slug}`));
+    const page = await route.default(args);
+    const [product, breadcrumbs] = JSON.parse(page.props.children[0].props.dangerouslySetInnerHTML.__html);
+    assert.ok(product.url.endsWith(`/${locale}/books/${canonicalBook.slug}`));
+    assert.equal(product.offers.url, product.url);
+    assert.equal(breadcrumbs.itemListElement.at(-1).item, product.url);
+    assert.equal(product.offers.price, canonicalBook.price);
+    assert.doesNotMatch(renderToStaticMarkup(page), /books-am-122337/u);
+  }
+});
+
+test("legacy book redirects encode the canonical slug as one safe URL segment", async () => {
+  const canonicalBook = { ...book, slug: "գիրք-աշխարհ" };
+  for (const method of ["generateMetadata", "default"]) {
+    const route = modules({ api: { getServerBookBySlug: async () => canonicalBook } })("app/[locale]/books/[slug]/page.tsx");
+    await assert.rejects(route[method]({ params: Promise.resolve({ locale: "hy", slug: "books-am-122337" }) }),
+      (error) => error.message === `NEXT_REDIRECT;308;/hy/books/${encodeURIComponent(canonicalBook.slug)}`);
+  }
 });
 
 test("an untranslated product UI URL is noindex and canonicalizes the actual API fallback", async () => {

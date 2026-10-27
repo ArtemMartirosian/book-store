@@ -99,11 +99,13 @@ export class CatalogService {
       sourcePriceAmd,
       supplierSku: _supplierSku,
       sourceUrl: _sourceUrl,
+      publicSlug: _publicSlug,
       localizations,
       ...publicFields
     } = book;
     return {
       ...publicFields,
+      slug: book.publicSlug ?? book.slug,
       ...(selected
         ? {
             title: selected.title,

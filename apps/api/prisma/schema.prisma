@@ -160,6 +160,7 @@ model CatalogBook {
   id              String                   @id @db.Uuid
   supplierSku     String                   @unique @map("supplier_sku") @db.VarChar(128)
   slug            String                   @unique @db.VarChar(180)
+  publicSlug      String?                  @unique @map("public_slug") @db.VarChar(180)
   title           String                   @db.VarChar(500)
   author          String                   @db.VarChar(500)
   description     String                   @db.Text

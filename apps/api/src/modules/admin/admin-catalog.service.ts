@@ -76,6 +76,7 @@ export class AdminCatalogService {
           id: true,
           supplierSku: true,
           slug: true,
+          publicSlug: true,
           title: true,
           author: true,
           productCode: true,
@@ -148,6 +149,13 @@ export class AdminCatalogService {
           include: { translations: true },
         });
         if (!book) throw new NotFoundException('Book not found');
+        if (input.slug !== undefined && input.slug !== book.slug) {
+          const reserved = await transaction.catalogBook.findFirst({
+            where: { id: { not: id }, publicSlug: input.slug },
+            select: { id: true },
+          });
+          if (reserved) throw new ConflictException('Slug is reserved by another book page');
+        }
 
         const baseData: Prisma.CatalogBookUpdateInput = {
           manualEdited: input.manualEdited ?? true,
@@ -194,8 +202,15 @@ export class AdminCatalogService {
         }
 
         await transaction.catalogBook.update({ where: { id }, data: baseData });
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException({
+          code: 'CATALOG_WRITE_CONFLICT',
+          message: 'The catalog changed concurrently. Reload the book and retry saving.',
+          retryable: true,
+        });
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Slug or localized source URL is already in use');
       }

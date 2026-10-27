@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { BookDetailsPage } from "../../../components/storefront/BookDetailsPage";
 import { StorefrontShell } from "../../../components/storefront/StorefrontShell";
-import { isLocale } from "../../../components/storefront/i18n";
+import { isLocale, localized, type Locale } from "../../../components/storefront/i18n";
 import { localeMeta } from "../../../components/storefront/locale-meta";
 import { pageMetadata } from "../../../components/storefront/locale-seo";
 import { brandName } from "../../../lib/brand";
@@ -12,14 +12,19 @@ import { getServerBookBySlug, getServerCatalog } from "../../../lib/server-catal
 
 export const dynamic = "force-dynamic";
 // One snapshot per server request for metadata and HTML, never a persistent price cache.
-const getBookForRequest = cache(getServerBookBySlug);
+const getBookForRequest = cache(async (slug: string, locale: Locale) => {
+  const book = await getServerBookBySlug(slug, locale);
+  if (!book) notFound();
+  // Legacy supplier identifiers remain resolvable but are never the public URL.
+  if (slug !== book.slug) permanentRedirect(localized(locale, "/books/" + encodeURIComponent(book.slug)));
+  return book;
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
   // A timeout/5xx must remain an error, never a false "book not found" response.
   const book = await getBookForRequest(slug, locale);
-  if (!book) notFound();
   const localeSeo = bookLocaleSeo(book, locale);
   const fallback = {
     hy: `Գրքի նկարագրությունը, գինը և պատվիրելու հնարավորությունը ${brandName(locale)} գրախանութում։ Առաքում Երևանում։`,
@@ -41,7 +46,6 @@ export default async function LocalizedBook({ params }: { params: Promise<{ loca
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
   const book = await getBookForRequest(slug, locale);
-  if (!book) notFound();
   const related = await getServerCatalog({ locale, available: true, sort: "new", limit: 5 })
     .then((result) => result.items.filter((item) => item.id !== book.id).slice(0, 4))
     .catch(() => []);

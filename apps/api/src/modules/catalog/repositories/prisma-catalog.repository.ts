@@ -4,6 +4,7 @@ import {
   type CatalogBookTranslation as PersistedTranslation,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { allocatePublicBookSlug, retryableCatalogSlugError } from '../public-book-slug-allocation';
 import { PrismaService } from '../../../database/prisma.service';
 import type {
   BookAttribute,
@@ -139,6 +140,7 @@ const hydrateBook = (row: PersistedBook): BookRecord => ({
   id: row.id,
   supplierSku: row.supplierSku,
   slug: row.slug,
+  publicSlug: row.publicSlug,
   title: row.title,
   author: row.author,
   description: row.description,
@@ -354,14 +356,18 @@ export class PrismaCatalogRepository implements CatalogRepository {
   }
 
   async findBySlug(slug: string): Promise<BookRecord | null> {
-    const row = await this.prisma.catalogBook.findUnique({
-      where: { slug },
-      include: {
-        translations: true,
-        categories: {
-          include: { category: { include: { translations: true, parent: true } } },
-        },
+    const include = {
+      translations: true,
+      categories: {
+        include: { category: { include: { translations: true, parent: true } } },
       },
+    } as const;
+    const row = await this.prisma.catalogBook.findUnique({
+      where: { publicSlug: slug },
+      include,
+    }) ?? await this.prisma.catalogBook.findUnique({
+      where: { slug },
+      include,
     });
     return row ? hydrateBook(row) : null;
   }
@@ -567,12 +573,27 @@ export class PrismaCatalogRepository implements CatalogRepository {
   }
 
   async upsert(book: BookRecord, options: { force?: boolean } = {}): Promise<void> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await this.upsertOnce(book, options);
+        return;
+      } catch (error) {
+        if (attempt >= 4 || !retryableCatalogSlugError(error)) throw error;
+      }
+    }
+  }
+
+  private async upsertOnce(book: BookRecord, options: { force?: boolean }): Promise<void> {
     const data = bookData(book);
     const localization = book.localizations?.[book.locale];
     await this.prisma.$transaction(async (transaction) => {
       const existing = await transaction.catalogBook.findUnique({
         where: { supplierSku: book.supplierSku },
         select: {
+          id: true,
+          publicSlug: true,
+          slug: true,
+          title: true,
           imageUrls: true,
           manualEdited: true,
           translations: {
@@ -589,17 +610,26 @@ export class PrismaCatalogRepository implements CatalogRepository {
         : [...new Set([...(existing?.imageUrls ?? []), ...data.imageUrls])];
       data.coverImageUrl = data.imageUrls[0] ?? data.coverImageUrl;
       const { id: _id, ...update } = data;
+      // Only assign once. Later translations, renamed titles and force refreshes
+      // must never change a published URL or the supplier slug used by the parser.
+      const publicSlug = existing?.publicSlug ?? await allocatePublicBookSlug(
+        transaction,
+        /^books-am-\d+$/u.test(existing?.slug ?? book.slug) ? (existing?.title ?? book.title) : (existing?.slug ?? book.slug),
+        existing?.id ?? book.id,
+      );
+      const slugAssignment = existing?.publicSlug ? {} : { publicSlug };
       const persisted = await transaction.catalogBook.upsert({
         where: { supplierSku: book.supplierSku },
-        create: data,
+        create: { ...data, publicSlug },
         update:
           editorialProtected && !options.force
             ? {
                 sourcePriceAmd: data.sourcePriceAmd,
                 availability: data.availability,
                 observedAt: data.observedAt,
+                ...slugAssignment,
               }
-            : { ...update, ...(options.force ? { manualEdited: false } : {}) },
+            : { ...update, ...slugAssignment, ...(options.force ? { manualEdited: false } : {}) },
         select: { id: true, manualEdited: true },
       });
       if (!localization || (editorialProtected && !options.force)) return;
@@ -614,6 +644,6 @@ export class PrismaCatalogRepository implements CatalogRepository {
           ...(options.force ? { manualEdited: false } : {}),
         },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 }

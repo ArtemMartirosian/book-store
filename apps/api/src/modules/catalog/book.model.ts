@@ -67,6 +67,8 @@ export interface BookRecord {
   id: string;
   supplierSku: string;
   slug: string;
+  /** Stable customer URL; slug remains the private supplier key/legacy alias. */
+  publicSlug?: string | null;
   title: string;
   author: string;
   description: string;
@@ -98,7 +100,7 @@ export interface BookRecord {
 export interface PublicBook
   extends Omit<
     BookRecord,
-    'sourcePriceAmd' | 'supplierSku' | 'sourceUrl' | 'localizations' | 'categories'
+    'sourcePriceAmd' | 'supplierSku' | 'sourceUrl' | 'localizations' | 'categories' | 'publicSlug'
   > {
   productCode: string;
   imageUrls: string[];

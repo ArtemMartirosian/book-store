@@ -55,6 +55,8 @@ const harness = (manualEdited: boolean, translationManualEdited = false) => {
   const transaction = {
     catalogBook: {
       findUnique: jest.fn().mockResolvedValue({
+        id: parsedBook().id,
+        publicSlug: 'supplier-title',
         imageUrls: ['https://www.books.am/manual-cover.jpg'],
         manualEdited,
         translations: [{ manualEdited: translationManualEdited }],
