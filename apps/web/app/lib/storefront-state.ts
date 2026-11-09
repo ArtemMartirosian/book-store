@@ -96,6 +96,12 @@ export function catalogPageWindow(page: number, total: number): Array<number | "
   ];
 }
 
+// Alpine Node and Chromium ship different Armenian locale data. A stable
+// grouping separator keeps the server-rendered count identical on hydration.
+export function formatCatalogCount(total: number, locale: CatalogLanguage): string {
+  return String(total).replace(/\B(?=(\d{3})+(?!\d))/gu, locale === "en" ? "," : "\u00a0");
+}
+
 export function mergeSearchPage<T extends { id: string }>(current: T[], incoming: T[], offset: number, total: number) {
   const byId = new Map((offset === 0 ? [] : current).map((item) => [item.id, item]));
   incoming.forEach((item) => byId.set(item.id, item));

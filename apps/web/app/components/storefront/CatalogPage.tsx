@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { catalogPageWindow, catalogStateSearch, defaultCatalogState, parseCatalogState, updateCatalogSearch, type CatalogState } from "../../lib/storefront-state";
+import { catalogPageWindow, catalogStateSearch, defaultCatalogState, formatCatalogCount, parseCatalogState, updateCatalogSearch, type CatalogState } from "../../lib/storefront-state";
 import {
   catalogQueryString,
   isCatalogCategoriesResponse,
@@ -180,37 +180,36 @@ export function CatalogPage({ initialData, initialCategories = [], initialSearch
   return (
     <div className="min-h-[70vh] bg-[#f7f8fc] text-[#18192d]">
       <section className="border-b border-[#e3e5ef]">
-        <div className={cx(container, "grid grid-cols-[minmax(0,1fr)_minmax(300px,390px)] items-end gap-12 pb-8 pt-12 max-lg:grid-cols-1 max-lg:gap-6 max-sm:pb-6 max-sm:pt-8")}>
+        <div className={cx(container, "grid grid-cols-[minmax(0,1fr)_minmax(300px,390px)] items-end gap-6 pb-5 pt-7 max-lg:grid-cols-1 max-lg:gap-3 max-sm:pb-3 max-sm:pt-5")}>
           <div>
-            <p className="text-xs font-medium uppercase tracking-[.15em] text-[#727789]">{t.overline}</p>
-            <h1 className="font-display mt-4 break-words text-[clamp(2.1rem,4.2vw,3.8rem)] font-bold leading-[1.1] tracking-[-.04em]">{selectedCategory?.name ?? <>{t.title}<br /><em className="font-bold not-italic text-[#6258ff]">{t.accent}</em></>}</h1>
-            <p className="mt-5 max-w-[570px] text-sm leading-6 text-[#727789]">{t.intro}</p>
+            <h1 className="font-display break-words text-[clamp(1.6rem,3vw,2.9rem)] font-bold leading-[1.12] tracking-[-.035em]">{selectedCategory?.name ?? dictionary[locale].header.catalog}</h1>
+            <p className="mt-2 hidden max-w-[570px] text-sm leading-6 text-[#727789] sm:block">{t.intro}</p>
           </div>
           <div>
-            <form className="flex min-h-14 items-center gap-3 rounded-xl border border-[#e3e5ef] bg-white/70 px-4 transition focus-within:border-[#6258ff] focus-within:bg-white" onSubmit={(event) => event.preventDefault()}>
+            <form className="flex min-h-12 items-center gap-3 rounded-xl border border-[#e3e5ef] bg-white/70 px-4 transition focus-within:border-[#6258ff] focus-within:bg-white" onSubmit={(event) => event.preventDefault()}>
               <svg className="size-5 shrink-0 text-[#6258ff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
               <CatalogSearchInput query={query} onChange={changeQuery} label={t.search} />
               {query && <button className="grid size-11 shrink-0 place-items-center rounded-full text-xl text-[#727789] transition hover:bg-[#f0eeff]" type="button" onClick={() => changeQuery("")} aria-label={t.clearSearch}>×</button>}
             </form>
-            <p className="mt-3 text-xs leading-5 text-[#727789]">{t.fallback}</p>
+            <p className="mt-2 hidden text-xs leading-5 text-[#727789] sm:block">{t.fallback}</p>
           </div>
         </div>
-        {trail.length > 0 || childCategories.length > 0 ? <nav className={cx(container, "pb-5")} aria-label={status.sections} data-catalog-sections>
+        {trail.length > 0 || childCategories.length > 0 ? <nav className={cx(container, "pb-3 sm:pb-4")} aria-label={status.sections} data-catalog-sections>
           {trail.length > 0 ? <ol className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#62687d]">
             <li><Link prefetch={false} className="inline-flex min-h-9 items-center hover:text-[#6258ff]" href={catalogHref({ category: allValue })}>{status.allSections}</Link></li>
             {trail.map((item) => <li className="flex items-center gap-2" key={item.supplierCategoryId}><span aria-hidden="true">›</span>{item.supplierCategoryId === category ? <span className="font-semibold text-[#18192d]" aria-current="page">{item.name}</span> : <Link prefetch={false} className="inline-flex min-h-9 items-center hover:text-[#6258ff]" href={catalogHref({ category: item.supplierCategoryId })}>{item.name}</Link>}</li>)}
           </ol> : null}
           {childCategories.length > 0 ? <ul className="book-rail flex items-stretch gap-2 overflow-x-auto pb-1">{childCategories.map((item) => <li className="max-w-[16rem] shrink-0" key={item.supplierCategoryId}><Link prefetch={false} className="flex min-h-11 items-center rounded-xl border border-[#e3e5ef] bg-white px-4 py-2 text-sm font-semibold text-[#5146b9] transition hover:border-[#6258ff]" href={catalogHref({ category: item.supplierCategoryId })}>{item.name}</Link></li>)}</ul> : null}
         </nav> : null}
-        <div className={cx(container, "book-rail flex items-center gap-2 overflow-x-auto pb-7")}>
+        <div className={cx(container, "book-rail flex items-center gap-2 overflow-x-auto pb-4 sm:pb-5")}>
           <button className={cx("min-h-11 shrink-0 rounded-full border px-4 text-sm transition", language === allValue ? "border-[#6258ff] bg-[#6258ff] text-white" : "border-[#e3e5ef] bg-transparent text-[#62687d] hover:border-[#6258ff]")} type="button" onClick={() => changeLanguage(allValue)}>{t.allLanguages}</button>
           {catalogLanguageDefinitions.map((item) => <button className={cx("min-h-11 shrink-0 rounded-full border px-4 text-sm transition", language === item.slug ? "border-[#6258ff] bg-[#6258ff] text-white" : "border-[#e3e5ef] bg-transparent text-[#62687d] hover:border-[#6258ff]")} type="button" onClick={() => changeLanguage(item.slug)} key={item.slug}>{languageLabel(item.slug)}</button>)}
         </div>
       </section>
 
-      <div className={cx(container, "grid min-h-[88px] grid-cols-[230px_1fr_auto] items-center gap-10 max-md:grid-cols-[1fr_auto] max-md:gap-3")}>
+      <div className={cx(container, "grid min-h-18 grid-cols-[230px_1fr_auto] items-center gap-10 max-md:grid-cols-[1fr_auto] max-md:gap-x-3 max-md:gap-y-2 max-md:pt-3")}>
         <button className="hidden min-h-11 items-center gap-2 rounded-xl border border-[#e3e5ef] px-4 text-sm max-md:flex" onClick={() => setFiltersOpen(true)} type="button"><svg className="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/><path d="M7 3v4M13 8v4M8 13v4"/></svg>{t.filters}{activeFilters.length > 0 && <b className="grid size-5 place-items-center rounded-full bg-[#6258ff] text-xs font-medium text-white">{activeFilters.length}</b>}</button>
-        <p className="col-start-2 text-sm text-[#727789] max-md:col-span-2 max-md:col-start-1 max-md:row-start-2 max-md:pb-3" data-catalog-count><strong className="mr-1.5 font-medium text-[#18192d]">{new Intl.NumberFormat(locale).format(total)}</strong>{total === 1 ? t.countOne : t.countMany}</p>
+        <p className="col-start-2 text-sm text-[#727789] max-md:col-span-2 max-md:col-start-1 max-md:row-start-2 max-md:pb-2" data-catalog-count><strong className="mr-1.5 font-medium text-[#18192d]">{formatCatalogCount(total, locale)}</strong>{total === 1 ? t.countOne : t.countMany}</p>
         <label className="col-start-3 flex items-center text-sm text-[#727789] max-md:col-start-2"><span className="max-sm:sr-only">{t.sort}</span><select className="ml-3 min-h-11 max-w-[210px] rounded-xl border border-[#e3e5ef] bg-[#f7f8fc] px-3 text-sm text-[#18192d] outline-none focus:border-[#6258ff] max-md:ml-0 max-sm:max-w-[180px]" value={sort} onChange={(event) => changeSort(event.target.value as CatalogSort)}><option value="popular">{facets.recommendation}</option><option value="new">{facets.updated}</option><option value="price-asc">{t.cheaper}</option><option value="price-desc">{t.expensive}</option><option value="title">A–Z</option></select></label>
       </div>
 

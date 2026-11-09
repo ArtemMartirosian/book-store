@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const source = await readFile(new URL("../app/lib/storefront-state.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-const { defaultCatalogState, parseCatalogState, catalogStateSearch, updateCatalogSearch, catalogPageWindow, mergeSearchPage, createLatestRequestGate, homeCatalogResult } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputText).toString("base64"));
+const { defaultCatalogState, parseCatalogState, catalogStateSearch, updateCatalogSearch, catalogPageWindow, formatCatalogCount, mergeSearchPage, createLatestRequestGate, homeCatalogResult } = await import("data:text/javascript;base64," + Buffer.from(compiled.outputText).toString("base64"));
 
 test("catalog URL round-trips every supported filter and Unicode search", () => {
   const state = { ...defaultCatalogState, query: " Հայերեն & книга ", author: "Հեղինակ", publisher: "Zangak", series: "Classics", minPrice: 0, maxPrice: 6500, hasCover: true, isNew: false, language: "hy", category: "7481", sort: "price-asc", availableOnly: false, page: 12 };
@@ -37,6 +37,14 @@ test("pagination exposes both ends of a large catalog with no duplicate links", 
   assert.deepEqual(catalogPageWindow(1, 879), [1, 2, 3, 4, "end-gap", 879]);
   assert.deepEqual(catalogPageWindow(400, 879), [1, "start-gap", 399, 400, 401, "end-gap", 879]);
   assert.deepEqual(catalogPageWindow(879, 879), [1, "start-gap", 876, 877, 878, 879]);
+});
+
+test("catalog counts group identically on server and client, without depending on ICU locale data", () => {
+  assert.equal(formatCatalogCount(21087, "hy"), "21\u00a0087");
+  assert.equal(formatCatalogCount(21087, "ru"), "21\u00a0087");
+  assert.equal(formatCatalogCount(21087, "en"), "21,087");
+  assert.equal(formatCatalogCount(1002003, "en"), "1,002,003");
+  assert.equal(formatCatalogCount(42, "hy"), "42");
 });
 
 test("filter edits reset pagination, while page changes preserve all filters", () => {
