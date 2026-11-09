@@ -1,4 +1,5 @@
 import type { BookRecord, CatalogCategoryRecord, StoreLocale } from '../book.model';
+import type { CatalogShowcase, ShowcaseBookRecord } from '../catalog-showcase';
 
 export const CATALOG_REPOSITORY = Symbol('CATALOG_REPOSITORY');
 
@@ -54,6 +55,7 @@ export interface CatalogCategorySnapshot {
 
 export interface CatalogRepository {
   search(input: CatalogSearch): Promise<CatalogSearchResult>;
+  showcase(locale: StoreLocale): Promise<CatalogShowcase<ShowcaseBookRecord, CatalogCategoryRecord>>;
   findById(id: string): Promise<BookRecord | null>;
   findBySlug(slug: string): Promise<BookRecord | null>;
   findByIds(ids: string[]): Promise<BookRecord[]>;

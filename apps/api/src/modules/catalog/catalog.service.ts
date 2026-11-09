@@ -7,6 +7,7 @@ import type {
   PublicBookCategory,
   StoreLocale,
 } from './book.model';
+import type { PublicCatalogShowcase, ShowcaseBookRecord } from './catalog-showcase';
 import {
   CATALOG_REPOSITORY,
   type CatalogRepository,
@@ -61,6 +62,24 @@ export class CatalogService {
 
   async getPublicBook(id: string, locale: StoreLocale = 'hy'): Promise<PublicBook> {
     return this.toPublicBook(await this.getBookRecord(id), locale);
+  }
+
+  async getShowcase(locale: StoreLocale): Promise<PublicCatalogShowcase> {
+    const result = await this.repository.showcase(locale);
+    const toCard = ({ sourcePriceAmd, ...card }: ShowcaseBookRecord) => ({
+      ...card,
+      price: { amount: this.pricing.customerUnitPrice(sourcePriceAmd), currency: 'AMD' as const },
+    });
+    return {
+      books: result.books.map(toCard),
+      newBooks: result.newBooks.map(toCard),
+      affordableBooks: result.affordableBooks.map(toCard),
+      categories: result.categories.map((category) => this.toPublicCategory(category, locale)),
+      categoryPreviews: result.categoryPreviews.map(({ categoryId, books }) => ({
+        categoryId,
+        books: books.map(toCard),
+      })),
+    };
   }
 
   async getPublicBookBySlug(slug: string, locale: StoreLocale = 'hy'): Promise<PublicBook> {

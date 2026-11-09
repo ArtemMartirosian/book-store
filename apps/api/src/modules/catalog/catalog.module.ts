@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PricingModule } from '../pricing/pricing.module';
 import { CatalogController } from './catalog.controller';
 import { CatalogCategoriesController } from './catalog-categories.controller';
+import { CatalogShowcaseController } from './catalog-showcase.controller';
 import { CatalogService } from './catalog.service';
 import { CATALOG_REPOSITORY } from './repositories/catalog.repository';
 import { InMemoryCatalogRepository } from './repositories/in-memory-catalog.repository';
@@ -11,7 +12,7 @@ import { PrismaCatalogRepository } from './repositories/prisma-catalog.repositor
 
 @Module({
   imports: [PricingModule],
-  controllers: [CatalogController, CatalogCategoriesController],
+  controllers: [CatalogController, CatalogCategoriesController, CatalogShowcaseController],
   providers: [
     CatalogService,
     {

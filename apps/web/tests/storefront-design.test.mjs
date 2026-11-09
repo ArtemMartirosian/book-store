@@ -233,6 +233,17 @@ test("quantity starts at one with descriptive localized controls and unavailable
   }
 });
 
+test("an edition with no verified description opens its actual specifications without an empty description tab", () => {
+  for (const locale of locales) {
+    const { component, dictionary } = components(locale);
+    const html = render(component("BookDetailsPage"), { book: { ...edition, description: "  " }, related: [] });
+    assert.doesNotMatch(html, /book-panel-description|role="tablist"/u);
+    assert.ok(!html.includes(dictionary.product.fallback));
+    assert.ok(!tagWith(html, "div", "id", "book-panel-specifications").includes('hidden=""'));
+    assert.ok(html.includes(edition.isbn));
+  }
+});
+
 test("shell navigation uses actual localized routes and bounded search inputs", () => {
   for (const locale of locales) {
     const { component } = components(locale);

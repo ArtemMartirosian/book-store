@@ -8,6 +8,27 @@ import type {
 
 type JsonObject = Record<string, unknown>;
 
+const DESCRIPTION_SELECTORS = [
+  '#description .product.attribute.inner_description',
+  '.product.attribute.inner_description',
+  '.product.attribute.description',
+  '#description.tab_block.description_tab[data-role="content"]',
+  '.product.info.detailed #description[data-role="content"]',
+  '.product.info.detailed #description.data.item.content',
+];
+
+const descriptionKey = (text: string): string =>
+  text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+const DESCRIPTION_PLACEHOLDERS = new Set([
+  'Description', 'About the book', 'No description', 'No description available',
+  'No description provided', 'Description unavailable', 'Description coming soon', 'N/A',
+  'Описание', 'О книге', 'Описание отсутствует', 'Нет описания', 'Описание не добавлено',
+  'Описание пока отсутствует', 'Нет информации', 'Описание недоступно',
+  'Նկարագրություն', 'Գրքի մասին', 'Նկարագրություն չկա',
+  'Նկարագրությունը բացակայում է', 'Նկարագրությունը հասանելի չէ',
+].map(descriptionKey));
+
 @Injectable()
 export class BooksHtmlParserService {
   parse(html: string, sourceUrl: string, observedAt = new Date().toISOString()): ParsedBookSnapshot {
@@ -15,7 +36,6 @@ export class BooksHtmlParserService {
     const product = this.findProductJsonLd($);
     const offer = this.findOffer(product);
     const attributes = this.readAttributes($);
-    const detailSections = this.readDetailSections($, attributes.all);
     const warnings: string[] = [];
     const sourceCurrency = this.text(offer?.priceCurrency);
     if (sourceCurrency && sourceCurrency.toLocaleUpperCase() !== 'AMD') {
@@ -61,6 +81,9 @@ export class BooksHtmlParserService {
     const canonicalCandidate = $('link[rel="canonical"]').first().attr('href');
     const canonicalUrl = canonicalCandidate ? new URL(canonicalCandidate, sourceUrl).toString() : sourceUrl;
     const imageUrls = this.imageUrls($, product?.image, sourceUrl);
+    const domDescription = this.readDomDescription($, title);
+    const description = domDescription ?? this.descriptionText(product?.description, title);
+    const detailSections = this.readDetailSections($, attributes.all, domDescription);
 
     return {
       parserVersion: 'books-html-v3',
@@ -74,10 +97,7 @@ export class BooksHtmlParserService {
         attributes.author ??
         this.cleanText($('.product_brand').first().text()) ??
         null,
-      description:
-        this.plainText(product?.description) ??
-        this.cleanText($('.product.attribute.description').first().text()) ??
-        null,
+      description,
       isbn: this.text(product?.isbn) ?? attributes.isbn ?? null,
       publisher: this.namedEntity(product?.publisher) ?? attributes.publisher ?? null,
       language: attributes.language ?? $('html').attr('lang')?.split('-')[0] ?? null,
@@ -200,6 +220,7 @@ export class BooksHtmlParserService {
   private readDetailSections(
     $: CheerioAPI,
     allAttributes: ParsedBookAttribute[],
+    description: string | null,
   ): ParsedBookDetailSection[] {
     const sections: ParsedBookDetailSection[] = [];
     const seen = new Set<string>();
@@ -221,6 +242,7 @@ export class BooksHtmlParserService {
       (_index, element) => {
         const content = $(element);
         const code = this.cleanText(content.attr('id') ?? content.attr('data-section'));
+        if (code === 'description' || content.is(DESCRIPTION_SELECTORS.join(', '))) return;
         const labelledBy = this.cleanText(content.attr('aria-labelledby'));
         let title = labelledBy
           ? this.cleanText(
@@ -244,7 +266,6 @@ export class BooksHtmlParserService {
       },
     );
 
-    const description = this.cleanText($('.product.attribute.description').first().text());
     add('description', this.sectionTitle($, 'description') ?? 'Description', description);
     if (allAttributes.length > 0) {
       add(
@@ -278,7 +299,7 @@ export class BooksHtmlParserService {
 
   private sectionTitle($: CheerioAPI, code: string): string | null {
     return this.cleanText(
-      $(`a[href="#${code}"], [data-role="collapsible"][aria-controls="${code}"]`).first().text(),
+      $(`a[href="#${code}"], [data-role="collapsible"][aria-controls="${code}"], #tab-label-${code}-title, #tab-label-${code}`).first().text(),
     );
   }
 
@@ -402,9 +423,43 @@ export class BooksHtmlParserService {
     return typeof value === 'string' ? this.cleanText(value) : null;
   }
 
-  private plainText(value: unknown): string | null {
+  private readDomDescription($: CheerioAPI, title: string): string | null {
+    // The current Books.am tab uses inner_description and an older theme uses
+    // description. Read only designated product description containers.
+    for (const selector of DESCRIPTION_SELECTORS) {
+      for (const element of $(selector).toArray()) {
+        const description = this.descriptionText($(element).html(), title);
+        if (description) return description;
+      }
+    }
+    return null;
+  }
+
+  private descriptionText(value: unknown, title: string): string | null {
     if (typeof value !== 'string') return null;
-    return this.cleanText(load(value).text());
+    const fragment = load(value, {}, false);
+    const root = fragment.root();
+    const markup = root.children().length > 0;
+    root.find('script, style, noscript, template, svg, iframe, form, button, input, [hidden], [aria-hidden="true"], .details_info, .additional-attributes').remove();
+
+    // .text() alone glues adjacent paragraphs together; retain readable plain
+    // text without returning any source markup or inactive script content.
+    root.find('br').replaceWith('\u001f');
+    root.find('p, div, li, blockquote, section, h1, h2, h3, h4, h5, h6')
+      .before('\u001e').after('\u001e');
+    const titleKey = descriptionKey(title);
+    const paragraphs = root.text()
+      .split(markup ? /\u001e/u : /(?:\r?\n)[ \t]*(?:\r?\n)+/u)
+      .map((paragraph) => paragraph
+        .split(markup ? /\u001f/u : /\r?\n/u)
+        .map((line) => this.cleanText(line))
+        .filter((line): line is string => line !== null)
+        .join('\n'))
+      .filter((paragraph) => {
+        const key = descriptionKey(paragraph);
+        return key.length > 0 && key !== titleKey && !DESCRIPTION_PLACEHOLDERS.has(key);
+      });
+    return paragraphs.length > 0 ? paragraphs.join('\n\n') : null;
   }
 
   private cleanText(value: string | undefined): string | null {

@@ -27,8 +27,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const book = await getBookForRequest(slug, locale);
   const localeSeo = bookLocaleSeo(book, locale);
   const fallback = {
-    hy: `Գրքի նկարագրությունը, գինը և պատվիրելու հնարավորությունը ${brandName(locale)} գրախանութում։ Առաքում Երևանում։`,
-    ru: `Описание, характеристики и цена книги в ${brandName(locale)}. Заказ с доставкой по Еревану.`,
+    hy: `Հրատարակության տվյալները և գինը ${brandName(locale)} գրախանութում։ Առաքում Երևանում։`,
+    ru: `Характеристики и цена книги в ${brandName(locale)}. Заказ с доставкой по Еревану.`,
     en: `Book details and price at ${brandName(locale)}. Order with delivery across Yerevan.`,
   }[locale];
   return pageMetadata(locale, {

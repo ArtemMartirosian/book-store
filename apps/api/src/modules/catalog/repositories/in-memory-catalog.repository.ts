@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { publicBookSlugCandidate } from '../public-book-slug';
-import type { BookRecord, CatalogCategoryRecord } from '../book.model';
+import type { BookRecord, CatalogCategoryRecord, StoreLocale } from '../book.model';
 import type {
   CatalogCategorySnapshot,
   CatalogRepository,
@@ -10,6 +10,13 @@ import type {
 } from './catalog.repository';
 import { catalogCategorySubtree } from './category-subtree';
 import { hasRealBookCover } from './real-cover';
+import {
+  projectShowcaseBook,
+  SHOWCASE_LIMITS,
+  showcaseDepartments,
+  type CatalogShowcase,
+  type ShowcaseBookRecord,
+} from '../catalog-showcase';
 
 const FIXTURE_BOOKS: BookRecord[] = [
   {
@@ -162,6 +169,36 @@ const FIXTURE_BOOKS: BookRecord[] = [
 export class InMemoryCatalogRepository implements CatalogRepository {
   private readonly books = new Map(FIXTURE_BOOKS.map((book) => [book.id, structuredClone(book)]));
   private readonly categories = new Map<string, CatalogCategoryRecord>();
+
+  async showcase(locale: StoreLocale): Promise<CatalogShowcase<ShowcaseBookRecord, CatalogCategoryRecord>> {
+    const categories = await this.listCategories();
+    const tree = categories.map(({ supplierCategoryId: id, parentSupplierCategoryId: parentId }) => ({ id, parentId }));
+    const books = [...this.books.values()].filter(({ availability }) => availability === 'PRELIMINARY_AVAILABLE')
+      .map((book) => projectShowcaseBook({
+        ...book,
+        categoryIds: (book.categories ?? []).map(({ supplierCategoryId }) => supplierCategoryId),
+      }, locale));
+    const coverFirst = (left: ShowcaseBookRecord, right: ShowcaseBookRecord) =>
+      Number(Boolean(right.coverImageUrl)) - Number(Boolean(left.coverImageUrl));
+    const recent = books.sort((left, right) =>
+      coverFirst(left, right) || Date.parse(right.observedAt) - Date.parse(left.observedAt) || right.id.localeCompare(left.id),
+    );
+    return {
+      books: recent.slice(0, SHOWCASE_LIMITS.recent),
+      newBooks: recent.filter(({ isNew }) => isNew === true).slice(0, SHOWCASE_LIMITS.new),
+      affordableBooks: [...recent].sort((left, right) =>
+        coverFirst(left, right) || left.sourcePriceAmd - right.sourcePriceAmd || left.id.localeCompare(right.id),
+      ).slice(0, SHOWCASE_LIMITS.affordable),
+      categories,
+      categoryPreviews: showcaseDepartments(categories).map(({ supplierCategoryId }) => {
+        const scope = catalogCategorySubtree(supplierCategoryId, tree);
+        return {
+          categoryId: supplierCategoryId,
+          books: recent.filter(({ categoryIds }) => categoryIds.some((id) => scope.has(id))).slice(0, SHOWCASE_LIMITS.perDepartment),
+        };
+      }),
+    };
+  }
 
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim().toLocaleLowerCase();

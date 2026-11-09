@@ -18,7 +18,7 @@ function HeartIcon({ filled = false }: { filled?: boolean }) {
 export function BookDetailsPage({ book, related }: { book: Book; related: Book[] }) {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
-  const [activeTab, setActiveTab] = useState<"description" | "specifications">("description");
+  const [selectedTab, setActiveTab] = useState<"description" | "specifications">("description");
   const { addToCart, locale, toggleFavorite, isFavorite } = useStorefront();
   const favorite = isFavorite(book.id);
   const t = dictionary[locale].product;
@@ -26,14 +26,17 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
   const category = localizeBookCategory(locale, book.category);
   const language = localizeBookLanguage(locale, book.language);
   const binding = book.binding ? localizeBookBinding(locale, book.binding) : null;
-  const description = book.description.trim() || t.fallback;
+  const description = book.description.trim();
+  const activeTab = description ? selectedTab : "specifications";
   const publisherLabel = { hy: "Հրատարակիչ", ru: "Издательство", en: "Publisher" }[locale];
   const detailLabels = {
     hy: { productCode: "Ապրանքի կոդ", weight: "Քաշ", barcode: "Շտրիխ կոդ", newness: "Նորույթ", yes: "Այո", no: "Ոչ", format: "Չափս", series: "Շարք", images: "Նկարներ", sourceSections: "Ավելին հրատարակության մասին" },
     ru: { productCode: "Код товара", weight: "Вес", barcode: "Штрих-код", newness: "Новинка", yes: "Да", no: "Нет", format: "Формат", series: "Серия", images: "Изображения", sourceSections: "Дополнительно об издании" },
     en: { productCode: "Product code", weight: "Weight", barcode: "Barcode", newness: "New release", yes: "Yes", no: "No", format: "Format", series: "Series", images: "Images", sourceSections: "More about this edition" },
   }[locale];
-  const detailSections = (book.detailSections ?? []).map((section) => localizeBookDetailSection(locale, section));
+  const detailSections = (book.detailSections ?? [])
+    .filter((section) => !(description && section.code === "description" && !section.attributes.length && section.content.trim() === description))
+    .map((section) => localizeBookDetailSection(locale, section));
   const controls = {
     hy: { description: "Նկարագրություն", specifications: "Բնութագրեր", decrease: "Նվազեցնել քանակը", increase: "Ավելացնել քանակը", quantity: "Քանակ", more: "Կարդալ ավելին" },
     ru: { description: "Описание", specifications: "Характеристики", decrease: "Уменьшить количество", increase: "Увеличить количество", quantity: "Количество", more: "Читать описание" },
@@ -86,8 +89,8 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[var(--muted)]">{chips.map((item, index) => <span className="flex items-center gap-3" key={item}>{index > 0 ? <i className="size-[3px] rounded-full bg-[var(--line)]" aria-hidden="true" /> : null}{item}</span>)}</div>
           <h1 className="mb-3 mt-4 text-[clamp(1.65rem,3vw,2.65rem)] font-semibold leading-[1.2] tracking-[-.035em]">{book.title}</h1>
           {book.author ? <Link className="inline-flex min-h-11 items-center text-base text-[var(--accent)] underline-offset-4 hover:underline" href={`${localized(locale, "/catalog")}?author=${encodeURIComponent(book.author)}`}>{book.author}</Link> : null}
-          <p className="mt-4 line-clamp-3 text-sm leading-7 text-[var(--muted)]">{description}</p>
-          <a className="inline-flex min-h-11 items-center text-xs font-semibold text-[var(--accent)] hover:underline" href="#details" onClick={() => setActiveTab("description")}>{controls.more} ↓</a>
+          {description ? <p className="mt-4 line-clamp-3 text-sm leading-7 text-[var(--muted)]">{description}</p> : null}
+          <a className="inline-flex min-h-11 items-center text-xs font-semibold text-[var(--accent)] hover:underline" href="#details" onClick={() => setActiveTab(description ? "description" : "specifications")}>{description ? controls.more : controls.specifications} ↓</a>
           {binding || book.isbn ? <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[var(--muted)]">
             {binding ? <p><span>{t.binding}: </span><strong className="font-normal text-[var(--muted)]">{binding}</strong></p> : null}
             {book.isbn ? <p><span>ISBN: </span><strong className="font-normal text-[var(--muted)]">{book.isbn}</strong></p> : null}
@@ -116,7 +119,7 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
 
       <section className="scroll-mt-44 border-y border-[var(--line)] bg-white py-10 max-sm:py-8" id="details">
         <div className={container}>
-          <div className="flex gap-2 border-b border-[var(--line)]" role="tablist" aria-label={t.details}>
+          {description ? <><div className="flex gap-2 border-b border-[var(--line)]" role="tablist" aria-label={t.details}>
             {(["description", "specifications"] as const).map((tab) => <button className={cx("min-h-12 border-b-2 px-5 text-sm font-semibold transition max-sm:px-3", activeTab === tab ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]")} type="button" role="tab" id={`book-tab-${tab}`} aria-controls={`book-panel-${tab}`} aria-selected={activeTab === tab} tabIndex={activeTab === tab ? 0 : -1} onClick={() => setActiveTab(tab)} onKeyDown={(event) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
               event.preventDefault();
@@ -128,8 +131,8 @@ export function BookDetailsPage({ book, related }: { book: Book; related: Book[]
           <div className="py-7" role="tabpanel" id="book-panel-description" aria-labelledby="book-tab-description" tabIndex={0} hidden={activeTab !== "description"}>
             <h2 className="text-xl font-semibold text-[var(--ink)]">{t.about}</h2>
             <p className="mt-4 max-w-[900px] whitespace-pre-line text-[15px] leading-8 text-[var(--muted)]">{description}</p>
-          </div>
-          <div className="py-7" role="tabpanel" id="book-panel-specifications" aria-labelledby="book-tab-specifications" tabIndex={0} hidden={activeTab !== "specifications"}>
+          </div></> : null}
+          <div className="py-7" role={description ? "tabpanel" : undefined} id="book-panel-specifications" aria-labelledby={description ? "book-tab-specifications" : undefined} tabIndex={description ? 0 : undefined} hidden={activeTab !== "specifications"}>
             <h2 className="mb-4 text-xl font-semibold text-[var(--ink)]">{t.edition}</h2>
             <dl className="m-0 grid max-w-[1000px] grid-cols-2 gap-x-10 max-md:grid-cols-1">{details.map(([label, value]) => <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 border-b border-[var(--line)] py-3.5" key={label}><dt className="text-sm text-[var(--muted)]">{label}</dt><dd className="m-0 min-w-0 break-words text-right text-sm font-medium text-[var(--ink)]">{value}</dd></div>)}</dl>
           </div>

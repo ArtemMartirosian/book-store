@@ -20,6 +20,7 @@ describe('BooksHtmlParserService', () => {
     expect(result.sourcePriceAmd).toBe(3800);
     expect(result.currency).toBe('AMD');
     expect(result.preliminarilySalable).toBe(true);
+    expect(result.description).toBe('Static parser fixture; not copied supplier content.');
     expect(result.quarantineReason).toBeNull();
     expect(result.observedAt).toBe('2026-08-14T10:00:00.000Z');
   });
@@ -116,6 +117,62 @@ describe('BooksHtmlParserService', () => {
       expect.objectContaining({ code: 'description', title: 'Описание', content: 'Полное описание книги.' }),
       expect.objectContaining({ code: 'additional', title: 'Подробнее' }),
     ]));
+  });
+
+  it('extracts readable paragraphs from the observed inner_description product tab', () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Product","name":"Sample Book","sku":"BOOK-1","description":"Short preview.","offers":{"price":1800,"priceCurrency":"AMD"}}
+      </script>
+      <div class="product info detailed">
+        <ul><li data-target="all_description" id="tab-label-description">Նկարագրություն</li></ul>
+        <div class="tab_block description_tab selected" id="description" data-role="content">
+          <div class="product attribute inner_description">
+            <h2>Sample Book</h2>
+            <p>Առաջին <strong>պարբերություն</strong> &amp; օրինակ։<br>Հաջորդ տողը։</p>
+            <p>Երկրորդ պարբերություն։</p>
+            <script>tracking-only()</script><style>.example{display:none}</style>
+            <div hidden>Not displayed</div>
+          </div>
+        </div>
+      </div>`;
+    const result = parser.parse(html, 'https://www.books.am/am/catalog/product/view/id/12721/');
+    const expected = 'Առաջին պարբերություն & օրինակ։\nՀաջորդ տողը։\n\nԵրկրորդ պարբերություն։';
+    expect(result.description).toBe(expected);
+    expect(result.detailSections).toEqual([
+      { code: 'description', title: 'Նկարագրություն', content: expected, attributes: [] },
+    ]);
+  });
+
+  it.each(['Описание отсутствует.', 'Նկարագրություն չկա։', 'No description available.', 'Sample Book', '–'])(
+    'does not publish an empty or boilerplate description: %s',
+    (placeholder) => {
+      const html = `
+        <head><meta property="og:description" content="Buy books online"></head>
+        <main>
+          <h1 class="page-title">Sample Book</h1>
+          <form data-product-sku="BOOK-1"></form>
+          <span data-price-amount="1800"></span>
+          <div class="product info detailed">
+            <div class="data item content" id="description" data-role="content">
+              <div class="product attribute inner_description"><p>${placeholder}</p><script>doNotDisplay()</script></div>
+            </div>
+          </div>
+        </main>`;
+      const result = parser.parse(html, 'https://www.books.am/am/catalog/product/view/id/122337/');
+      expect(result.description).toBeNull();
+      expect(result.detailSections).toEqual([]);
+    },
+  );
+
+  it('falls back to a real structured description without exposing hidden script text', () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Product","name":"Sample Book","sku":"BOOK-1","description":"<p>First paragraph.</p><p>Second paragraph.</p><style>hidden style</style>","offers":{"price":1800,"priceCurrency":"AMD"}}
+      </script>
+      <div class="product attribute inner_description">Sample Book</div>`;
+    const result = parser.parse(html, 'https://www.books.am/en/catalog/product/view/id/1/');
+    expect(result.description).toBe('First paragraph.\n\nSecond paragraph.');
   });
 
   it.each([

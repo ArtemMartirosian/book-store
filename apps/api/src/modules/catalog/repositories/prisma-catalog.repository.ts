@@ -15,6 +15,13 @@ import type {
   CatalogCategoryRecord,
   StoreLocale,
 } from '../book.model';
+import {
+  projectShowcaseBook,
+  SHOWCASE_LIMITS,
+  showcaseDepartments,
+  type CatalogShowcase,
+  type ShowcaseBookRecord,
+} from '../catalog-showcase';
 import type {
   CatalogCategorySnapshot,
   CatalogRepository,
@@ -235,6 +242,100 @@ const translationData = (bookId: string, localization: BookLocalization) => ({
 @Injectable()
 export class PrismaCatalogRepository implements CatalogRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async showcase(locale: StoreLocale): Promise<CatalogShowcase<ShowcaseBookRecord, CatalogCategoryRecord>> {
+    const categoryRows = await this.prisma.catalogCategory.findMany({
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      include: { translations: true, parent: true },
+      take: MAX_CATEGORY_TREE_SIZE + 1,
+    });
+    if (categoryRows.length > MAX_CATEGORY_TREE_SIZE) throw new Error('CATALOG_CATEGORY_TREE_LIMIT_EXCEEDED');
+    const categories = categoryRows.map(hydrateCategory);
+    const departments = showcaseDepartments(categories);
+    const categoryTree = categoryRows.map(({ id, parentId }) => ({ id, parentId }));
+    const available = { availability: 'PRELIMINARY_AVAILABLE' };
+    const recentOrder: Prisma.CatalogBookOrderByWithRelationInput[] = [
+      { hasRealCover: 'desc' }, { observedAt: 'desc' }, { id: 'desc' },
+    ];
+    // Select only IDs for each bounded shelf, then hydrate the union once.
+    // Unlike a search, this deliberately never counts matching catalog rows.
+    const ids = (
+      take: number,
+      orderBy: Prisma.CatalogBookOrderByWithRelationInput[],
+      where: Prisma.CatalogBookWhereInput = {},
+    ) => this.prisma.catalogBook.findMany({
+      where: { ...available, ...where }, orderBy, take, select: { id: true },
+    });
+    const [recent, novelties, affordable, ...departmentRows] = await Promise.all([
+      ids(SHOWCASE_LIMITS.recent, recentOrder),
+      this.findShowcaseNoveltyIds(locale),
+      ids(SHOWCASE_LIMITS.affordable, [{ hasRealCover: 'desc' }, { sourcePriceAmd: 'asc' }, { id: 'asc' }]),
+      ...departments.map((department) => ids(SHOWCASE_LIMITS.perDepartment, recentOrder, {
+        categories: { some: { categoryId: { in: [...catalogCategorySubtree(department.id, categoryTree)] } } },
+      })),
+    ]);
+    const bookIds = [...new Set([recent, novelties, affordable, ...departmentRows].flatMap((rows) => rows.map(({ id }) => id)))];
+    const rows = bookIds.length === 0 ? [] : await this.prisma.catalogBook.findMany({
+      where: { ...available, id: { in: bookIds } },
+      select: {
+        id: true, slug: true, publicSlug: true, title: true, author: true, language: true,
+        locale: true, publisher: true, isNew: true, availability: true, coverImageUrl: true,
+        observedAt: true, sourcePriceAmd: true, imageUrls: true,
+        translations: { select: { locale: true, title: true, author: true, publisher: true, isNew: true, imageUrls: true } },
+        categories: { select: { category: { select: { supplierCategoryId: true } } } },
+      },
+    });
+    const books = new Map(rows.map(({ translations, categories: links, ...book }) => [book.id, projectShowcaseBook({
+      ...book,
+      locale: book.locale as StoreLocale,
+      language: book.language as StoreLocale,
+      availability: book.availability as BookAvailability,
+      observedAt: book.observedAt.toISOString(),
+      categoryIds: links.map(({ category }) => category.supplierCategoryId),
+      localizations: Object.fromEntries(translations.map((row) => [row.locale, { ...row, locale: row.locale as StoreLocale }])),
+    }, locale)]));
+    const shelf = (selected: { id: string }[]) => selected.flatMap(({ id }) => {
+      const book = books.get(id);
+      return book ? [book] : [];
+    });
+    return {
+      books: shelf(recent),
+      newBooks: shelf(novelties).filter((book) => book.isNew === true),
+      affordableBooks: shelf(affordable),
+      categories,
+      categoryPreviews: departments.map(({ supplierCategoryId }, index) => ({
+        categoryId: supplierCategoryId,
+        books: shelf(departmentRows[index] ?? []),
+      })),
+    };
+  }
+
+  private findShowcaseNoveltyIds(locale: StoreLocale): Promise<Array<{ id: string }>> {
+    // Start with explicitly flagged editions, not a per-book localization
+    // anti-join over the whole catalog. An empty novelty shelf stays cheap.
+    return this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      WITH candidates AS MATERIALIZED (
+        SELECT id FROM catalog_books WHERE is_new IS TRUE
+        UNION
+        SELECT book_id FROM catalog_book_translations WHERE is_new IS TRUE
+      )
+      SELECT book.id
+      FROM candidates
+      JOIN catalog_books AS book ON book.id = candidates.id
+      LEFT JOIN catalog_book_translations AS requested
+        ON requested.book_id = book.id AND requested.locale = ${locale}
+      LEFT JOIN catalog_book_translations AS original
+        ON original.book_id = book.id AND original.locale = book.locale AND requested.book_id IS NULL
+      WHERE book.availability = 'PRELIMINARY_AVAILABLE'
+        AND CASE
+          WHEN requested.book_id IS NOT NULL THEN requested.is_new
+          WHEN original.book_id IS NOT NULL THEN original.is_new
+          ELSE book.is_new
+        END IS TRUE
+      ORDER BY book.has_real_cover DESC, book.observed_at DESC, book.id DESC
+      LIMIT ${SHOWCASE_LIMITS.new}
+    `);
+  }
 
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim();
