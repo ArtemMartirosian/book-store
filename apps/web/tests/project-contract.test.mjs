@@ -57,7 +57,7 @@ test("uses the Grqaser bookstore structure with stable filters and honest data",
   assert.match(home, /var\(--accent\)/);
   assert.match(home, /#6258ff/);
   assert.match(home, /data-home-section="new-by-category"/);
-  assert.match(home, /data-home-section="discounts"/);
+  assert.doesNotMatch(home, /data-home-section="discounts"/);
   assert.match(home, /book\.isNew === true/);
   assert.doesNotMatch(home, /lumi-mesh|reading-stage/);
   assert.match(home, /featuredCategories/);

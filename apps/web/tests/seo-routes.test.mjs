@@ -194,9 +194,10 @@ test("catalog pagination is self-canonical; faceted and search variants are noin
   assert.match(String(page2.alternates.canonical), /\/ru\/catalog\?page=2$/u);
   assert.match(JSON.stringify(page2.title), /Страница 2/u);
   assert.notEqual(page2.robots?.index, false);
-  for (const query of [{ q: "test" }, { author: "Author" }, { publisher: "Publisher" }, { series: "Series" }, { minPrice: "0" }, { maxPrice: "5000" }, { hasCover: "true" }, { hasCover: "false" }, { isNew: "false" }, { isNew: "true" }, { language: "hy" }, { category: "123" }, { sort: "price-asc" }, { available: "all" }]) {
+  for (const query of [{ q: "test" }, { author: "Author" }, { publisher: "Publisher" }, { series: "Series" }, { minPrice: "0" }, { maxPrice: "5000" }, { hasCover: "true" }, { hasCover: "false" }, { isNew: "false" }, { isNew: "true" }, { language: "hy" }, { category: "123" }, { sort: "price-asc" }, { sort: "new" }, { available: "true" }]) {
     assert.equal((await get(query)).robots.index, false, JSON.stringify(query));
   }
+  assert.equal(String((await get({ available: "all" })).alternates.canonical), String(base.alternates.canonical));
   assert.match(String((await get({ page: "garbage" })).alternates.canonical), /\/ru\/catalog$/u);
 });
 
@@ -371,11 +372,35 @@ test("catalog HTML includes books and crawlable pagination links before client J
   const html = renderToStaticMarkup(page);
   assert.equal(requests[0].offset, 24);
   assert.equal(requests[0].limit, 24);
+  assert.equal(requests[0].available, undefined);
+  assert.equal(requests[0].sort, "popular");
   assert.match(html, /href="\/en\/books\/book-1"/u);
   assert.match(html, /href="\/en\/catalog\?page=3"/u);
   assert.match(html, /href="\/en\/catalog"/u);
   assert.match(html, /aria-current="page"/u);
   assert.doesNotMatch(html, /Loading books/u);
+});
+
+test("a large catalog renders the actual department, child links, total and last page without JavaScript", async () => {
+  const category = (id, name, parent) => ({ id, name, locale: "en", supplierCategoryId: id, parentSupplierCategoryId: parent });
+  const categories = [
+    category("7463", "Books", null),
+    category("7464", "Fiction", "7463"),
+    category("7472", "Armenian literature", "7464"),
+    category("7480", "Hidden accessories", "7463"),
+  ];
+  const searchParams = { category: "7464", language: "hy", page: "2" };
+  const load = modules({ locale: "en", search: new URLSearchParams(searchParams).toString(), api: {
+    getServerCategories: async () => categories,
+    getServerCatalog: async () => ({ items: [book], total: 21087, offset: 24, limit: 24 }),
+  } });
+  const page = await load("app/[locale]/catalog/page.tsx").default({ params: Promise.resolve({ locale: "en" }), searchParams: Promise.resolve(searchParams) });
+  const html = renderToStaticMarkup(page);
+  assert.match(html, /<h1[^>]*>Fiction<\/h1>/u);
+  assert.match(html, /data-catalog-count[^>]*><strong[^>]*>21,087<\/strong>/u);
+  assert.match(html, /href="\/en\/catalog\?language=hy&amp;category=7472"/u);
+  assert.match(html, /href="\/en\/catalog\?language=hy&amp;category=7464&amp;page=879"/u);
+  assert.doesNotMatch(html, /Hidden accessories/u);
 });
 
 test("out-of-range catalog pages return 404 and API outages stay errors", async () => {

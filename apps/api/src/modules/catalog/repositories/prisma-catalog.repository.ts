@@ -22,6 +22,10 @@ import type {
   CatalogSearchResult,
   LocalizedBookCandidate,
 } from './catalog.repository';
+import { catalogCategorySubtree } from './category-subtree';
+
+// One small metadata read per scoped search; never read the books to build a filter.
+const MAX_CATEGORY_TREE_SIZE = 5_000;
 
 type PersistedBook = Prisma.CatalogBookGetPayload<{
   include: {
@@ -234,6 +238,10 @@ export class PrismaCatalogRepository implements CatalogRepository {
 
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim();
+    const categoryIds = input.category ? await this.findCategoryScope(input.category) : null;
+    if (categoryIds?.length === 0) {
+      return { items: [], total: 0, offset: input.offset, limit: input.limit };
+    }
     const advancedFilters = ([
       localizedTextFilter('title', input.title, input.locale ?? 'hy'),
       localizedTextFilter('author', input.author, input.locale ?? 'hy'),
@@ -251,8 +259,8 @@ export class PrismaCatalogRepository implements CatalogRepository {
     }
     if (input.hasCover !== undefined) {
       const withCover: Prisma.CatalogBookWhereInput = { OR: [
-        { AND: [{ coverImageUrl: { not: null } }, { coverImageUrl: { not: '' } }] },
-        displayedEditionFilter(input.locale ?? 'hy', { imageUrls: { isEmpty: false } }, { imageUrls: { isEmpty: false } }),
+        { hasRealPrimaryCover: true },
+        displayedEditionFilter(input.locale ?? 'hy', { hasRealCover: true }, { hasRealCover: true }),
       ] };
       advancedFilters.push(input.hasCover ? withCover : { NOT: withCover });
     }
@@ -272,10 +280,10 @@ export class PrismaCatalogRepository implements CatalogRepository {
               : 'OUT_OF_STOCK',
           }),
       ...(input.language ? { language: input.language } : {}),
-      ...(input.category
+      ...(categoryIds
         ? {
             categories: {
-              some: { category: { supplierCategoryId: input.category } },
+              some: { categoryId: { in: categoryIds } },
             },
           }
         : {}),
@@ -318,7 +326,9 @@ export class PrismaCatalogRepository implements CatalogRepository {
           ? [{ sourcePriceAmd: 'desc' }, { id: 'desc' }]
           : input.sort === 'title'
             ? [{ title: 'asc' }, { id: 'asc' }]
-            : [{ observedAt: 'desc' }, { id: 'desc' }];
+            : input.sort === 'popular'
+              ? [{ hasRealCover: 'desc' }, { observedAt: 'desc' }, { id: 'desc' }]
+              : [{ observedAt: 'desc' }, { id: 'desc' }];
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.catalogBook.findMany({
         where,
@@ -333,13 +343,23 @@ export class PrismaCatalogRepository implements CatalogRepository {
         },
       }),
       this.prisma.catalogBook.count({ where }),
-    ]);
+    ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     return {
       items: rows.map(hydrateBook),
       total,
       offset: input.offset,
       limit: input.limit,
     };
+  }
+
+  private async findCategoryScope(supplierCategoryId: string): Promise<string[]> {
+    const tree = await this.prisma.catalogCategory.findMany({
+      select: { id: true, parentId: true, supplierCategoryId: true },
+      take: MAX_CATEGORY_TREE_SIZE + 1,
+    });
+    if (tree.length > MAX_CATEGORY_TREE_SIZE) throw new Error('CATALOG_CATEGORY_TREE_LIMIT_EXCEEDED');
+    const root = tree.find((row) => row.supplierCategoryId === supplierCategoryId);
+    return root ? [...catalogCategorySubtree(root.id, tree)] : [];
   }
 
   async findById(id: string): Promise<BookRecord | null> {

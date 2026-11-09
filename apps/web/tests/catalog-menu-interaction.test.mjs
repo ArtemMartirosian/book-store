@@ -213,7 +213,8 @@ test("catalog hover closes when leaving its own trigger, even while remaining in
   try {
     h.fire(h.trigger(), "onPointerEnter");
     assert.ok(h.menu());
-    const neighbor = h.find(node => node.type === "a" && node.props.href === "/en/catalog?isNew=true" && !h.menu().contains(node));
+    const neighbor = h.find(node => node.type === "a" && node.props.href === "/en/catalog?sort=new" && !h.menu().contains(node));
+    assert.ok(neighbor);
     h.fire(h.trigger(), "onPointerLeave", { relatedTarget: neighbor });
     h.tick(179);
     assert.ok(h.menu(), "the short gap-crossing grace period is retained");

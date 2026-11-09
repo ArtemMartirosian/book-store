@@ -45,6 +45,13 @@ type StorefrontContextValue = {
 
 const StorefrontContext = createContext<StorefrontContextValue | null>(null);
 
+function recentCatalogLink(locale: Locale) {
+  return {
+    label: { hy: "Կատալոգի թարմացումներ", ru: "Обновления каталога", en: "Recently updated" }[locale],
+    href: localized(locale, "/catalog") + "?sort=new",
+  };
+}
+
 export function useStorefront() {
   const value = useContext(StorefrontContext);
   if (!value) throw new Error("useStorefront must be used within StorefrontShell");
@@ -219,7 +226,7 @@ function Header() {
     [serviceLabels.contacts, localized(locale, "/contacts")],
   ];
   const categoryNav = [
-    { href: localized(locale, "/catalog") + "?isNew=true", label: t.new },
+    recentCatalogLink(locale),
     { href: localized(locale) + "#publishers", label: serviceLabels.publishers },
     { href: localized(locale, "/catalog") + "?sort=price-asc", label: serviceLabels.offers },
     { href: localized(locale, "/catalog") + "?language=hy", label: t.armenian },
@@ -534,6 +541,7 @@ function Header() {
 
 function Footer() {
   const { locale } = useStorefront();
+  const recentCatalog = recentCatalogLink(locale);
   const t = dictionary[locale].footer;
   const footerLink = "inline-flex min-h-11 items-center text-sm text-[var(--muted)] transition hover:text-[var(--accent)]";
   const extra = { hy: { journal: "Ամսագիր", faq: "Հարցեր և պատասխաններ", recommendations: "Առաջարկում ենք" }, ru: { journal: "Журнал", faq: "Вопросы и ответы", recommendations: "Рекомендуем" }, en: { journal: "Journal", faq: "Help & FAQ", recommendations: "Discover books" } }[locale];
@@ -549,7 +557,7 @@ function Footer() {
           <h3 className="mb-3 text-sm font-semibold text-[var(--ink)]">{t.buyers}</h3>
           <nav className="flex flex-col items-start" aria-label={t.buyers}>
             <Link className={footerLink} href={localized(locale, "/catalog")}>{t.catalog}</Link>
-            <Link className={footerLink} href={localized(locale, "/catalog") + "?isNew=true"}>{dictionary[locale].header.new}</Link>
+            <Link className={footerLink} href={recentCatalog.href}>{recentCatalog.label}</Link>
             <Link className={footerLink} href={localized(locale, "/catalog")}>{extra.recommendations}</Link>
             <Link className={footerLink} href={localized(locale, "/favorites")}>{dictionary[locale].header.favorites}</Link>
             <Link className={footerLink} href={localized(locale, "/account")}>{dictionary[locale].header.account}</Link>

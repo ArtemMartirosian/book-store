@@ -8,7 +8,7 @@ import { pageMetadata } from "../../components/storefront/locale-seo";
 import { brandName } from "../../lib/brand";
 import { breadcrumbSchema, serializeJsonLd } from "../../lib/structured-data";
 import { getServerCatalog, getServerCategories } from "../../lib/server-catalog-api";
-import { catalogStateSearch, parseCatalogState } from "../../lib/storefront-state";
+import { catalogStateSearch, defaultCatalogState, parseCatalogState } from "../../lib/storefront-state";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,7 @@ export async function generateMetadata({ params, searchParams }: RouteProps): Pr
     description: paginated ? `${paginated}. ${copy.description}` : copy.description,
     path: `/catalog${search ? `?${search}` : ""}`,
     // Keep useful unfiltered pagination indexable, not faceted/search combinations.
-    noIndex: Boolean(state.query || state.author || state.publisher || state.series || state.minPrice !== undefined || state.maxPrice !== undefined || state.hasCover !== undefined || state.isNew !== undefined || state.language !== "all" || state.category !== "all" || state.sort !== "new" || !state.availableOnly),
+    noIndex: Boolean(state.query || state.author || state.publisher || state.series || state.minPrice !== undefined || state.maxPrice !== undefined || state.hasCover !== undefined || state.isNew !== undefined || state.language !== "all" || state.category !== "all" || state.sort !== defaultCatalogState.sort || state.availableOnly),
   });
 }
 
@@ -65,5 +65,6 @@ export default async function LocalizedCatalog({ params, searchParams }: RoutePr
     { name: brandName(locale), path: "" },
     { name: localeMeta[locale].catalog.title, path: "/catalog" },
   ]);
-  return <StorefrontShell locale={locale}><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbs) }} /><CatalogPage key={catalogStateSearch(state)} initialData={catalog} initialCategories={categories} /></StorefrontShell>;
+  const search = catalogStateSearch(state);
+  return <StorefrontShell locale={locale}><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbs) }} /><CatalogPage key={search} initialSearch={search} initialData={catalog} initialCategories={categories} /></StorefrontShell>;
 }

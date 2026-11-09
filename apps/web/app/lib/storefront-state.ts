@@ -17,7 +17,7 @@ export type CatalogState = {
 };
 
 export const defaultCatalogState: CatalogState = {
-  query: "", author: "", publisher: "", series: "", language: "all", category: "all", sort: "new", availableOnly: true, page: 1,
+  query: "", author: "", publisher: "", series: "", language: "all", category: "all", sort: "popular", availableOnly: false, page: 1,
   minPrice: undefined, maxPrice: undefined, hasCover: undefined, isNew: undefined,
 };
 
@@ -52,8 +52,8 @@ export function parseCatalogState(search: string): CatalogState {
     isNew: optionalBoolean(params.get("isNew")),
     language: language === "hy" || language === "ru" || language === "en" ? language : "all",
     category: category && /^\d+$/u.test(category) ? category : "all",
-    sort: sort === "popular" || sort === "price-asc" || sort === "price-desc" || sort === "title" ? sort : "new",
-    availableOnly: params.get("available") !== "all",
+    sort: sort === "new" || sort === "price-asc" || sort === "price-desc" || sort === "title" ? sort : defaultCatalogState.sort,
+    availableOnly: params.get("available") === "true",
     page: Number.isSafeInteger(page) && page > 0 && Number.isSafeInteger((page - 1) * 24) ? page : 1,
   };
 }
@@ -70,8 +70,8 @@ export function catalogStateSearch(state: CatalogState): string {
   if (state.isNew !== undefined) params.set("isNew", String(state.isNew));
   if (state.language !== "all") params.set("language", state.language);
   if (state.category !== "all") params.set("category", state.category);
-  if (state.sort !== "new") params.set("sort", state.sort);
-  if (!state.availableOnly) params.set("available", "all");
+  if (state.sort !== defaultCatalogState.sort) params.set("sort", state.sort);
+  if (state.availableOnly) params.set("available", "true");
   if (state.page > 1) params.set("page", String(state.page));
   return params.toString();
 }
@@ -80,6 +80,20 @@ export function updateCatalogSearch(search: string, patch: Partial<CatalogState>
   const filterChanged = ["query", "author", "publisher", "series", "minPrice", "maxPrice", "hasCover", "isNew", "language", "category", "sort", "availableOnly"].some((key) => key in patch);
   const state = { ...parseCatalogState(search), ...(filterChanged ? { page: 1 } : {}), ...patch };
   return catalogStateSearch(parseCatalogState(catalogStateSearch(state)));
+}
+
+// Keep the ends reachable in a catalog with hundreds of pages without
+// rendering a link for every page.
+export function catalogPageWindow(page: number, total: number): Array<number | "start-gap" | "end-gap"> {
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index + 1);
+  const current = Math.max(1, Math.min(page, total));
+  const start = Math.max(2, Math.min(current - 1, total - 3));
+  const end = Math.min(total - 1, start + 2);
+  return [
+    1, ...(start > 2 ? ["start-gap" as const] : []),
+    ...Array.from({ length: end - start + 1 }, (_, index) => start + index),
+    ...(end < total - 1 ? ["end-gap" as const] : []), total,
+  ];
 }
 
 export function mergeSearchPage<T extends { id: string }>(current: T[], incoming: T[], offset: number, total: number) {

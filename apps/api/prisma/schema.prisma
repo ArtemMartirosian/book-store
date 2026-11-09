@@ -186,6 +186,8 @@ model CatalogBook {
   availability    String                   @db.VarChar(32)
   sourceUrl       String                   @unique @map("source_url") @db.VarChar(2048)
   coverImageUrl   String?                  @map("cover_image_url") @db.VarChar(2048)
+  hasRealPrimaryCover Boolean              @default(dbgenerated()) @map("has_real_primary_cover")
+  hasRealCover    Boolean                  @default(dbgenerated()) @map("has_real_cover")
   observedAt      DateTime                 @map("observed_at") @db.Timestamptz(3)
   createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -194,6 +196,7 @@ model CatalogBook {
 
   @@index([observedAt(sort: Desc), id(sort: Desc)])
   @@index([availability, observedAt(sort: Desc), id(sort: Desc)])
+  @@index([hasRealCover(sort: Desc), observedAt(sort: Desc), id(sort: Desc)], map: "catalog_books_recommended_idx")
   @@map("catalog_books")
 }
 
@@ -273,6 +276,7 @@ model CatalogBookTranslation {
   publicationYear Int?        @map("publication_year")
   series          String?     @db.Text
   imageUrls       String[]    @default([]) @map("image_urls")
+  hasRealCover    Boolean     @default(dbgenerated()) @map("has_real_cover")
   attributes      Json        @default("[]") @db.JsonB
   detailSections  Json        @default("[]") @map("detail_sections") @db.JsonB
   sourceUrl       String      @unique @map("source_url") @db.VarChar(2048)

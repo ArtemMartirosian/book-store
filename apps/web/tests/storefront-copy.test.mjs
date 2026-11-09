@@ -121,6 +121,49 @@ test("missing categories display localized Books without changing price or avail
   }
 });
 
+const coverFixture = {
+  id: "cover-test", slug: "cover-test", title: "Actual book title", author: "Actual author",
+  locale: "hy", language: "hy", description: "", price: { amount: 5700, currency: "AMD" },
+  availability: "PRELIMINARY_AVAILABLE", categories: [],
+};
+const supplierPlaceholder = "https://books.am/media/catalog/product/placeholder/default/Books_Default_image.jpg";
+
+test("known supplier placeholders do not become a primary cover or gallery image", () => {
+  const placeholders = [
+    supplierPlaceholder,
+    supplierPlaceholder + "?v=social",
+    "https://www.books.am/MEDIA/catalog/product/CACHE/placeholder/default/books_default_image.JPG",
+    "https://www.books.am/media/catalog/product/cache/99e282b967047ca9248e166dde28a548/PLACEHOLDER/default/Books_Default_image.jpg?v=Social#preview",
+  ];
+  for (const coverImageUrl of placeholders) {
+    const input = Object.freeze({ ...coverFixture, coverImageUrl, imageUrls: Object.freeze(placeholders) });
+    const book = mapCatalogBook(input);
+    assert.equal(book.coverImageUrl, null);
+    assert.deepEqual(book.imageUrls, []);
+    assert.equal(book.coverLabel, coverFixture.title);
+    assert.equal(book.price, 5700);
+    assert.equal(input.coverImageUrl, coverImageUrl);
+    assert.equal(input.imageUrls.length, 4);
+  }
+});
+
+test("a missing primary cover falls back to the first real gallery image and preserves valid media URLs", () => {
+  const cached = "https://books.am/media/catalog/product/cache/99e282b967047ca9248e166dde28a548/0/0/00-00005738.jpg";
+  const social = "https://www.books.am/media/catalog/product/cache/99e282b967047ca9248e166dde28a548/0/0/back.jpg?quality=80&v=SOCIAL";
+  const original = "https://www.books.am/media/catalog/product/0/0/back.jpg?quality=80";
+  const external = "https://books.am.example.org/media/catalog/product/placeholder/default/Books_Default_image.jpg?v=social";
+  const book = mapCatalogBook({
+    ...coverFixture, coverImageUrl: supplierPlaceholder,
+    imageUrls: [supplierPlaceholder + "?v=social", cached, social, original, external],
+  });
+  assert.equal(book.coverImageUrl, cached);
+  assert.deepEqual(book.imageUrls, [cached, original, external]);
+
+  const withRealPrimary = mapCatalogBook({ ...coverFixture, coverImageUrl: cached, imageUrls: [supplierPlaceholder] });
+  assert.equal(withRealPrimary.coverImageUrl, cached);
+  assert.deepEqual(withRealPrimary.imageUrls, []);
+});
+
 test("customer copy does not promise an unavailable account or stock notifications", () => {
   const unavailable = { ru: /недоступен/u, hy: /հասանելի չէ/u, en: /not available/u };
   for (const locale of locales) {

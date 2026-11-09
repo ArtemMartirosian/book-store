@@ -237,7 +237,7 @@ test("shell navigation uses actual localized routes and bounded search inputs", 
   for (const locale of locales) {
     const { component } = components(locale);
     const html = render(component("StorefrontShell"), { locale, children: React.createElement("p", {}, "Page content") });
-    for (const route of ["/catalog", "/catalog?isNew=true", "/catalog?sort=price-asc", "/catalog?language=hy", "/catalog?language=ru", "/catalog?language=en", "/information#about", "/information#delivery", "/information#faq", "/journal", "/contacts", "/search", "/account", "/favorites", "/cart"]) {
+    for (const route of ["/catalog", "/catalog?sort=new", "/catalog?sort=price-asc", "/catalog?language=hy", "/catalog?language=ru", "/catalog?language=en", "/information#about", "/information#delivery", "/information#faq", "/journal", "/contacts", "/search", "/account", "/favorites", "/cart"]) {
       assert.ok(html.includes(`href="/${locale}${route}"`), `${locale}${route}`);
     }
     assert.ok(html.includes(`href="/${locale}#publishers"`));

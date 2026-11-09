@@ -101,8 +101,8 @@ test("a category outage does not hide real catalog books on the home page", () =
   assert.ok(!html.includes("Не удалось загрузить книги"));
 });
 
-test("home keeps the complete reference section order even when the catalog is empty", () => {
-  const expected = ["hero", "new-arrivals", "new-by-category", "top-categories", "promotions", "publishers", "publisher-books", "other-products", "discounts", "special-selection", "delivery-promotion"];
+test("empty home preserves navigation and the section order without empty accessory, discount or category-book promotions", () => {
+  const expected = ["hero", "new-arrivals", "top-categories", "promotions", "publishers", "publisher-books", "special-selection", "delivery-promotion"];
   for (const locale of ["hy", "ru", "en"]) {
     const HomePage = components(locale)("HomePage");
     const html = renderToStaticMarkup(React.createElement(HomePage, { books: [] }));
@@ -129,6 +129,51 @@ test("new arrivals require a real new flag and use the separate server selection
   assert.match(section, /catalog\?isNew=true/u);
 });
 
+test("without verified novelties home shows covered real books as catalog updates in all three languages", () => {
+  const titles = { hy: "Կատալոգի թարմացումներ", ru: "Обновления каталога", en: "Recently updated" };
+  for (const locale of ["hy", "ru", "en"]) {
+    const HomePage = components(locale)("HomePage");
+    const html = renderToStaticMarkup(React.createElement(HomePage, {
+      books: [
+        { ...book, id: "uncovered", slug: "uncovered-edition", isNew: false },
+        { ...book, id: "covered", slug: "covered-edition", coverImageUrl: "https://example.test/real-cover.jpg", isNew: false },
+        { ...book, id: "unavailable", slug: "unavailable-edition", availability: "unavailable", isNew: false },
+      ],
+      newBooks: [],
+    }));
+    const section = html.match(/<section id="new-arrivals"[\s\S]*?<\/section>/u)?.[0];
+    assert.ok(section?.includes(titles[locale]));
+    assert.match(section, /href="\/(?:hy|ru|en)\/catalog\?sort=new"/u);
+    assert.doesNotMatch(section, /isNew=true|unavailable-edition/u);
+    assert.ok(section.indexOf("/books/covered-edition") < section.indexOf("/books/uncovered-edition"));
+    assert.match(section, /real-cover\.jpg/u);
+  }
+});
+
+test("home shows populated department previews, promotes real department links and excludes the hidden branch", () => {
+  const category = (id, parent, name) => ({ id, supplierCategoryId: id, parentSupplierCategoryId: parent, name, locale: "en" });
+  const [root, fiction, nonfiction, hidden] = [category("7463", null, "Books root"), category("7464", "7463", "Fiction"), category("7476", "7463", "Nonfiction"), category("7480", "7463", "Hidden accessories")];
+  const HomePage = components("en")("HomePage");
+  const html = renderToStaticMarkup(React.createElement(HomePage, {
+    books: [book],
+    categories: [root, fiction, nonfiction, hidden],
+    categoryPreviews: [
+      { categoryId: "7464", books: [{ ...book, id: "actual", slug: "actual-fiction" }] },
+      { categoryId: "7476", books: [{ ...book, id: "out", slug: "unavailable-preview", availability: "unavailable" }] },
+      { categoryId: "7480", books: [{ ...book, id: "hidden", slug: "hidden-preview" }] },
+    ],
+  }));
+  const preview = html.match(/data-home-section="new-by-category"[\s\S]*?<\/section>/u)?.[0];
+  assert.match(preview, /Books by category/u);
+  assert.match(preview, /catalog\?category=7464/u);
+  assert.match(preview, /\/books\/actual-fiction/u);
+  assert.doesNotMatch(preview, /isNew=true|unavailable-preview|hidden-preview|Nonfiction/u);
+  const departments = html.match(/data-home-section="top-categories"[\s\S]*?<\/section>/u)?.[0];
+  assert.match(departments, /catalog\?category=7464/u);
+  assert.match(departments, /catalog\?category=7476/u);
+  assert.doesNotMatch(departments, /Books root|Hidden accessories|category=7463|category=7480/u);
+});
+
 test("publisher and accessory selections use real metadata without inventing discounts", () => {
   const HomePage = components("en")("HomePage");
   const html = renderToStaticMarkup(React.createElement(HomePage, {
@@ -139,9 +184,7 @@ test("publisher and accessory selections use real metadata without inventing dis
   const accessories = html.match(/<section id="other-products"[\s\S]*?<\/section>/u)?.[0];
   assert.match(accessories, /\/books\/real-bookmark/u);
   assert.doesNotMatch(accessories, /\/books\/real-edition/u);
-  const discounts = html.match(/data-home-section="discounts"[\s\S]*?<\/section>/u)?.[0];
-  assert.ok(discounts.includes("There are no confirmed discounts right now."));
-  assert.doesNotMatch(discounts, /<del|<s>|9000/u);
+  assert.doesNotMatch(html, /data-home-section="discounts"|<del|<s>|9000/u);
 });
 
 test("guest account is a single clear sign-in screen without marketing panels or phone authentication", () => {
@@ -487,6 +530,7 @@ test("catalog Reset remounts unapplied drafts even when the URL is already at de
   let hook = 0;
   const reactOverride = {
     ...React,
+    useRef: (initial) => ({ current: initial }),
     useEffect() {},
     useMemo: (calculate) => calculate(),
     useState(initial) {

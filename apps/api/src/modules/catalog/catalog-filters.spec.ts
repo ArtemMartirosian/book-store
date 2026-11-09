@@ -7,13 +7,27 @@ import { PrismaService } from '../../database/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
 import { CatalogService } from './catalog.service';
 import { SearchBooksQueryDto } from './dto/search-books-query.dto';
-import type { BookLocalization, BookRecord, StoreLocale } from './book.model';
+import type { BookLocalization, BookRecord, CatalogCategoryRecord, StoreLocale } from './book.model';
 import type { CatalogRepository } from './repositories/catalog.repository';
+import { catalogCategorySubtree } from './repositories/category-subtree';
 import { InMemoryCatalogRepository } from './repositories/in-memory-catalog.repository';
 import { PrismaCatalogRepository } from './repositories/prisma-catalog.repository';
+import { hasRealBookCover, isRealBookCover } from './repositories/real-cover';
 
 const observedAt = '2026-09-24T10:00:00.000Z';
 const cover = 'https://images.example.test/book.jpg';
+const placeholder = 'https://books.am/media/catalog/product/placeholder/default/Books_Default_image.jpg';
+const cachedPlaceholder = ' HTTPS://WWW.BOOKS.AM/media/catalog/product/cache/hash/placeholder/default/Books_Default_image.jpg?v=social#crop ';
+const categoryFixture = (supplierCategoryId: string, parentSupplierCategoryId: string | null): CatalogCategoryRecord => ({
+  id: 'category-' + supplierCategoryId, supplierCategoryId, parentSupplierCategoryId, position: 0, observedAt,
+  localizations: { hy: { locale: 'hy', name: supplierCategoryId, sourceUrl: '', observedAt } },
+});
+const rootCategory = categoryFixture('7463', null);
+const parentCategory = categoryFixture('7476', '7463');
+const childCategory = categoryFixture('7569', '7476');
+const siblingCategory = categoryFixture('7477', '7463');
+const otherCategory = categoryFixture('7900', null);
+const categoryFixtures = [rootCategory, parentCategory, childCategory, siblingCategory, otherCategory];
 const localized = (locale: StoreLocale, isNew: boolean | null, imageUrls: string[] = []): BookLocalization => ({
   parserVersion: 'contract-v1', locale, title: 'catalog-contract', author: 'Author', description: '',
   languageLabel: null, isbn: null, publisher: 'Զանգակ', productCode: 'CONTRACT', weight: null,
@@ -27,11 +41,11 @@ const fixture = (id: string, sourcePriceAmd: number, overrides: Partial<BookReco
   imageUrls: [], isNew: null, observedAt, ...overrides,
 });
 const fixtures = [
-  fixture('a', 1000, { isNew: false, localizations: { hy: localized('hy', false), ru: localized('ru', true, [cover]) } }),
-  fixture('b', 2000, { locale: 'ru', language: 'ru', isNew: true, coverImageUrl: cover, localizations: { ru: localized('ru', null) } }),
-  fixture('c', 3000, { locale: 'en', language: 'en', isNew: false, imageUrls: [cover] }),
-  fixture('d', 4000, { isNew: true, availability: 'OUT_OF_STOCK', localizations: { hy: localized('hy', true), ru: localized('ru', false) } }),
-  fixture('e', 5000),
+  fixture('a', 1000, { isNew: false, categories: [rootCategory, childCategory], localizations: { hy: localized('hy', false, [placeholder]), ru: localized('ru', true, [cachedPlaceholder, cover]) } }),
+  fixture('b', 2000, { locale: 'ru', language: 'ru', isNew: true, categories: [parentCategory], coverImageUrl: cover, localizations: { ru: localized('ru', null) }, observedAt: '2026-09-24T10:00:01.000Z' }),
+  fixture('c', 3000, { locale: 'en', language: 'en', isNew: false, categories: [childCategory], imageUrls: [placeholder, cover] }),
+  fixture('d', 4000, { isNew: true, availability: 'OUT_OF_STOCK', categories: [siblingCategory], coverImageUrl: placeholder, imageUrls: [placeholder], localizations: { hy: localized('hy', true, [cachedPlaceholder]), ru: localized('ru', false, [placeholder]) } }),
+  fixture('e', 5000, { categories: [otherCategory], observedAt: '2026-09-24T10:00:02.000Z' }),
 ];
 
 // Exercise the actual Prisma query builder and hydration against a deterministic
@@ -48,6 +62,7 @@ function matches(row: Row, where: Row): boolean {
     const filter = expected as Row;
     if ('some' in filter) return (actual as Row[]).some((item) => matches(item, filter.some as Row));
     if ('none' in filter) return !(actual as Row[]).some((item) => matches(item, filter.none as Row));
+    if ('in' in filter) return (filter.in as unknown[]).includes(actual);
     if ('contains' in filter) return typeof actual === 'string' && actual.toLocaleLowerCase().includes(String(filter.contains).toLocaleLowerCase());
     if ('isEmpty' in filter) return Array.isArray(actual) && (actual.length === 0) === filter.isEmpty;
     if ('not' in filter && actual === filter.not) return false;
@@ -57,15 +72,28 @@ function matches(row: Row, where: Row): boolean {
   });
 }
 function prismaHarness(): CatalogRepository {
+  const tree = categoryFixtures.map(({ id, supplierCategoryId, parentSupplierCategoryId }) => ({
+    id, supplierCategoryId, parentId: parentSupplierCategoryId ? 'category-' + parentSupplierCategoryId : null,
+  }));
   const rows = fixtures.map((book) => ({
-    ...book, observedAt: new Date(observedAt), categories: [], attributes: [], detailSections: [],
-    translations: Object.values(book.localizations ?? {}).map((translation) => ({ ...translation, observedAt: new Date(observedAt) })),
+    ...book, observedAt: new Date(book.observedAt), attributes: [], detailSections: [],
+    hasRealPrimaryCover: isRealBookCover(book.coverImageUrl),
+    hasRealCover: hasRealBookCover(book.coverImageUrl, book.imageUrls),
+    categories: (book.categories ?? []).map((category) => ({ categoryId: category.id, category: {
+      ...category, observedAt: new Date(observedAt),
+      parent: category.parentSupplierCategoryId ? { supplierCategoryId: category.parentSupplierCategoryId } : null,
+      translations: Object.values(category.localizations).map((translation) => ({ ...translation, observedAt: new Date(observedAt) })),
+    } })),
+    translations: Object.values(book.localizations ?? {}).map((translation) => ({
+      ...translation, observedAt: new Date(observedAt), hasRealCover: hasRealBookCover(null, translation.imageUrls),
+    })),
   }));
   const findMany = jest.fn(async ({ where, orderBy, skip, take }) => rows.filter((row) => matches(row, where)).sort((left, right) => {
+    const sortable = (value: unknown) => value instanceof Date ? value.getTime() : typeof value === 'boolean' ? Number(value) : value as string | number;
     for (const order of orderBy) {
       const [key, direction] = Object.entries(order)[0]!;
-      const a = (left as Row)[key] as string | number;
-      const b = (right as Row)[key] as string | number;
+      const a = sortable((left as Row)[key]);
+      const b = sortable((right as Row)[key]);
       if (a !== b) return (a < b ? -1 : 1) * (direction === 'asc' ? 1 : -1);
     }
     return 0;
@@ -76,6 +104,7 @@ function prismaHarness(): CatalogRepository {
   });
   return new PrismaCatalogRepository({
     catalogBook: { findMany, count },
+    catalogCategory: { findMany: jest.fn(async ({ take }) => tree.slice(0, take)) },
     $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   } as unknown as PrismaService);
 }
@@ -86,7 +115,13 @@ for (const adapter of ['InMemory', 'Prisma query contract'] as const) {
     let service: CatalogService;
     beforeEach(async () => {
       const repository = adapter === 'InMemory' ? new InMemoryCatalogRepository() : prismaHarness();
-      if (adapter === 'InMemory') for (const book of fixtures) await repository.upsert(book);
+      if (adapter === 'InMemory') {
+        await repository.upsertCategories(categoryFixtures.map((category) => ({
+          ...category, ...category.localizations.hy!,
+          parentId: category.parentSupplierCategoryId ? 'category-' + category.parentSupplierCategoryId : null,
+        })));
+        for (const book of fixtures) await repository.upsert(book);
+      }
       service = new CatalogService(repository, pricing(500));
     });
     const base = { query: 'catalog-contract', locale: 'hy' as const, offset: 0, limit: 24, sort: 'price-asc' as const };
@@ -105,10 +140,25 @@ for (const adapter of ['InMemory', 'Prisma query contract'] as const) {
       expect((await service.search({ ...base, locale: 'ru', isNew: true })).items.map(({ id }) => id)).toEqual(['a']);
       expect((await service.search({ ...base, locale: 'en', isNew: false })).items.map(({ id }) => id)).toEqual(['a', 'c']);
     });
-    it('matches the displayed cover or shared cover without leaking other-language images', async () => {
+    it('matches real displayed/shared covers without counting supplier placeholders or unrelated language galleries', async () => {
       expect((await service.search({ ...base, hasCover: true })).items.map(({ id }) => id)).toEqual(['b', 'c']);
       expect((await service.search({ ...base, locale: 'ru', hasCover: true })).items.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
       expect((await service.search({ ...base, hasCover: false })).items.map(({ id }) => id)).toEqual(['a', 'd', 'e']);
+    });
+    it('includes all descendants and direct assignments, keeps matched totals and does not duplicate books', async () => {
+      const section = await service.search({ ...base, category: '7463', offset: 1, limit: 2 });
+      expect(section.total).toBe(4);
+      expect(section.items.map(({ id }) => id)).toEqual(['b', 'c']);
+      expect((await service.search({ ...base, category: '7476' })).items.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+      expect((await service.search({ ...base, category: '7569' })).items.map(({ id }) => id)).toEqual(['a', 'c']);
+      expect((await service.search({ ...base, category: '7476', hasCover: true })).items.map(({ id }) => id)).toEqual(['b', 'c']);
+      expect(await service.search({ ...base, category: '999999' })).toMatchObject({ total: 0, items: [] });
+    });
+    it('recommends usable covers first but still includes all books and preserves updated-first sorting', async () => {
+      const recommended = await service.search({ ...base, sort: 'popular' });
+      expect(recommended.total).toBe(5);
+      expect(recommended.items.map(({ id }) => id)).toEqual(['b', 'c', 'e', 'd', 'a']);
+      expect((await service.search({ ...base, sort: 'new' })).items.map(({ id }) => id)).toEqual(['e', 'b', 'd', 'c', 'a']);
     });
     it('combines stock/language with new facets and never silently includes unavailable books', async () => {
       expect((await service.search({ ...base, isNew: true, available: true })).total).toBe(0);
@@ -117,6 +167,27 @@ for (const adapter of ['InMemory', 'Prisma query contract'] as const) {
     });
   });
 }
+
+describe('Catalog category and media predicates', () => {
+  it('walks deep category branches once and safely terminates on a cycle', () => {
+    const categories = [
+      { id: 'a', parentId: 'c' }, { id: 'b', parentId: 'a' }, { id: 'c', parentId: 'b' },
+      { id: 'd', parentId: 'c' }, { id: 'e', parentId: null },
+    ];
+    expect([...catalogCategorySubtree('a', categories)]).toEqual(['a', 'b', 'c', 'd']);
+    expect([...catalogCategorySubtree('e', categories)]).toEqual(['e']);
+    expect([...catalogCategorySubtree('missing', categories)]).toEqual([]);
+  });
+  it('recognizes only Books.am placeholder paths, including cached variants', () => {
+    expect(isRealBookCover(placeholder)).toBe(false);
+    expect(isRealBookCover(cachedPlaceholder)).toBe(false);
+    expect(isRealBookCover('https://www.books.am/media/catalog/product/cache/placeholder/default/book.jpg')).toBe(false);
+    expect(isRealBookCover('https://images.example.test/media/catalog/product/placeholder/default/book.jpg')).toBe(true);
+    expect(isRealBookCover('https://books.am/media/catalog/product/c/a/catalog-image.jpg')).toBe(true);
+    expect(isRealBookCover(' \n\t ')).toBe(false);
+    expect(isRealBookCover(null)).toBe(false);
+  });
+});
 
 describe('Catalog price and boolean validation', () => {
   it.each([0, 500, 1000])('derives bounds from the actual configured markup %i', async (markup) => {

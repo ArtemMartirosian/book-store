@@ -8,6 +8,8 @@ import type {
   CatalogSearchResult,
   LocalizedBookCandidate,
 } from './catalog.repository';
+import { catalogCategorySubtree } from './category-subtree';
+import { hasRealBookCover } from './real-cover';
 
 const FIXTURE_BOOKS: BookRecord[] = [
   {
@@ -163,13 +165,15 @@ export class InMemoryCatalogRepository implements CatalogRepository {
 
   async search(input: CatalogSearch): Promise<CatalogSearchResult> {
     const query = input.query?.trim().toLocaleLowerCase();
+    const categoryIds = input.category ? catalogCategorySubtree(input.category, [...this.categories.values()]
+      .map(({ supplierCategoryId: id, parentSupplierCategoryId: parentId }) => ({ id, parentId }))) : null;
     const matched = [...this.books.values()].filter((book) => {
       if (input.minSourcePriceAmd !== undefined && book.sourcePriceAmd < input.minSourcePriceAmd) return false;
       if (input.maxSourcePriceAmd !== undefined && book.sourcePriceAmd > input.maxSourcePriceAmd) return false;
       const display = book.localizations?.[input.locale ?? 'hy'] ?? book.localizations?.[book.locale];
       if (input.isNew !== undefined && (display ? display.isNew : book.isNew) !== input.isNew) return false;
       if (input.hasCover !== undefined) {
-        const hasCover = Boolean(book.coverImageUrl) || (display ? display.imageUrls.length > 0 : (book.imageUrls?.length ?? 0) > 0);
+        const hasCover = hasRealBookCover(book.coverImageUrl, display ? display.imageUrls : book.imageUrls);
         if (hasCover !== input.hasCover) return false;
       }
       if (input.available !== undefined) {
@@ -178,8 +182,8 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       }
       if (input.language && book.language !== input.language) return false;
       if (
-        input.category &&
-        !book.categories?.some(({ supplierCategoryId }) => supplierCategoryId === input.category)
+        categoryIds &&
+        !book.categories?.some(({ supplierCategoryId }) => categoryIds.has(supplierCategoryId))
       ) return false;
       const localized = book.localizations?.[input.locale ?? 'hy'];
       const includes = (
@@ -228,7 +232,11 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       if (input.sort === 'price-asc') return left.sourcePriceAmd - right.sourcePriceAmd;
       if (input.sort === 'price-desc') return right.sourcePriceAmd - left.sourcePriceAmd;
       if (input.sort === 'title') return left.title.localeCompare(right.title);
-      return new Date(right.observedAt).valueOf() - new Date(left.observedAt).valueOf();
+      if (input.sort === 'popular') {
+        const coverOrder = Number(hasRealBookCover(right.coverImageUrl, right.imageUrls)) - Number(hasRealBookCover(left.coverImageUrl, left.imageUrls));
+        if (coverOrder) return coverOrder;
+      }
+      return new Date(right.observedAt).valueOf() - new Date(left.observedAt).valueOf() || right.id.localeCompare(left.id);
     });
 
     return {

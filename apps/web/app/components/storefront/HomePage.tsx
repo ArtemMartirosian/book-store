@@ -22,13 +22,13 @@ const marketCopy = {
     ],
     previous: "Предыдущий баннер", next: "Следующий баннер", slide: "Баннер", carousel: "Предложения магазина",
     russian: "Книги на русском", english: "Книги на английском", languageHint: "Открыть каталог", all: "Смотреть всё", catalog: "Весь каталог", open: "Открыть раздел",
-    newTitle: "Новые поступления", newText: "Новые издания, отмеченные в нашем каталоге.", newEmpty: "Новые поступления скоро появятся.",
-    categoryNew: "Новинки по разделам", categoryNewText: "Выбирайте интересующую тему.", categoryNewEmpty: "В этом разделе пока нет новых поступлений.",
-    topCategories: "Разделы каталога", categoryEmpty: "Разделы появятся вместе с книгами.", categoryEmptyHint: "А пока можно воспользоваться поиском по названию или автору.",
+    newTitle: "Новые поступления", newText: "Новые издания, отмеченные в нашем каталоге.",
+    recentTitle: "Обновления каталога", recentText: "Посмотрите книги из последних обновлений.", recentCta: "Смотреть книги",
+    categoryBooks: "Книги по разделам", categoryBooksText: "Выбирайте интересующую тему.",
+    topCategories: "Разделы каталога", categoryEmpty: "Разделы появятся вместе с книгами.",
     armenianPromo: "Читайте на армянском", armenianText: "Любимые истории на родном языке.", giftPromo: "Книга — всегда хорошая идея", giftText: "Для чтения, вдохновения и подарка.",
     publishers: "Издательства", publisherEmpty: "Издательства появятся после добавления книг.", publisherPresents: "Книги издательств", publisherText: "Разные авторы, темы и издания — в одной подборке.",
-    otherTitle: "Для любителей книг", otherText: "Закладки и книжные аксессуары.", otherEmpty: "Готовим этот раздел", otherHint: "Книжные аксессуары пока не добавлены в эту подборку. А пока можно выбрать новую книгу в каталоге.",
-    discountTitle: "Скидки и предложения", discountEmpty: "Предложения со скидкой скоро появятся", discountHint: "Сейчас подтверждённых скидок нет. Актуальные цены на все книги указаны в каталоге.",
+    otherTitle: "Для любителей книг", otherText: "Закладки и книжные аксессуары.",
     specialTitle: "Специальная подборка", specialText: "Начните с книг по доступной цене.", specialLink: "Сначала недорогие",
     finalTitle: "Выбирайте книги. Мы привезём.", finalText: "Доставка по Еревану — 1 000 ֏. Оплата наличными при получении.", finalCta: "Как заказать", finalCatalog: "Перейти в каталог",
     empty: "Книги скоро появятся", emptyHint: "Сейчас в каталоге нет доступных книг. Загляните немного позже.", error: "Не удалось загрузить книги", errorHint: "Каталог временно недоступен. Попробуйте обновить страницу.", categoriesError: "Не удалось загрузить все разделы каталога.", showcaseError: "Не удалось загрузить часть подборок.", retry: "Попробовать снова", loading: "Обновляем…",
@@ -42,13 +42,13 @@ const marketCopy = {
     ],
     previous: "Նախորդ բաններ", next: "Հաջորդ բաններ", slide: "Բաններ", carousel: "Գրախանութի առաջարկներ",
     russian: "Գրքեր ռուսերեն", english: "Գրքեր անգլերեն", languageHint: "Բացել կատալոգը", all: "Դիտել բոլորը", catalog: "Ամբողջ կատալոգը", open: "Բացել բաժինը",
-    newTitle: "Նոր գրքեր", newText: "Մեր կատալոգում որպես նոր նշված հրատարակություններ։", newEmpty: "Նոր գրքերը շուտով կհայտնվեն։",
-    categoryNew: "Նոր գրքեր՝ ըստ բաժինների", categoryNewText: "Ընտրեք ձեզ հետաքրքրող թեման։", categoryNewEmpty: "Այս բաժնում դեռ նոր գրքեր չկան։",
-    topCategories: "Կատալոգի բաժիններ", categoryEmpty: "Բաժինները կհայտնվեն գրքերի հետ միասին։", categoryEmptyHint: "Մինչ այդ կարող եք որոնել ըստ անվանման կամ հեղինակի։",
+    newTitle: "Նոր գրքեր", newText: "Մեր կատալոգում որպես նոր նշված հրատարակություններ։",
+    recentTitle: "Կատալոգի թարմացումներ", recentText: "Դիտեք վերջերս թարմացված գրքերը։", recentCta: "Դիտել գրքերը",
+    categoryBooks: "Գրքեր՝ ըստ բաժինների", categoryBooksText: "Ընտրեք ձեզ հետաքրքրող թեման։",
+    topCategories: "Կատալոգի բաժիններ", categoryEmpty: "Բաժինները կհայտնվեն գրքերի հետ միասին։",
     armenianPromo: "Կարդացեք հայերեն", armenianText: "Սիրելի պատմություններ՝ մայրենի լեզվով։", giftPromo: "Գիրքը միշտ լավ միտք է", giftText: "Ընթերցելու, ոգեշնչվելու և նվիրելու համար։",
     publishers: "Հրատարակիչներ", publisherEmpty: "Հրատարակիչները կհայտնվեն գրքերն ավելացնելուց հետո։", publisherPresents: "Հրատարակիչների գրքերը", publisherText: "Տարբեր հեղինակներ, թեմաներ և հրատարակություններ՝ մեկ ընտրանիում։",
-    otherTitle: "Գրքասերների համար", otherText: "Էջանիշեր և գրքային պարագաներ։", otherEmpty: "Պատրաստում ենք այս բաժինը", otherHint: "Այս ընտրանիում դեռ գրքային պարագաներ ավելացված չեն։ Մինչ այդ կարող եք կատալոգից ընտրել նոր գիրք։",
-    discountTitle: "Զեղչեր և առաջարկներ", discountEmpty: "Զեղչային առաջարկները շուտով կհայտնվեն", discountHint: "Այս պահին հաստատված զեղչեր չկան։ Գրքերի ընթացիկ գները նշված են կատալոգում։",
+    otherTitle: "Գրքասերների համար", otherText: "Էջանիշեր և գրքային պարագաներ։",
     specialTitle: "Հատուկ ընտրանի", specialText: "Սկսեք մատչելի գրքերից։", specialLink: "Սկզբում՝ մատչելիները",
     finalTitle: "Դուք ընտրում եք։ Մենք առաքում ենք։", finalText: "Առաքում Երևանում՝ 1 000 ֏։ Վճարումը՝ կանխիկ, ստանալիս։", finalCta: "Ինչպես պատվիրել", finalCatalog: "Բացել կատալոգը",
     empty: "Գրքերը շուտով կհայտնվեն", emptyHint: "Այս պահին կատալոգում հասանելի գրքեր չկան։ Այցելեք մի փոքր ուշ։", error: "Չհաջողվեց բեռնել գրքերը", errorHint: "Կատալոգը ժամանակավորապես հասանելի չէ։ Փորձեք թարմացնել էջը։", categoriesError: "Չհաջողվեց բեռնել կատալոգի բոլոր բաժինները։", showcaseError: "Չհաջողվեց բեռնել որոշ ընտրանիներ։", retry: "Կրկին փորձել", loading: "Թարմացնում ենք…",
@@ -62,13 +62,13 @@ const marketCopy = {
     ],
     previous: "Previous banner", next: "Next banner", slide: "Banner", carousel: "Bookstore highlights",
     russian: "Books in Russian", english: "Books in English", languageHint: "Explore the catalog", all: "View all", catalog: "All books", open: "Explore category",
-    newTitle: "New arrivals", newText: "Editions marked as new in our catalog.", newEmpty: "New arrivals will be here soon.",
-    categoryNew: "New arrivals by category", categoryNewText: "Choose the topics you enjoy.", categoryNewEmpty: "No new arrivals in this category yet.",
-    topCategories: "Explore categories", categoryEmpty: "Categories will appear alongside our books.", categoryEmptyHint: "In the meantime, try searching by title or author.",
+    newTitle: "New arrivals", newText: "Editions marked as new in our catalog.",
+    recentTitle: "Recently updated", recentText: "Browse the latest updates to our book catalog.", recentCta: "Explore books",
+    categoryBooks: "Books by category", categoryBooksText: "Choose the topics you enjoy.",
+    topCategories: "Explore categories", categoryEmpty: "Categories will appear alongside our books.",
     armenianPromo: "Read in Armenian", armenianText: "Favorite stories in your own language.", giftPromo: "A book is always a good idea", giftText: "For reading, inspiration and giving.",
     publishers: "Publishers", publisherEmpty: "Publishers will appear when books are added.", publisherPresents: "Books from our publishers", publisherText: "Different authors, subjects and editions in one collection.",
-    otherTitle: "For book lovers", otherText: "Bookmarks and reading accessories.", otherEmpty: "This collection is on its way", otherHint: "Reading accessories have not been added to this selection yet. For now, discover your next book in the catalog.",
-    discountTitle: "Discounts and offers", discountEmpty: "Discount offers will be here soon", discountHint: "There are no confirmed discounts right now. Current prices for every book are shown in the catalog.",
+    otherTitle: "For book lovers", otherText: "Bookmarks and reading accessories.",
     specialTitle: "A special selection", specialText: "Start with books at an approachable price.", specialLink: "Lowest prices first",
     finalTitle: "You choose. We bring the books.", finalText: "Delivery across Yerevan costs 1,000 ֏. Pay cash when your order arrives.", finalCta: "How to order", finalCatalog: "Explore the catalog",
     empty: "Books will be here soon", emptyHint: "There are no available books in the catalog right now. Please check back later.", error: "We could not load the books", errorHint: "The catalog is temporarily unavailable. Please try refreshing.", categoriesError: "Some catalog categories could not be loaded.", showcaseError: "Some book selections could not be loaded.", retry: "Try again", loading: "Refreshing…",
@@ -113,7 +113,16 @@ function BookShelf({ id, title, description, items, href, linkLabel, emptyTitle,
 }
 
 function uniqueBooks(items: Book[]) {
-  return items.filter((book, index, all) => all.findIndex(item => item.id === book.id) === index);
+  const seen = new Set<string>();
+  return items.filter(book => {
+    if (seen.has(book.id)) return false;
+    seen.add(book.id);
+    return book.availability !== "unavailable";
+  });
+}
+
+function coveredFirst(items: Book[]) {
+  return [...items.filter(book => Boolean(book.coverImageUrl)), ...items.filter(book => !book.coverImageUrl)];
 }
 
 export type HomePageProps = {
@@ -123,26 +132,28 @@ export type HomePageProps = {
   categoryLoadFailed?: boolean;
   newBooks?: Book[];
   affordableBooks?: Book[];
+  categoryPreviews?: Array<{ categoryId: string; books: Book[] }>;
   showcaseLoadFailed?: boolean;
 };
 
-export function HomePage({ books, categories = [], catalogLoadFailed = false, categoryLoadFailed = false, newBooks, affordableBooks, showcaseLoadFailed = false }: HomePageProps) {
+export function HomePage({ books, categories = [], catalogLoadFailed = false, categoryLoadFailed = false, newBooks, affordableBooks, categoryPreviews = [], showcaseLoadFailed = false }: HomePageProps) {
   const { locale } = useStorefront();
   const copy = marketCopy[locale];
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [activeSlide, setActiveSlide] = useState(0);
   const retry = () => startRefresh(() => router.refresh());
-  const liveBooks = uniqueBooks(books);
+  const liveBooks = coveredFirst(uniqueBooks(books));
   // New arrivals require the real catalog flag, not merely a recent sort position.
-  const newest = uniqueBooks(newBooks ?? liveBooks).filter(book => book.isNew === true);
+  const newest = coveredFirst(uniqueBooks(newBooks ?? liveBooks).filter(book => book.isNew === true));
+  const hasNewArrivals = newest.length > 0;
   const offers = uniqueBooks(affordableBooks ?? liveBooks).sort((a, b) => a.price - b.price).slice(0, 4);
   const allBooks = uniqueBooks([...liveBooks, ...newest, ...offers]);
-  const heroBooks = allBooks.slice(0, 3);
+  const heroBooks = coveredFirst(allBooks).slice(0, 3);
   const publisherNames = [...new Set(allBooks.map(book => book.publisher?.trim()).filter((name): name is string => Boolean(name)))].slice(0, 6);
-  const publisherBooks = allBooks.filter(book => Boolean(book.publisher?.trim())).slice(0, 24);
+  const publisherBooks = coveredFirst(allBooks.filter(book => Boolean(book.publisher?.trim()))).slice(0, 8);
   const catalogHref = localized(locale, "/catalog");
-  const newHref = catalogHref + "?isNew=true";
+  const arrivalsHref = catalogHref + (hasNewArrivals ? "?isNew=true" : "?sort=new");
   const combinedCategories = visibleStorefrontCategories([...categories, ...allBooks.flatMap(book => book.categories ?? [])]
     .filter((category, index, all) => all.findIndex(item => item.supplierCategoryId === category.supplierCategoryId) === index));
   const byCategoryId = new Map(combinedCategories.map(category => [category.supplierCategoryId, category]));
@@ -157,18 +168,28 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
     return false;
   });
   const featuredCategories = combinedCategories.filter(category => category.supplierCategoryId !== "7463");
-  const categoriesWithNewBooks = featuredCategories.filter(category => newest.some(book => bookInCategory(book, category.supplierCategoryId)));
-  const newCategories = (categoriesWithNewBooks.length ? categoriesWithNewBooks : featuredCategories).slice(0, 4);
-  const rootCategories = combinedCategories.filter(category => !category.parentSupplierCategoryId);
-  const topCategories = (rootCategories.length ? rootCategories : combinedCategories).slice(0, 3);
+  const departments = featuredCategories.filter(category => category.parentSupplierCategoryId === "7463");
+  const rootCategories = featuredCategories.filter(category => !category.parentSupplierCategoryId);
+  const topCategories = (departments.length ? departments : rootCategories.length ? rootCategories : featuredCategories).slice(0, 3);
+  const departmentBooks = new Map(categoryPreviews.map(({ categoryId, books }) => [categoryId, books]));
+  const categoryShelves = topCategories.map(category => ({
+    category,
+    books: coveredFirst(uniqueBooks([
+      ...(departmentBooks.get(category.supplierCategoryId) ?? []),
+      ...allBooks.filter(book => bookInCategory(book, category.supplierCategoryId)),
+    ])).slice(0, 4),
+  })).filter(shelf => shelf.books.length > 0);
   const accessories = allBooks.filter(book => /էջանիշ|էջանշան|заклад|bookmark|аксессуар|accessor|գրքային պարագա/iu.test([book.category, ...(book.categories ?? []).map(category => category.name)].join(" "))).slice(0, 4);
-  const slide = copy.hero[activeSlide];
-  const moveSlide = (direction: number) => setActiveSlide(current => (current + direction + copy.hero.length) % copy.hero.length);
+  const slides = copy.hero.map((item, index) => index === 2 && !hasNewArrivals
+    ? { title: copy.recentTitle, text: copy.recentText, cta: copy.recentCta }
+    : item);
+  const slide = slides[activeSlide];
+  const moveSlide = (direction: number) => setActiveSlide(current => (current + direction + slides.length) % slides.length);
   const handleSliderKey = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowRight") { event.preventDefault(); moveSlide(1); }
     if (event.key === "ArrowLeft") { event.preventDefault(); moveSlide(-1); }
   };
-  const categoryHref = (category: CatalogCategory, onlyNew = false) => catalogHref + "?category=" + encodeURIComponent(category.supplierCategoryId) + (onlyNew ? "&isNew=true" : "");
+  const categoryHref = (category: CatalogCategory) => catalogHref + "?category=" + encodeURIComponent(category.supplierCategoryId);
   const languageCards: Array<{ language: Locale; title: string; letter: string; className: string }> = [
     { language: "ru", title: copy.russian, letter: "Я", className: "bg-[#eef2ff] text-[#38316d]" },
     { language: "en", title: copy.english, letter: "A", className: "bg-[#fff1e6] text-[#69432c]" },
@@ -182,7 +203,7 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
             <span className="inline-flex rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--accent)]">{brandName(locale)} · {copy.heroLabel}</span>
             <h1 className="mt-4 max-w-xl text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.12] tracking-[-.04em] text-[#292343]">{slide.title}</h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-[#625b7c]">{slide.text}</p>
-            <Link href={activeSlide === 2 ? newHref : catalogHref} className={cx(actionLink, "mt-5")}>{slide.cta}<Arrow /></Link>
+            <Link href={activeSlide === 2 ? arrivalsHref : catalogHref} className={cx(actionLink, "mt-5")}>{slide.cta}<Arrow /></Link>
           </div>
           <div className="relative hidden h-60 min-w-0 items-center justify-center sm:flex" aria-hidden="true">
             <span className="absolute inset-x-0 bottom-4 h-7 rounded-[50%] bg-[#6258ff]/10 blur-lg" />
@@ -191,7 +212,7 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
           </div>
         </div>
         <div className="relative z-10 mt-6 flex items-center justify-between">
-          <div className="flex gap-1.5" aria-label={copy.carousel}>{copy.hero.map((item, index) => <button key={item.title} type="button" onKeyDown={handleSliderKey} className="grid min-h-11 min-w-9 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--accent)]" aria-label={copy.slide + " " + (index + 1) + ": " + item.title} aria-controls="home-promotion-content" aria-pressed={activeSlide === index} onClick={() => setActiveSlide(index)}><span className={cx("h-1.5 rounded-full transition-all", activeSlide === index ? "w-7 bg-[var(--accent)]" : "w-2 bg-[#b8b0dc]")} /></button>)}</div>
+          <div className="flex gap-1.5" aria-label={copy.carousel}>{slides.map((item, index) => <button key={item.title} type="button" onKeyDown={handleSliderKey} className="grid min-h-11 min-w-9 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--accent)]" aria-label={copy.slide + " " + (index + 1) + ": " + item.title} aria-controls="home-promotion-content" aria-pressed={activeSlide === index} onClick={() => setActiveSlide(index)}><span className={cx("h-1.5 rounded-full transition-all", activeSlide === index ? "w-7 bg-[var(--accent)]" : "w-2 bg-[#b8b0dc]")} /></button>)}</div>
           <div className="flex gap-2"><button type="button" onKeyDown={handleSliderKey} onClick={() => moveSlide(-1)} className="grid size-11 place-items-center rounded-full border border-white bg-white/80 text-[var(--accent)] hover:bg-white" aria-label={copy.previous}><Arrow reverse /></button><button type="button" onKeyDown={handleSliderKey} onClick={() => moveSlide(1)} className="grid size-11 place-items-center rounded-full border border-white bg-white/80 text-[var(--accent)] hover:bg-white" aria-label={copy.next}><Arrow /></button></div>
         </div>
       </section>
@@ -210,25 +231,21 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
       <button type="button" onClick={retry} disabled={refreshing} className={cx(textLink, "mt-1 disabled:opacity-50")}>{refreshing ? copy.loading : copy.retry}<span aria-hidden="true">↻</span></button>
     </section>}
 
-    <BookShelf id="new-arrivals" title={copy.newTitle} description={copy.newText} items={newest.slice(0, 4)} href={newHref} linkLabel={copy.all} emptyTitle={copy.newEmpty} />
-    <section data-home-section="new-by-category" className="py-7 sm:py-9">
-      <SectionHeader title={copy.categoryNew} description={copy.categoryNewText} href={newHref} linkLabel={copy.all} />
-      {newCategories.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{newCategories.map(category => {
-        const previews = newest.filter(book => bookInCategory(book, category.supplierCategoryId)).slice(0, 4);
-        return <article key={category.supplierCategoryId} className="rounded-2xl border border-[var(--line)] bg-[var(--paper-strong)] p-5">
-          <Link href={categoryHref(category, true)} className="flex min-h-11 items-start justify-between gap-3 text-sm font-bold leading-5 hover:text-[var(--accent)]"><h3>{category.name}</h3><Arrow /></Link>
-          {previews.length ? <div className="mt-4 grid grid-cols-2 justify-items-center gap-3">{previews.map(book => <Link href={localized(locale, "/books/" + book.slug)} key={book.id} aria-label={book.title} className="rounded-lg p-1 transition hover:-translate-y-1"><BookCover book={book} size="mini" /></Link>)}</div>
-            : <div className="mt-4 flex min-h-28 items-center gap-3 rounded-xl bg-[var(--accent-soft)] p-4 text-xs leading-5 text-[var(--muted)]"><OpenBook className="size-7 shrink-0 text-[var(--accent)]" />{copy.categoryNewEmpty}</div>}
-        </article>;
-      })}</div> : <EmptyCollection title={copy.categoryEmpty} hint={copy.categoryEmptyHint} href={localized(locale, "/search")} label={copy.open} />}
-    </section>
+    <BookShelf id="new-arrivals" title={hasNewArrivals ? copy.newTitle : copy.recentTitle} description={hasNewArrivals ? copy.newText : copy.recentText} items={(hasNewArrivals ? newest : liveBooks).slice(0, 4)} href={arrivalsHref} linkLabel={copy.all} emptyTitle={copy.empty} />
+    {categoryShelves.length > 0 && <section data-home-section="new-by-category" className="py-7 sm:py-9">
+      <SectionHeader title={copy.categoryBooks} description={copy.categoryBooksText} href={catalogHref} linkLabel={copy.all} />
+      <div className={cx("grid gap-4 sm:grid-cols-2", categoryShelves.length > 2 && "xl:grid-cols-3")}>{categoryShelves.map(({ category, books }) => <article key={category.supplierCategoryId} className="rounded-2xl border border-[var(--line)] bg-[var(--paper-strong)] p-5">
+        <Link href={categoryHref(category)} className="flex min-h-11 items-start justify-between gap-3 text-sm font-bold leading-5 hover:text-[var(--accent)]"><h3>{category.name}</h3><Arrow /></Link>
+        <div className={cx("mt-4 grid grid-cols-2 justify-items-center gap-3", categoryShelves.length < 3 && "lg:grid-cols-4")}>{books.map(book => <Link href={localized(locale, "/books/" + encodeURIComponent(book.slug))} key={book.id} aria-label={book.title} className="rounded-lg p-1 transition hover:-translate-y-1"><BookCover book={book} size="mini" /></Link>)}</div>
+      </article>)}</div>
+    </section>}
 
     <section data-home-section="top-categories" className="py-7 sm:py-9">
       <SectionHeader title={copy.topCategories} href={catalogHref} linkLabel={copy.catalog} />
-      {topCategories.length ? <div className="grid gap-4 sm:grid-cols-3">{topCategories.map((category, index) => <Link key={category.supplierCategoryId} href={categoryHref(category)} className={cx("group relative flex min-h-44 flex-col justify-between overflow-hidden rounded-2xl border border-black/[.03] p-6", ["bg-[#efedff]", "bg-[#e9f4ff]", "bg-[#fff1e7]"][index])}>
+      {topCategories.length ? <div className={cx("grid gap-4", topCategories.length > 1 && "sm:grid-cols-2", topCategories.length > 2 && "xl:grid-cols-3")}>{topCategories.map((category, index) => <Link key={category.supplierCategoryId} href={categoryHref(category)} className={cx("group relative flex min-h-44 flex-col justify-between overflow-hidden rounded-2xl border border-black/[.03] p-6", ["bg-[#efedff]", "bg-[#e9f4ff]", "bg-[#fff1e7]"][index])}>
         <span className="text-xs font-semibold text-[var(--muted)]">0{index + 1}</span><OpenBook className="absolute -right-3 top-3 size-28 rotate-12 text-[var(--accent)] opacity-10 transition group-hover:rotate-6" />
         <div className="relative mt-6 flex items-end justify-between gap-4"><h3 className="max-w-[230px] text-lg font-bold leading-snug">{category.name}</h3><span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/80 text-[var(--accent)]"><Arrow /></span></div>
-      </Link>)}</div> : <EmptyCollection title={copy.categoryEmpty} hint={copy.categoryEmptyHint} href={catalogHref} label={copy.catalog} />}
+      </Link>)}</div> : <EmptyCollection title={copy.categoryEmpty} href={catalogHref} label={copy.catalog} />}
     </section>
 
     <section data-home-section="promotions" className="grid gap-4 py-7 sm:grid-cols-2 sm:py-9" aria-label={copy.carousel}>
@@ -248,11 +265,7 @@ export function HomePage({ books, categories = [], catalogLoadFailed = false, ca
     </section>
 
     <BookShelf id="publisher-books" title={copy.publisherPresents} description={copy.publisherText} items={publisherBooks} href={catalogHref} linkLabel={copy.all} emptyTitle={copy.publisherEmpty} />
-    <BookShelf id="other-products" title={copy.otherTitle} description={copy.otherText} items={accessories} href={catalogHref} linkLabel={copy.catalog} emptyTitle={copy.otherEmpty} emptyHint={copy.otherHint} />
-    <section data-home-section="discounts" className="py-7 sm:py-9">
-      <SectionHeader title={copy.discountTitle} />
-      <EmptyCollection title={copy.discountEmpty} hint={copy.discountHint} href={catalogHref} label={copy.catalog} />
-    </section>
+    {accessories.length > 0 && <BookShelf id="other-products" title={copy.otherTitle} description={copy.otherText} items={accessories} href={catalogHref} linkLabel={copy.catalog} emptyTitle={copy.empty} />}
     <BookShelf id="special-selection" title={copy.specialTitle} description={copy.specialText} items={offers} href={catalogHref + "?sort=price-asc"} linkLabel={copy.specialLink} emptyTitle={copy.empty} emptyHint={copy.emptyHint} />
 
     <section id="delivery" data-home-section="delivery-promotion" className="mt-7 flex scroll-mt-40 flex-wrap items-center justify-between gap-6 overflow-hidden rounded-3xl bg-[#26213d] p-7 text-white sm:mt-9 sm:p-9">

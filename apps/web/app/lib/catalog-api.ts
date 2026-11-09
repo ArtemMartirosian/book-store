@@ -108,6 +108,11 @@ function storefrontImageUrl(value: string | null | undefined): string | null {
   try {
     const url = new URL(value);
     const isBooksAm = url.hostname === "books.am" || url.hostname === "www.books.am";
+    // Generic catalog artwork is not an edition's cover. Ignore the supplier's
+    // original and cached placeholders before choosing a primary/gallery image.
+    if (isBooksAm && /^\/media\/catalog\/product\/(?:cache\/(?:[^/]+\/)?)?placeholder\//iu.test(url.pathname)) {
+      return null;
+    }
     if (isBooksAm && url.searchParams.get("v")?.toLowerCase() === "social") {
       url.pathname = url.pathname.replace(
         /\/media\/catalog\/product\/cache\/[^/]+\//u,
